@@ -69,8 +69,14 @@ Audit mode was checked against lists of problems that independent reviewers had 
 - **Accuracy:** no false positives across any run.
 - **Known gap:** test updates that a finding requires are sometimes described in prose instead of included as code.
 
+## Reproduce
+
+The harness is in [`eval/`](../eval): setup, headless builds, anonymisation, judging and aggregation. The raw judgements and per-build stats behind the tables above are in [`eval/results/`](../eval/results). `eval/aggregate.py` re-derives the tables from them.
+
 ## Caveats
 
 - Samples are small: one build per setup per task.
 - The rubric's idiom dimensions encode the same values as the skill. Correctness and bug counts are the more neutral signals.
 - The results cover Claude models only.
+- In the published runs, the impl-to-arm mapping file sat in the eval directory next to the judges' copies, where a judge could have read it (nothing suggests one did). The harness now writes it outside that tree.
+- The published judging ran as Claude Code workflow agents. `eval/judge.py` sends the same prompt through headless `claude -p` sessions.

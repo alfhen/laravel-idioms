@@ -1,0 +1,50 @@
+{
+  "sales-report": {
+    "base": "base",
+    "pest": false,
+    "focus": "general Laravel idioms",
+    "text": "Add a JSON sales reporting endpoint. Create Customer (name, email, country), Product (name, sku, price in cents, category), Order (customer, status: pending/paid/refunded, placed_at) and OrderItem (order, product, quantity, unit_price in cents) with migrations and factories. Add GET /api/reports/sales that accepts optional query params from, to (dates), country and status (default paid) and returns: total revenue, order count, average order value, revenue per country, top 5 products by revenue (name, sku, units, revenue) and the top 3 customers by spend. Money should be returned both as integer cents and as a formatted string. Invalid params must return 422."
+  },
+  "blog-crud": {
+    "base": "base",
+    "pest": false,
+    "focus": "general Laravel idioms",
+    "text": "Add a blog. Authenticated users can create, update, delete and list their own posts via a JSON API under /api/posts. A post has title, slug (generated from the title, unique), body, status (draft/published), published_at and belongs to a user; posts can have many tags (tags are created on the fly from an array of names). Only the author may update or delete a post (403 otherwise). Publishing a post (status -> published) sets published_at if missing. The index endpoint lists the current user's posts, newest first, filterable by status and tag, paginated, and includes tag names. Use Sanctum-style auth if available, otherwise the default auth guard with actingAs in tests."
+  },
+  "csv-import": {
+    "base": "base",
+    "pest": false,
+    "focus": "general Laravel idioms",
+    "text": "Add a product CSV import. POST /api/imports accepts an uploaded CSV file (max 5MB) with columns sku,name,price,stock. Store the file, create an Import record (user, status queued/processing/completed/failed, totals) and process it in the background: skip and record rows with invalid data (missing sku, non-numeric price, negative stock) with row number and reason, insert or update products by sku, then mark the import completed with counts (created, updated, failed) and email the user a summary. GET /api/imports/{import} returns status, counts and the list of row errors; only the owner may view it."
+  },
+  "cart-discounts": {
+    "base": "base",
+    "pest": false,
+    "focus": "general Laravel idioms",
+    "text": "Add cart pricing with discount codes. Model a Cart with CartItems (product name, unit price in cents, quantity, category) and DiscountCode (code, type: percentage/fixed/free_shipping, value, min_subtotal, applies_to_category nullable, expires_at, max_uses, times_used). POST /api/carts/{cart}/apply-discount with {code} validates the code (exists, not expired, under max uses, cart meets min subtotal) and returns a price breakdown: subtotal, discount, shipping (flat 4900 cents, free over 50000 cents subtotal or with free_shipping code), total, and per-line discounted prices. Category-restricted codes only discount matching lines. Return clear 422 errors for each failure reason."
+  },
+  "blade-catalogue": {
+    "base": "base-pest",
+    "pest": true,
+    "focus": "Blade: layouts/components, slots, @props/$attributes, directives (@error, @class, @selected...), old input, flash, pagination with query string, no logic/queries in views, redirect patterns",
+    "text": "Add a server-rendered product catalogue using Blade (no SPA, no Livewire). Category (name, slug) and Product (category, name, slug, description, price in cents, stock, is_active). Public pages: /products lists active products with a text search, a category filter and a sort (newest, price asc/desc), paginated 12 per page with filters preserved across pages; /products/{slug} shows a product with an \"Out of stock\" badge when stock is 0 and a list of 4 related products from the same category. Admins (users with an is_admin boolean) get pages under /admin/products to create, edit and delete products using one shared form; validation errors appear next to each field, previously entered input is kept after a failed submit, and a success message is shown after saving. Use a shared layout and reusable view components. There is no frontend build available, so pages must render without compiled assets."
+  },
+  "filament-admin": {
+    "base": "base-filament",
+    "pest": true,
+    "focus": "Filament 5: resource structure (Schemas/Tables classes), form/table/filter/action APIs, enums with HasLabel/HasColor, relation managers, widgets, policies, eager loading, Filament testing helpers",
+    "text": "The app has a Filament admin panel at /admin. Build a support-ticket admin in it. Customer (name, email, company), Ticket (customer, subject, body, status: open/pending/resolved, priority: low/normal/high/urgent, assigned agent = a User, nullable; resolved_at), TicketReply (ticket, author user, body, is_internal). Ticket resource: a table with searchable subject and customer name, sortable created date, status and priority shown as coloured badges, filters for status, priority, assignee and \"unassigned only\"; a create/edit form; a \"Resolve\" row action (sets status resolved and resolved_at) and a bulk \"Assign to me\" action; a replies relation manager on the ticket page. Add a Customer resource and a dashboard stats widget showing open tickets, urgent open tickets and the average resolution time in hours over the last 30 days. Only users with is_admin may delete tickets; any logged-in user may access the panel. Write Pest tests using Filament's testing helpers."
+  },
+  "caching": {
+    "base": "base-pest",
+    "pest": true,
+    "focus": "Caching: remember/flexible choice, key design, invalidation via model events, locks/stampede protection, stale fallback, Http client retries/timeouts, testing with Http::fake/travel",
+    "text": "Teams have Projects, and Projects have Tasks (title, status: open/done, completed_at, assignee user). Users belong to one team. Add GET /api/dashboard returning, for the current user's team: member count, project count, open task count, tasks completed in the last 7 days, and the top 5 projects by open tasks. It is expensive and hit constantly, so cache it per team; changes to that team's projects or tasks must be reflected within seconds, while serving slightly stale data for up to 5 minutes is acceptable if recomputing is slow. Also add GET /api/exchange-rates/{currency} (3-letter ISO code, validated) that returns rates from an external API at https://rates.example.test/latest?base={currency}. Cache the rates for one hour. When many requests miss at once, only one request may call the API. If the API is down or slow (over 3 seconds), return the last known rates with \"stale\": true, or 503 if there are none."
+  },
+  "webhook-worker": {
+    "base": "base-pest",
+    "pest": true,
+    "focus": "Queues/workers: idempotency, uniqueness/WithoutOverlapping, retries/backoff/ThrottlesExceptions, RateLimited middleware, failed(), afterCommit, queued notifications, pruning/scheduling, worker deployment config, Queue/Bus fakes",
+    "text": "Ingest payment-provider webhooks. POST /webhooks/payments receives JSON events {id, type, data} with an X-Signature header: HMAC-SHA256 of the raw body using a secret from configuration; invalid or missing signatures get 401. Store every event exactly once by its id (a duplicate delivery returns 200 and is not processed again) and respond quickly; process events in the background. Types: payment.succeeded (mark the Order paid and send the customer a receipt notification), payment.failed (mark the order payment_failed), refund.created (create a Refund and mark the order refunded). While processing, fetch payment details from the provider API GET https://api.payments.test/payments/{payment_id}; that API allows at most 10 requests per second and sometimes returns 5xx errors, so processing must retry with increasing delays, respect the limit, and never process the same event twice at the same time. Events that permanently fail must be marked failed with the error and be visible via GET /api/webhook-events?status=failed (admin only). Add a daily cleanup that deletes processed events older than 30 days. Document in the README how the queue workers must be run in production."
+  }
+}

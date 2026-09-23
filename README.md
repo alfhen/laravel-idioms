@@ -65,7 +65,7 @@ It was measured with blind A/B tests. Claude Sonnet built the same features in f
 | This skill only | 7.10 |
 | Boost + this package (guideline + skill) | **7.27** |
 
-This is a small sample: 6 tasks, one build per setup, two judges each. The rubric also reflects the conventions the skill teaches. See [docs/evaluation.md](docs/evaluation.md) for the method, all rounds and the caveats.
+This is a small sample: 6 tasks, one build per setup, two judges each. The rubric also reflects the conventions the skill teaches. See [docs/evaluation.md](docs/evaluation.md) for the method, all rounds and the caveats. The harness and raw results are in [`eval/`](eval), so you can rerun it against your own tasks.
 
 ## Credits
 
