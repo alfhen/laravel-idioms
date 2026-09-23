@@ -41,9 +41,10 @@ python3 eval/aggregate.py
   Judges run in Claude Code's OS-level [sandbox](https://docs.claude.com/en/docs/claude-code/sandboxing) (Seatbelt on macOS, bubblewrap on Linux), with Bash as their only tool so every file access goes through it:
   - they can read and write `$JUDGE`, and read the PHP toolchain;
   - they cannot read the rest of the home directory, `$WORK`, or this repo, which includes the published mappings;
-  - unsandboxed fallback is disabled.
+  - Claude Code refuses to start if the sandbox is unavailable (`failIfUnavailable`) instead of warning and running unsandboxed;
+  - blocked commands can't be retried outside the sandbox.
 
-  Before any judge starts, a cheap Haiku canary session tries to read a random token planted in `$WORK`, and judging aborts if the token comes back.
+  Before any judge starts, a cheap Haiku canary session is asked to `cat` a random token planted in `$WORK`. Judging proceeds only if the session exits cleanly, the token never appears, and its event stream shows the `cat` of that file actually ran and was refused by the OS. A session that skips the command counts as a failure, not a pass.
   - If PHP lives somewhere the script doesn't detect, add its directory to `JUDGE_ALLOW_READ` (colon-separated).
   - Don't put `$JUDGE` under `~/.claude`: the sandbox write-protects it, so tests can't run there.
   - On Linux, install `bubblewrap` and `socat` first.

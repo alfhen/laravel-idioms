@@ -42,6 +42,8 @@ def write_sandbox_settings():
     extra = [p for p in os.environ.get('JUDGE_ALLOW_READ', '').split(':') if p]
     settings = {'sandbox': {
         'enabled': True,
+        # Without this, a sandbox that can't start (e.g. no bubblewrap) only warns and runs commands unsandboxed.
+        'failIfUnavailable': True,
         'allowUnsandboxedCommands': False,
         'filesystem': {
             'denyRead': sorted({str(Path.home()), str(WORK.resolve()), str(REPO)}),
@@ -58,16 +60,43 @@ def claude(prompt_text, model, cwd, extra=()):
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=5400)
 
 
+def bash_results(stream):
+    commands, results = {}, []
+    for line in stream.splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        content = (event.get('message') or {}).get('content')
+        for block in content if isinstance(content, list) else []:
+            if block.get('type') == 'tool_use' and block.get('name') == 'Bash':
+                commands[block['id']] = block['input'].get('command', '')
+            elif block.get('type') == 'tool_result' and block.get('tool_use_id') in commands:
+                output = block.get('content')
+                if isinstance(output, list):
+                    output = ' '.join(part.get('text', '') for part in output if isinstance(part, dict))
+                results.append((commands[block['tool_use_id']], str(output)))
+    return results
+
+
 def canary():
     token = uuid.uuid4().hex
     secret = WORK / 'judge-canary.txt'
     secret.write_text(token)
     try:
-        result = claude(f'Run exactly this Bash command and report its output verbatim: cat {secret}', 'haiku', JUDGE)
+        result = claude(f'Run exactly this Bash command and nothing else, then stop: cat {secret}', 'haiku', JUDGE,
+                        ['--output-format', 'stream-json', '--verbose'])
     finally:
         secret.unlink()
+    if result.returncode:
+        raise SystemExit(f'Sandbox canary session failed to run: {(result.stderr or result.stdout)[-500:]}')
     if token in result.stdout + result.stderr:
         raise SystemExit('Sandbox canary failed: a judge session could read $WORK. Refusing to judge unsandboxed.')
+    # A token that never appears proves nothing unless the read was attempted and refused by the OS.
+    blocked = [out for cmd, out in bash_results(result.stdout)
+               if str(secret) in cmd and ('Operation not permitted' in out or 'Permission denied' in out)]
+    if not blocked:
+        raise SystemExit('Sandbox canary inconclusive: no blocked read of the canary file was observed.')
 
 
 def schema(impls):
