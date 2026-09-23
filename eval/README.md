@@ -19,7 +19,8 @@ This harness reproduces the blind comparisons in [docs/evaluation.md](../docs/ev
 ## Run
 
 ```bash
-export WORK=$PWD/eval/.work          # default; about 5 GB for all arms, runs and judge copies
+export WORK=$PWD/eval/.work          # default; about 5 GB for all arms and runs
+export JUDGE=$PWD/eval/.work-judge   # default; the only tree judges are pointed at
 
 eval/setup.sh                        # base apps + one copy per arm and base
 python3 eval/build.py --arms skill,boost,augment --tasks sales-report,blog-crud
@@ -30,8 +31,12 @@ python3 eval/aggregate.py
 
 - **`setup.sh`** creates `base` (PHPUnit), `base-pest` (Pest) and `base-filament` (Pest + Filament) from the latest `laravel/laravel` 13.x, then builds every arm on each base. It removes the skeleton's stock `CLAUDE.md`/`AGENTS.md`, because those tell agents to install Boost and would turn every arm into a Boost arm.
 - **`build.py`** runs one headless session per task and arm. `--setting-sources project,local` keeps your user-level skills and settings out. `--strict-mcp-config` keeps your MCP servers out, so only Boost arms get Boost's server. The prompt is the same for every arm and never mentions a skill or Boost. Session logs, including which skills fired, go to `$WORK/runs/_logs/`.
-- **`anonymise.py`** copies each build to `$WORK/judge/<task>/impl-N`. It strips every file that would reveal the arm and uninstalls Boost and this package. The mapping is written to `$WORK/judge-mapping.json`, outside the directory the judges work in.
-- **`judge.py`** runs one Opus session per task and judge. Each judge reviews every impl in a rotated order, then scores and ranks them against a fixed JSON schema.
+- **`anonymise.py`** stages the judges' tree at `$JUDGE`, which defaults to a sibling of `$WORK`:
+  - `tasks/<task>/impl-N` holds each build with every file that would reveal the arm stripped, and Boost and this package uninstalled;
+  - `bases/<base>` holds the plain base apps to diff against.
+
+  Nothing under `$JUDGE` points back to the arm-named builds, the session logs or the impl-to-arm mapping. Those stay in `$WORK`, and the mapping is written to `$WORK/judge-mapping.json`.
+- **`judge.py`** runs one Opus session per task and judge. Each judge reviews every impl in a rotated order, then scores and ranks them against a fixed JSON schema. Tasks run in parallel. Judges of one task run one after another, because their probe tests share the impl directories.
 - **`aggregate.py`** prints the per-arm and per-task tables.
 
 `tasks.json` holds the eight task briefs. The Boost comparisons used `blade-catalogue`, `filament-admin`, `caching`, `webhook-worker`, `sales-report` and `blog-crud`.
@@ -42,7 +47,7 @@ At API prices, builds cost about $2–3.30 each with Sonnet. A 4-impl judgement 
 
 ## Published results
 
-`results/boost-comparison/` and `results/augment-comparison/` hold the judgements, impl-to-arm mappings and per-build stats (cost, time, skills fired, MCP tools used) behind the published tables. To re-derive a table:
+`results/boost-comparison/` and `results/augment-comparison/` hold the judgements, impl-to-arm mappings and per-build stats (cost, time, skills fired, MCP tools used) behind the published tables. `tables.md` in each is the expected `aggregate.py` output; CI fails if the committed data no longer produces it. To re-derive a table:
 
 ```bash
 python3 eval/aggregate.py \

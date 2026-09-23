@@ -78,5 +78,5 @@ The harness is in [`eval/`](../eval): setup, headless builds, anonymisation, jud
 - Samples are small: one build per setup per task.
 - The rubric's idiom dimensions encode the same values as the skill. Correctness and bug counts are the more neutral signals.
 - The results cover Claude models only.
-- In the published runs, the impl-to-arm mapping file sat in the eval directory next to the judges' copies, where a judge could have read it (nothing suggests one did). The harness now writes it outside that tree.
+- In the published runs, judges worked next to the impl-to-arm mapping and the arm-named build directories, so they could have unblinded themselves. The judge transcripts show none did: none of the 24 judgements read the mapping, the session logs, the unblinded builds or a non-plain arm. The harness now stages judges in a separate tree that contains none of those.
 - The published judging ran as Claude Code workflow agents. `eval/judge.py` sends the same prompt through headless `claude -p` sessions.

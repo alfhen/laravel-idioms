@@ -15,8 +15,12 @@ sources/                 shallow clones: laravel_framework, laravel_docs, larave
                          -activitylog, -package-tools, -settings), pestphp_pest, pestphp_pest-plugin-laravel,
                          pestphp_docs, filamentphp_filament (5.x branch), filamentphp_demo, laravel_horizon,
                          laravel_livewire-starter-kit
-eval/base, base-pest, base-filament   the base apps built by ../setup.sh
+eval/base, base-pest, base-filament   the base apps
 skill/laravel-idioms     the skill being written and revised
 ```
+
+To create the base apps at those paths, run `WORK=<root>/eval eval/setup.sh`. `setup.sh` writes `base`, `base-pest` and `base-filament` directly under `$WORK`. It also writes an `arms/` directory there, which these scripts don't use.
+
+Both scripts write builds to `<root>/eval/runs/r<round>/`. `extend-and-ab-test` starts at round 3, which is safe after `build-and-ab-test` has used at most two rounds, as it did here. The first script can run a third round if round 2 doesn't clear its bar, so use a fresh `root` for the second script if that happens: a builder skips copying into a directory that already exists. The scripts are left unchanged, as the record of what ran.
 
 Unlike `../build.py`, these builders were workflow sub-agents told to read `SKILL.md`, not headless sessions that discover the skill themselves. The Boost comparisons used the headless harness instead.

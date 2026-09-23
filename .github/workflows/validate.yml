@@ -39,5 +39,6 @@ jobs:
         run: |
           for run in boost-comparison augment-comparison; do
             python3 eval/aggregate.py --judgements eval/results/$run/judgements.json \
-              --mapping eval/results/$run/mapping.json --builds eval/results/$run/builds.json
+              --mapping eval/results/$run/mapping.json --builds eval/results/$run/builds.json \
+              | diff -u eval/results/$run/tables.md -
           done

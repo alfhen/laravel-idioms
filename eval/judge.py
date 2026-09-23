@@ -1,7 +1,8 @@
 """Blind-judge the anonymised builds: each judge reviews every impl of one task and scores and ranks them.
 
 usage: python3 eval/judge.py [--tasks a,b] [--judges 2] [--model opus] [--concurrency 4]
-Judge N reviews the impls in a rotated order to spread position bias. Results go to $WORK/judgements/.
+Judge N reviews the impls in a rotated order to spread position bias. Judges of one task run one after another,
+because their probe tests and test runs share the task's impl directories. Results go to $WORK/judgements/.
 """
 import argparse
 import json
@@ -12,6 +13,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 WORK = Path(os.environ.get('WORK', REPO / 'eval' / '.work'))
+JUDGE = Path(os.environ.get('JUDGE', WORK.parent / f'{WORK.name}-judge'))
 TASKS = json.loads((REPO / 'eval' / 'tasks.json').read_text())
 DIMENSIONS = ['collections_helpers', 'thin_controllers', 'validation_form_requests', 'eloquent_idioms',
               'architecture_fit', 'modern_laravel', 'focus_area', 'tests', 'correctness', 'simplicity']
@@ -33,8 +35,8 @@ def schema(impls):
 
 
 def prompt(key, task, impls, order):
-    base = WORK / 'arms' / f"plain-{task['base']}"
-    root = WORK / 'judge' / key
+    base = JUDGE / 'bases' / task['base']
+    root = JUDGE / 'tasks' / key
     return f"""You are a senior Laravel reviewer. {len(impls)} independent implementations of the same task are in {root}/{{{','.join(impls)}}}. They all started from the same base app {base}; see what each added with `diff -rq {base} {root}/impl-N -x vendor -x node_modules -x storage -x bootstrap -x composer.lock`. Review them in this order: {', '.join(order)}. Only look in vendor/ to verify that an API exists in the installed version.
 
 Task they were given:
@@ -54,12 +56,13 @@ def judge(job, model):
     out = WORK / 'judgements' / f'{key}-{n}.json'
     if out.exists():
         return key, n, 'cached'
-    impls = sorted(p.name for p in (WORK / 'judge' / key).iterdir() if p.name.startswith('impl-'))
-    order = impls[n - 1:] + impls[:n - 1]
+    impls = sorted(p.name for p in (JUDGE / 'tasks' / key).iterdir() if p.name.startswith('impl-'))
+    shift = (n - 1) % len(impls)
+    order = impls[shift:] + impls[:shift]
     cmd = ['claude', '-p', prompt(key, TASKS[key], impls, order), '--model', model, '--output-format', 'json',
            '--json-schema', json.dumps(schema(impls)), '--setting-sources', 'project,local', '--strict-mcp-config',
            '--dangerously-skip-permissions']
-    result = subprocess.run(cmd, cwd=WORK / 'judge' / key, capture_output=True, text=True, timeout=5400)
+    result = subprocess.run(cmd, cwd=JUDGE / 'tasks' / key, capture_output=True, text=True, timeout=5400)
     envelope = json.loads(result.stdout)
     verdict = envelope.get('structured_output')
     if verdict is None:
@@ -78,10 +81,14 @@ def main():
 
     keys = args.tasks.split(',') if args.tasks else sorted(json.loads((WORK / 'judge-mapping.json').read_text()))
     (WORK / 'judgements').mkdir(parents=True, exist_ok=True)
-    jobs = [(k, n) for k in keys for n in range(1, args.judges + 1)]
+
+    def judge_task(key):
+        return [judge((key, n), args.model) for n in range(1, args.judges + 1)]
+
     with ThreadPoolExecutor(args.concurrency) as pool:
-        for key, n, status in pool.map(lambda job: judge(job, args.model), jobs):
-            print(f'{key} judge {n}: {status}', flush=True)
+        for results in pool.map(judge_task, keys):
+            for key, n, status in results:
+                print(f'{key} judge {n}: {status}', flush=True)
 
 
 if __name__ == '__main__':
