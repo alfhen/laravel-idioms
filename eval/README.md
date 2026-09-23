@@ -20,7 +20,7 @@ This harness reproduces the blind comparisons in [docs/evaluation.md](../docs/ev
 
 ```bash
 export WORK=$PWD/eval/.work          # default; about 5 GB for all arms and runs
-export JUDGE=$PWD/eval/.work-judge   # default; the only tree judges are pointed at
+export JUDGE=$PWD/eval/.work-judge   # default; the only tree judges can read
 
 eval/setup.sh                        # base apps + one copy per arm and base
 python3 eval/build.py --arms skill,boost,augment --tasks sales-report,blog-crud
@@ -37,6 +37,16 @@ python3 eval/aggregate.py
 
   Nothing under `$JUDGE` points back to the arm-named builds, the session logs or the impl-to-arm mapping. Those stay in `$WORK`, and the mapping is written to `$WORK/judge-mapping.json`.
 - **`judge.py`** runs one Opus session per task and judge. Each judge reviews every impl in a rotated order, then scores and ranks them against a fixed JSON schema. Tasks run in parallel. Judges of one task run one after another, because their probe tests share the impl directories.
+
+  Judges run in Claude Code's OS-level [sandbox](https://docs.claude.com/en/docs/claude-code/sandboxing) (Seatbelt on macOS, bubblewrap on Linux), with Bash as their only tool so every file access goes through it:
+  - they can read and write `$JUDGE`, and read the PHP toolchain;
+  - they cannot read the rest of the home directory, `$WORK`, or this repo, which includes the published mappings;
+  - unsandboxed fallback is disabled.
+
+  Before any judge starts, a cheap Haiku canary session tries to read a random token planted in `$WORK`, and judging aborts if the token comes back.
+  - If PHP lives somewhere the script doesn't detect, add its directory to `JUDGE_ALLOW_READ` (colon-separated).
+  - Don't put `$JUDGE` under `~/.claude`: the sandbox write-protects it, so tests can't run there.
+  - On Linux, install `bubblewrap` and `socat` first.
 - **`aggregate.py`** prints the per-arm and per-task tables.
 
 `tasks.json` holds the eight task briefs. The Boost comparisons used `blade-catalogue`, `filament-admin`, `caching`, `webhook-worker`, `sales-report` and `blog-crud`.

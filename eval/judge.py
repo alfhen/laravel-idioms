@@ -3,11 +3,18 @@
 usage: python3 eval/judge.py [--tasks a,b] [--judges 2] [--model opus] [--concurrency 4]
 Judge N reviews the impls in a rotated order to spread position bias. Judges of one task run one after another,
 because their probe tests and test runs share the task's impl directories. Results go to $WORK/judgements/.
+
+Judges run in Claude Code's OS-level sandbox with Bash as their only tool. They can read and write $JUDGE and
+read the PHP toolchain, and nothing else in the home directory, $WORK or this repo. A canary session checks
+that before any judge starts. Extra readable paths (e.g. a PHP install elsewhere) go in $JUDGE_ALLOW_READ,
+colon-separated.
 """
 import argparse
 import json
 import os
+import shutil
 import subprocess
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -15,8 +22,52 @@ REPO = Path(__file__).resolve().parent.parent
 WORK = Path(os.environ.get('WORK', REPO / 'eval' / '.work'))
 JUDGE = Path(os.environ.get('JUDGE', WORK.parent / f'{WORK.name}-judge'))
 TASKS = json.loads((REPO / 'eval' / 'tasks.json').read_text())
+SETTINGS = WORK / 'judge-sandbox.json'
 DIMENSIONS = ['collections_helpers', 'thin_controllers', 'validation_form_requests', 'eloquent_idioms',
               'architecture_fit', 'modern_laravel', 'focus_area', 'tests', 'correctness', 'simplicity']
+
+
+def toolchain_dirs():
+    # A PHP install under the home directory (Herd, phpenv, asdf) is unreadable unless re-allowed.
+    dirs = set()
+    for binary in ('php', 'composer'):
+        found = shutil.which(binary)
+        if found:
+            real = Path(found).resolve()
+            dirs.add(real.parent.parent if real.parent.name == 'bin' else real.parent)
+    return [str(d) for d in dirs if Path.home() in d.parents]
+
+
+def write_sandbox_settings():
+    extra = [p for p in os.environ.get('JUDGE_ALLOW_READ', '').split(':') if p]
+    settings = {'sandbox': {
+        'enabled': True,
+        'allowUnsandboxedCommands': False,
+        'filesystem': {
+            'denyRead': sorted({str(Path.home()), str(WORK.resolve()), str(REPO)}),
+            'allowRead': [str(JUDGE.resolve()), *toolchain_dirs(), *extra],
+            'allowWrite': [str(JUDGE.resolve())],
+        },
+    }}
+    SETTINGS.write_text(json.dumps(settings, indent=1))
+
+
+def claude(prompt_text, model, cwd, extra=()):
+    cmd = ['claude', '-p', prompt_text, '--model', model, '--tools', 'Bash', '--settings', str(SETTINGS),
+           '--setting-sources', 'project,local', '--strict-mcp-config', '--dangerously-skip-permissions', *extra]
+    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=5400)
+
+
+def canary():
+    token = uuid.uuid4().hex
+    secret = WORK / 'judge-canary.txt'
+    secret.write_text(token)
+    try:
+        result = claude(f'Run exactly this Bash command and report its output verbatim: cat {secret}', 'haiku', JUDGE)
+    finally:
+        secret.unlink()
+    if token in result.stdout + result.stderr:
+        raise SystemExit('Sandbox canary failed: a judge session could read $WORK. Refusing to judge unsandboxed.')
 
 
 def schema(impls):
@@ -59,10 +110,8 @@ def judge(job, model):
     impls = sorted(p.name for p in (JUDGE / 'tasks' / key).iterdir() if p.name.startswith('impl-'))
     shift = (n - 1) % len(impls)
     order = impls[shift:] + impls[:shift]
-    cmd = ['claude', '-p', prompt(key, TASKS[key], impls, order), '--model', model, '--output-format', 'json',
-           '--json-schema', json.dumps(schema(impls)), '--setting-sources', 'project,local', '--strict-mcp-config',
-           '--dangerously-skip-permissions']
-    result = subprocess.run(cmd, cwd=JUDGE / 'tasks' / key, capture_output=True, text=True, timeout=5400)
+    result = claude(prompt(key, TASKS[key], impls, order), model, JUDGE / 'tasks' / key,
+                    ['--output-format', 'json', '--json-schema', json.dumps(schema(impls))])
     envelope = json.loads(result.stdout)
     verdict = envelope.get('structured_output')
     if verdict is None:
@@ -81,6 +130,8 @@ def main():
 
     keys = args.tasks.split(',') if args.tasks else sorted(json.loads((WORK / 'judge-mapping.json').read_text()))
     (WORK / 'judgements').mkdir(parents=True, exist_ok=True)
+    write_sandbox_settings()
+    canary()
 
     def judge_task(key):
         return [judge((key, n), args.model) for n in range(1, args.judges + 1)]
