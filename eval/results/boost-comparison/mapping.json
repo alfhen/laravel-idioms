@@ -1,0 +1,38 @@
+{
+ "blade-catalogue": {
+  "impl-1": "plain",
+  "impl-2": "boost",
+  "impl-3": "both",
+  "impl-4": "skill"
+ },
+ "filament-admin": {
+  "impl-1": "skill",
+  "impl-2": "both",
+  "impl-3": "plain",
+  "impl-4": "boost"
+ },
+ "caching": {
+  "impl-1": "boost",
+  "impl-2": "both",
+  "impl-3": "skill",
+  "impl-4": "plain"
+ },
+ "webhook-worker": {
+  "impl-1": "plain",
+  "impl-2": "skill",
+  "impl-3": "boost",
+  "impl-4": "both"
+ },
+ "sales-report": {
+  "impl-1": "skill",
+  "impl-2": "plain",
+  "impl-3": "both",
+  "impl-4": "boost"
+ },
+ "blog-crud": {
+  "impl-1": "boost",
+  "impl-2": "skill",
+  "impl-3": "plain",
+  "impl-4": "both"
+ }
+}

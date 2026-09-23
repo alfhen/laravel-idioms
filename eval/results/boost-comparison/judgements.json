@@ -1,0 +1,1839 @@
+[
+ {
+  "key": "blade-catalogue",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 7,
+     "validation_form_requests": 7,
+     "eloquent_idioms": 6,
+     "architecture_fit": 7,
+     "modern_laravel": 6,
+     "focus_area": 7,
+     "tests": 6,
+     "correctness": 6,
+     "simplicity": 8
+    },
+    "overall": 6.3,
+    "rank": 4,
+    "tests_pass": true,
+    "bugs": [
+     "Inactive products are publicly reachable at /products/{slug} (probe: 200 instead of 404) - app/Http/Controllers/ProductController.php:43",
+     "Unchecked 'Active' checkbox is re-checked after a failed submit: old('is_active') is null because the checkbox is absent, so it falls back to true - resources/views/components/admin/product-form.blade.php:54",
+     "Default Tailwind pagination view is used with no Tailwind build, so its unstyled SVG chevrons render at full size (task says pages must render without compiled assets) - resources/views/products/index.blade.php:46",
+     "Related products lazy-load category per card, an N+1 (7 queries on the show page) - app/Http/Controllers/ProductController.php:45-50"
+    ],
+    "antipatterns": [
+     "is_admin added to User #[Fillable], so a mass-assignment of user input could escalate privileges - app/Models/User.php:13",
+     "Legacy scopeActive() naming instead of #[Scope] - app/Models/Product.php:31",
+     "Sort handled by three when() calls, including a negated in_array, instead of a match - app/Http/Controllers/ProductController.php:32-34",
+     "Related products have no deterministic order - app/Http/Controllers/ProductController.php:45",
+     "LIKE search does not escape % or _ - app/Http/Controllers/ProductController.php:23"
+    ],
+    "strengths": [
+     "Reusable components for layout, field-error (wrapping @error), flash-message, product-card and admin product-form with action/method props",
+     "Uses withQueryString() and @selected, and the flash message is rendered in the layout",
+     "Single ProductRequest with Rule::unique()->ignore(), shared by store and update",
+     "Search covers name and description",
+     "Controllers are small and simple"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 7,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 7,
+     "architecture_fit": 7,
+     "modern_laravel": 7,
+     "focus_area": 6,
+     "tests": 7,
+     "correctness": 6,
+     "simplicity": 7
+    },
+    "overall": 6.6,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "Inactive products are publicly viewable by slug (probe: 200) - app/Http/Controllers/ProductController.php:47",
+     "An unknown ?sort= value matches none of the when() branches, so results come back unordered - app/Http/Controllers/ProductController.php:32-34",
+     "The checkbox checked state is lost after a failed create: prepareForValidation merges into the FormRequest, not the flashed base request, so old('is_active') is null and falls back to true - resources/views/components/admin/product-form.blade.php:60",
+     "Default Tailwind pagination view with no compiled CSS renders oversized SVG arrows - resources/views/products/index.blade.php:35",
+     "N+1 on related-product categories - app/Http/Controllers/ProductController.php:51-57"
+    ],
+    "antipatterns": [
+     "is_admin is mass-assignable on User - app/Models/User.php:13",
+     "The @error block is copy-pasted 7 times instead of an error component - resources/views/components/admin/product-form.blade.php:13-65",
+     "color-scheme: light dark is declared while the colours are hard-coded for light mode, so dark-mode UA controls clash - resources/views/components/layouts/app.blade.php:11",
+     "Leftover resource-stub docblocks ('Display a listing of the resource') - app/Http/Controllers/Admin/ProductController.php:14-78",
+     "Inline style attributes in views - resources/views/products/index.blade.php:34",
+     "Delete is only on the edit page, not in the admin list - resources/views/admin/products/edit.blade.php:14"
+    ],
+    "strengths": [
+     "#[RouteKey('slug')] model attribute and whereKeyNot()",
+     "prepareForValidation normalises the boolean, and validated() is passed straight to create/update",
+     "Create passes new Product([...defaults]), so the form needs no null-safe branching",
+     "Layout component with @props title and the flash message in the layout",
+     "Tests use describe groups and cover authorization on POST/DELETE, duplicate slugs, sort order and query-string preservation"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 7,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 7,
+     "modern_laravel": 8,
+     "focus_area": 7,
+     "tests": 8,
+     "correctness": 6,
+     "simplicity": 7
+    },
+    "overall": 7.1,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Inactive products are publicly viewable by slug (probe: 200) - app/Http/Controllers/ProductController.php:48",
+     "An unchecked 'Active' box is re-checked after a failed create (old() is null and falls back to true) - resources/views/admin/products/_form.blade.php:48",
+     "Default Tailwind pagination with no compiled CSS renders oversized SVGs - resources/views/products/index.blade.php:40",
+     "N+1 on related-product categories (7 queries) - app/Http/Controllers/ProductController.php:50-56"
+    ],
+    "antipatterns": [
+     "The shared form is an @include partial that relies on implicit $product/$categories scope, not a component with props - resources/views/admin/products/_form.blade.php:1",
+     "The flash message is rendered only on the admin index view, not in the shared layout - resources/views/admin/products/index.blade.php:4",
+     "$request->string('sort') is repeated three times across when() branches instead of a match - app/Http/Controllers/ProductController.php:25-36",
+     "Search matches name only - app/Http/Controllers/ProductController.php:19",
+     "Layout reads $title without declaring @props - resources/views/components/layout.blade.php:6"
+    ],
+    "strengths": [
+     "Modern #[Scope] attribute, whereRelation() and whereKeyNot()",
+     "Sorts have deterministic id tie-breakers",
+     "Components (badge, alert, input-error, product-card) use $attributes->merge and slots",
+     "prepareForValidation boolean normalisation, and is_admin is kept out of the fillable list",
+     "Tests are well organised with describe, check sort order precisely via viewData, and cover the unchecked checkbox, slug unchanged on update, assertModelMissing/Exists and non-admin delete"
+    ]
+   },
+   "impl-4": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 7,
+     "tests": 8,
+     "correctness": 6,
+     "simplicity": 7
+    },
+    "overall": 7.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "Inactive products are publicly viewable by slug (probe: 200) - app/Http/Controllers/ProductController.php:32",
+     "An unknown category slug or sort value on the public GET index fails validation and returns a 302 to the previous page, and the index view never shows the error, so a stale bookmarked filter link just bounces - app/Http/Requests/IndexProductRequest.php:14-15",
+     "An unchecked 'Active' box is re-checked after a failed create - resources/views/components/admin/product-form.blade.php:66",
+     "Default Tailwind pagination with no compiled CSS renders oversized SVGs - resources/views/products/index.blade.php:33",
+     "relatedProducts() does not eager-load category, an N+1 in product cards - app/Models/Product.php:67-76"
+    ],
+    "antipatterns": [
+     "Redundant #[UseFactory] attributes alongside conventional HasFactory, plus redundant protected $model in the factories - app/Models/Product.php:16, database/factories/ProductFactory.php:15",
+     "Empty @props([]) - resources/views/components/out-of-stock-badge.blade.php:1",
+     "The out-of-stock rule is inlined in views ($product->stock === 0) rather than a model method - resources/views/components/product-card.blade.php:7",
+     "Slug auto-generation from name adds scope beyond the brief, and a collision reports an error on a field the user left blank - app/Http/Requests/ProductRequest.php:29",
+     "The .field input CSS also applies width:100% to the checkbox - resources/views/components/layouts/app.blade.php:23"
+    ],
+    "strengths": [
+     "Very thin controllers: named #[Scope] query scopes (search, inCategory, sorted using match) and a relatedProducts() model method",
+     "IndexProductRequest whitelists filters and feeds typed filter values to the view instead of request() calls",
+     "Modern helpers: to_route(), Number::currency, the :$product shorthand, $attributes->class()",
+     "A single admin product-form component that derives its action/method from the presence of $product, and the flash message lives in the layout",
+     "The largest test suite (35), with Pest datasets for validation cases, beforeEach, expect() chains, and invalid-filter and slug-retention tests"
+    ]
+   },
+   "rationale": "All four pass their own suites (20/27/28/35 tests). All four share the same bugs, found with a throwaway probe test that was deleted afterwards: inactive products still return 200 at /products/{slug}; after a failed create, an unchecked Active box comes back checked, because old('is_active') is null (prepareForValidation merges into the FormRequest, not the flashed base request); every implementation uses the default Tailwind pagination view with no compiled CSS, so its SVG arrows render oversized; related-product cards lazy-load category, an N+1. Because these are common to all, the ranking rests on idiom and design. impl-4 is ranked first: its controllers are the thinnest (named #[Scope] scopes, match-based sort, relatedProducts() on the model, IndexProductRequest for filters), it uses the most modern helpers and has the strongest Pest suite with datasets. It loses points for some ceremony (UseFactory, $model in the factories), for validating public GET filters in a way that redirects on a stale category, and for adding slug auto-generation nobody asked for. impl-3 is close behind: modern #[Scope] and whereRelation, deterministic tie-breakers, attribute-merging components and well-organised tests. It drops for using an @include partial as the shared form and for showing the flash only on the admin index. impl-2 is solid: #[RouteKey], prepareForValidation, good tests. Against it: @error copy-pasted seven times, an unordered result for an invalid sort, mass-assignable is_admin and leftover stub docblocks. impl-1 has good small components (field-error, flash). Against it: legacy scopeActive, mass-assignable is_admin, the thinnest tests (no authorization checks on POST/DELETE, no newest-sort test) and no deterministic order on related products."
+  }
+ },
+ {
+  "key": "blade-catalogue",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 6,
+     "thin_controllers": 6,
+     "validation_form_requests": 7,
+     "eloquent_idioms": 6,
+     "architecture_fit": 7,
+     "modern_laravel": 6,
+     "focus_area": 8,
+     "tests": 6,
+     "correctness": 7,
+     "simplicity": 8
+    },
+    "overall": 6.5,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "Failed submit loses an unchecked 'Active' checkbox. is_active is not in old input, so old('is_active', $product?->is_active ?? true) falls back to true and the box comes back checked (components/admin/product-form.blade.php:54)",
+     "Array query input (?search[]=x) gives a 500, because $request->string() on unvalidated input throws (ProductController.php:20)",
+     "Inactive products are still publicly viewable at /products/{slug} (ProductController.php:43)",
+     "Related products have no ordering, so which 4 appear is arbitrary (ProductController.php:45-50)",
+     "N+1 on related product cards: each x-product-card lazy-loads category (4 extra queries)"
+    ],
+    "antipatterns": [
+     "app/Models/User.php:13 - is_admin added to #[Fillable], opening a mass-assignment privilege-escalation risk",
+     "app/Http/Controllers/ProductController.php:16-36 - filter, search and sort query-building inline in the controller instead of model scopes",
+     "app/Http/Controllers/ProductController.php:34 - clumsy when(!in_array(...)) default-sort chain",
+     "app/Models/Product.php:31 - legacy scopeActive instead of #[Scope]",
+     "app/Http/Controllers/ProductController.php:48 - where('id','!=') instead of whereKeyNot",
+     "compact() used for view data throughout",
+     "resources/views/products/index.blade.php:7,15 - request() read directly in the view"
+    ],
+    "strengths": [
+     "Shared form is a real component with action/method props and @method handling",
+     "x-field-error component wraps @error; x-flash-message sits in the shared layout",
+     "productData() on the FormRequest normalises the checkbox cleanly",
+     "The pagination test checks both page 2 contents and the preserved query string",
+     "Search covers name and description"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 6,
+     "thin_controllers": 6,
+     "validation_form_requests": 7,
+     "eloquent_idioms": 7,
+     "architecture_fit": 7,
+     "modern_laravel": 6,
+     "focus_area": 7,
+     "tests": 7,
+     "correctness": 6,
+     "simplicity": 7
+    },
+    "overall": 6,
+    "rank": 4,
+    "tests_pass": true,
+    "bugs": [
+     "An unknown ?sort=bogus value applies no ORDER BY at all, so pagination order is nondeterministic and no sort option is shown as selected (ProductController.php:32-34)",
+     "Failed submit re-checks an unchecked 'Active' box: the prepareForValidation merge is not in old input, and the create default is is_active=true (product-form.blade.php:60)",
+     "Array query input (?q[]=x) gives a 500 (ProductController.php:20)",
+     "Inactive products are publicly viewable at /products/{slug}",
+     "N+1 on related product cards (category lazy-loaded per card)"
+    ],
+    "antipatterns": [
+     "app/Models/User.php:13 - is_admin added to #[Fillable], a mass-assignment privilege-escalation risk",
+     "app/Http/Controllers/ProductController.php:16-36 - query/filter logic inline in the controller instead of scopes",
+     "app/Models/Product.php:34 - legacy scopeActive instead of #[Scope]",
+     "app/Http/Controllers/Admin/ProductController.php:14-80 - boilerplate resource docblocks ('Display a listing of the resource') add noise",
+     "resources/views/components/out-of-stock-badge.blade.php:1 - badge ignores $attributes",
+     "tests/Feature/ProductsIndexTest.php:53 - sort assertions use strpos on raw HTML instead of view data",
+     "resources/views/products/index.blade.php:5,10 - request() used directly in the view"
+    ],
+    "strengths": [
+     "#[RouteKey('slug')] (verified present in the installed framework, 13.33) makes route() generation consistent",
+     "The shared form is a props-driven Blade component; the flash message lives in the layout",
+     "Search covers name and description",
+     "Tests cover a non-admin store attempt, pre-filled edit and old input rendered on the follow-up page",
+     "The price_cents column name makes the unit explicit"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 6,
+     "thin_controllers": 5,
+     "validation_form_requests": 6,
+     "eloquent_idioms": 6,
+     "architecture_fit": 7,
+     "modern_laravel": 7,
+     "focus_area": 7,
+     "tests": 8,
+     "correctness": 7,
+     "simplicity": 7
+    },
+    "overall": 6.8,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Failed submit re-checks an unchecked 'Active' box, because the prepareForValidation merge is not flashed to old input (admin/products/_form.blade.php:48)",
+     "Array query input (?search[]=x) gives a 500, as filters are not validated (ProductController.php:19)",
+     "Inactive products are publicly viewable at /products/{slug}",
+     "N+1: the show page lazy-loads the product's category, and each related card lazy-loads its category",
+     "Flash message renders only on the admin index view, not in the shared layout, so any other redirect target would drop it (admin/products/index.blade.php:4)"
+    ],
+    "antipatterns": [
+     "app/Http/Controllers/ProductController.php:14-38 - three separate when() calls for sort, with a negated in_array default: query logic belongs in scopes or a match",
+     "resources/views/admin/products/_form.blade.php - the shared form is an @include partial relying on implicit parent variables rather than a component with @props",
+     "resources/views/products/index.blade.php:9,15,22 - request() read directly in the view",
+     "app/Http/Requests/ProductRequest.php:15 - redundant authorize() returning true",
+     "app/Http/Controllers/Admin/ProductController.php:39 - redirect()->route() rather than to_route (minor)"
+    ],
+    "strengths": [
+     "Reusable x-badge and x-alert components with slots and $attributes->merge; x-input-error component",
+     "Uses #[Scope] and an isOutOfStock() model helper; deterministic tiebreak ordering on id",
+     "Well-organised Pest tests with describe blocks, covering the checkbox-unchecked case, duplicate slug, same-slug update, non-admin delete and page 2 contents",
+     "LazilyRefreshDatabase in Pest.php"
+    ]
+   },
+   "impl-4": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 9,
+     "validation_form_requests": 9,
+     "eloquent_idioms": 9,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 8.4,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "Failed submit re-checks an unchecked 'Active' box: the merged is_active=false from prepareForValidation is not in flashed old input, so old() falls back to the default true (components/admin/product-form.blade.php:66)",
+     "Inactive products are publicly viewable at /products/{slug} (ProductController.php:32)",
+     "An invalid sort or unknown category on the public GET page triggers a 302 validation redirect back rather than degrading gracefully (IndexProductRequest.php:14-15)",
+     "N+1 on related product cards: relatedProducts() does not eager-load category"
+    ],
+    "antipatterns": [
+     "resources/views/components/out-of-stock-badge.blade.php:1 - empty @props([]) is noise",
+     "app/Http/Requests/ProductRequest.php:29 - slug auto-generation in prepareForValidation means a duplicate-name error surfaces on the slug field the user left blank",
+     "resources/views/components/layouts/app.blade.php:34 - auth()->user()->is_admin checked in the layout (acceptable, but a Gate/@can would be cleaner)"
+    ],
+    "strengths": [
+     "Thin controllers: filtering lives in #[Scope] model scopes (search, inCategory, sorted via match) plus relatedProducts() on the model",
+     "An IndexProductRequest validates the public filters and exposes a typed filters() helper; array or garbage input cannot 500",
+     "Shared form is a props-driven component (x-admin.product-form) that handles its own action and @method; layout component with the flash message",
+     "Modern Laravel 13 idioms: #[Fillable], #[UseFactory], #[Scope], to_route, Number::currency, withQueryString, :$product shorthand",
+     "Most thorough tests (35): a dataset for validation failures, invalid sort/category, same-slug update, auto-slug and non-admin delete"
+    ]
+   },
+   "rationale": "impl-4 ranks first. All four pass their own suites (35, 28, 27 and 20 tests). Probe tests (deleted afterwards) found the same problems in all four. After a failed submit, an unchecked 'Active' checkbox comes back checked, because old input never contains the value merged in the form request. Inactive products are still publicly viewable. Related product cards lazy-load their category. Those bugs don't separate the implementations; the rest of the code does.\n\nimpl-4 has the cleanest shape. Filtering sits in #[Scope] model scopes with a match-based sort, and a dedicated form request validates the public filters; it is the only one where array query input does not cause a 500. The shared form is a props-driven component, the flash message lives in the layout, it uses current Laravel 13 attributes throughout, and it has the richest tests.\n\nimpl-3 is second. It has good slot-based badge and alert components and well-organised describe-block tests. Against it: the sort logic is inline in the controller with three when() calls, the shared form is an @include partial rather than a component, and the flash message only renders on the admin index view.\n\nimpl-1 is third. Its component form (with action and method props) and its field-error and flash components are nice. But it adds is_admin to the User fillable list, keeps all query logic inline in the controller, has no ordering on related products and the thinnest tests.\n\nimpl-2 is last. It has the same fillable issue and inline queries. It also has a real bug: an unknown sort value applies no ordering at all, which makes pagination order nondeterministic. Its resource-controller docblocks add ceremony."
+  }
+ },
+ {
+  "key": "filament-admin",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 9,
+     "eloquent_idioms": 8,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 9,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 8.7,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "Shared by all four: tickets.customer_id is cascadeOnDelete and CustomerResource has no policy, so a non-admin can delete a customer (EditCustomer DeleteAction or bulk delete) and wipe that customer's tickets, getting around the admin-only ticket delete rule (confirmed with a probe)."
+    ],
+    "antipatterns": [
+     "app/Policies/TicketPolicy.php:10-72 - stub docblocks restate each method name; restore/forceDelete exist without SoftDeletes",
+     "app/Filament/Widgets/TicketOverview.php:20-24 - loads every resolved row to average in PHP (only the two columns are selected, and there is a comment explaining why)",
+     "app/Providers/Filament/AdminPanelProvider.php:43 - registers TicketOverview explicitly even though discoverWidgets already picks it up (deduplicated, so harmless)",
+     "app/Filament/Resources/Tickets/TicketResource.php:24 - generic RectangleStack icon on both resources"
+    ],
+    "strengths": [
+     "Clean Filament 5 layout: Schemas/TicketForm, Tables/TicketsTable, RelationManagers, and enums implementing HasLabel/HasColor",
+     "Policy with delete/deleteAny limited to is_admin, so Filament hides and blocks both the row delete and the bulk delete",
+     "Customer email is validated as unique (ignoreRecord) at form level and in the DB",
+     "Replies relation manager sets author_id from auth via mutateDataUsing, so the author cannot be spoofed",
+     "The fullest test suite: validation datasets for both forms, a duplicate-email test, admin and non-admin delete on both the edit page and bulk, reply author, a widget window test and an empty-state test, all using TestAction helpers",
+     "Factory states such as status(), priority(), assignedTo() and unassigned() keep the tests readable"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 8.2,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Shared cascade issue: a non-admin can delete a customer, which cascade-deletes its tickets and gets around the admin-only ticket delete rule (confirmed with a probe)."
+    ],
+    "antipatterns": [
+     "app/Models/User.php:15 - is_admin added to #[Fillable], so any future user form or API that mass-assigns input allows privilege escalation",
+     "tests/Pest.php:53-57 - hand-rolled global livewire() helper instead of pest-plugin-livewire or Livewire::test",
+     "tests/Feature/Filament/TicketStatsOverviewTest.php:20,31 - assertSee('2') and assertSee('1') are weak assertions that can match any digit on the page",
+     "app/Policies/TicketPolicy.php:40-48 - restore/forceDelete defined without SoftDeletes",
+     "app/Filament/Widgets/TicketStatsOverview.php:35-38 - averages in PHP after fetching the rows (only the needed columns are selected)"
+    ],
+    "strengths": [
+     "Idiomatic Filament 5 resource layout with enums (HasLabel/HasColor) passed straight to options() and to badge columns",
+     "Policy-based delete gating, tested on both the bulk action and the edit page, for admins and non-admins",
+     "Widget returns 'N/A' when there is no data instead of a misleading 0, and has a test for that case",
+     "Customer table uses counts('tickets'), and the email has unique(ignoreRecord: true) validation",
+     "Relation manager sets the author from auth, with tests for the author and for is_internal",
+     "The sort test checks both directions; the resolve test covers both the action and its hidden state"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 8,
+     "validation_form_requests": 5,
+     "eloquent_idioms": 7,
+     "architecture_fit": 6,
+     "modern_laravel": 6,
+     "focus_area": 6,
+     "tests": 5,
+     "correctness": 5,
+     "simplicity": 6
+    },
+    "overall": 5.3,
+    "rank": 4,
+    "tests_pass": true,
+    "bugs": [
+     "The 'Open tickets' and 'Urgent open tickets' stats count Pending tickets as open (TicketStatsWidget.php:15), so they differ from the spec's status 'open'",
+     "The replies relation manager has an editable author_id Select (RepliesRelationManager.php:27-31), so any agent can post a reply as another user",
+     "No TicketPolicy: delete is gated only by per-action ->authorize() closures. Any new delete path (another action, a relation manager, the API) is unprotected by default",
+     "Customer email has no uniqueness in the form or the DB, so duplicate customers are allowed",
+     "Shared cascade issue: a non-admin can delete a customer, which cascade-deletes its tickets (confirmed with a probe)"
+    ],
+    "antipatterns": [
+     "app/Filament/Resources/Tickets/Tables/TicketsTable.php:73,85 and Pages/EditTicket.php:17 - the is_admin authorize closure is copy-pasted three times instead of written once as a policy",
+     "app/Filament/Resources/Tickets/Tables/TicketsTable.php:52-59 - three-state TernaryFilter with queries() where the spec's 'unassigned only' is a simple toggle Filter",
+     "tests/Feature/Filament/TicketResourceTest.php:126,148,169,188 - legacy v3-style callTableAction/callTableBulkAction/assertTableActionHidden instead of TestAction",
+     "tests/Feature/Filament/TicketStatsWidgetTest.php:41-43 - assertSee('3') and assertSee('2') are weak assertions",
+     "app/Models/User.php:16 - is_admin is mass-assignable",
+     "No factory generic annotations on the models; the Resolve action has no confirmation"
+    ],
+    "strengths": [
+     "Uses the Schemas/Tables class split and enums implementing HasLabel/HasColor",
+     "Resolve action is hidden on resolved tickets, and a test covers that",
+     "Delete is at least enforced at action level (authorize, not only visible), with tests for admins and non-admins on both row and bulk delete",
+     "Widget test checks the 30-day window, including an old resolved ticket that must be excluded"
+    ]
+   },
+   "impl-4": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 9,
+     "validation_form_requests": 5,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 8,
+     "focus_area": 8,
+     "tests": 7,
+     "correctness": 6,
+     "simplicity": 6
+    },
+    "overall": 6.6,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "Creating a customer with an existing email throws QueryException (UNIQUE constraint failed: customers.email). The DB has a unique index but CustomerForm.php:17-19 has no ->unique() rule, so users get a 500 instead of a validation error (confirmed with a probe)",
+     "Shared cascade issue: a non-admin can delete a customer, which cascade-deletes its tickets and gets around the admin-only ticket delete rule (confirmed with a probe)"
+    ],
+    "antipatterns": [
+     "app/Filament/Resources/Customers/Schemas/CustomerForm.php:14-20 and Tickets/Schemas/TicketForm.php:24 - no maxLength on string inputs",
+     "app/Filament/Widgets/TicketStatsOverview.php:25 - ->get() pulls full ticket rows, including body text, just to average two timestamps",
+     "Unrequested ViewTicket/ViewCustomer pages and Infolist classes (Schemas/TicketInfolist.php, CustomerInfolist.php) add scaffolding the task did not ask for",
+     "app/Models/User.php:16 - is_admin is mass-assignable",
+     "tests/Feature/Filament/TicketStatsOverviewTest.php:42-44 - assertSee('2') and assertSee('1') are weak assertions",
+     "database/factories/TicketFactory.php resolved() uses a random resolved_at, which makes tests that rely on it non-deterministic",
+     "No failure-path tests: no validation tests, no duplicate-email test, no delete test from the edit page"
+    ],
+    "strengths": [
+     "Filament 5 resource layout with Schemas/Tables classes and enums implementing HasLabel/HasColor",
+     "TicketPolicy limits delete/deleteAny to admins, with direct policy unit tests plus Filament-level bulk-delete tests",
+     "Unassigned-only filter uses Filter::toggle(); the assignee filter uses relationship()",
+     "Relation manager sets the author from auth, and a test covers it",
+     "The sort test builds its expected order with collection sortBy/sortByDesc and checks both directions"
+    ]
+   },
+   "rationale": "All four pass their suites and use the Filament 5 Schemas/Tables layout with HasLabel/HasColor enums, so the ranking comes down to authorization design, validation and test depth. One probed bug is shared by all four: customers cascade-delete their tickets and customer delete is open to everyone, so a non-admin can wipe tickets indirectly. impl-1 ranks first. It has a proper policy, unique email validation, and the most thorough tests: validation datasets, delete for admins and non-admins on both the edit page and bulk, reply author, and the widget's 30-day window and empty state. impl-2 is nearly as good (policy, N/A empty state, counts column) but its widget assertions are weaker and it makes is_admin mass-assignable. impl-4 has a policy with policy tests, but a probe showed a duplicate customer email crashes with a QueryException because the DB is unique and the form has no rule. It also adds unrequested View pages and infolists and has no failure-path tests. impl-3 ranks last. It has no policy (the authorize closure is copy-pasted three times), the open-ticket stats count Pending tickets, the reply author can be spoofed, it uses legacy table-action test helpers, and it has the thinnest test suite with no validation tests."
+  }
+ },
+ {
+  "key": "filament-admin",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 9,
+     "eloquent_idioms": 8,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 9,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 8.6,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "Widget shows '0.0 hrs' when no tickets were resolved in the last 30 days, which reads as instant resolution instead of 'no data' (app/Filament/Widgets/TicketOverview.php:29)",
+     "The average-resolution query filters only on whereNotNull('resolved_at'), not status=resolved. resolved_at is never cleared when a ticket is reopened, so reopened tickets still count toward the average (app/Filament/Widgets/TicketOverview.php:21)",
+     "Setting status=resolved from the edit form does not stamp resolved_at; only the row action does. The resolved_at picker is manual (app/Filament/Resources/Tickets/Schemas/TicketForm.php:43)"
+    ],
+    "antipatterns": [
+     "Policy keeps the stub docblocks that only restate method names (app/Policies/TicketPolicy.php:10-68)",
+     "Widget test calls invade(new TicketOverview)->getStats() on a protected method instead of rendering the widget through Livewire (tests/Feature/Filament/Widgets/TicketOverviewTest.php:29)",
+     "Enum unit tests add little: they only assert that the labels and colours are strings (tests/Unit/Enums/TicketEnumsTest.php:6-14)",
+     "Widget registered explicitly in AdminPanelProvider even though discoverWidgets already finds it (Filament dedupes, so this is redundant, not broken) (app/Providers/Filament/AdminPanelProvider.php:43)"
+    ],
+    "strengths": [
+     "TicketPolicy defines delete and deleteAny from is_admin, and Filament hides delete actions through it automatically",
+     "Validation tests use Pest datasets for every required field, including email format and a unique-email failure path",
+     "Widget test asserts exact stat values (2, 1, '4.0 hrs') and excludes data outside the 30-day window",
+     "Useful factory states (status(), priority(), assignedTo(), unassigned(), internal()) make tests read clearly",
+     "Uses TestAction consistently for row, bulk and header actions. Tests cover both non-admin (delete hidden on list and edit pages) and admin delete paths",
+     "Customer email uses unique(ignoreRecord: true), matching the DB constraint",
+     "User is_admin is not mass-assignable (Fillable left unchanged)",
+     "Relation manager sets author_id to the current user in mutateDataUsing, and a test proves it"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 9
+    },
+    "overall": 8.3,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "The average-resolution query uses only whereNotNull('resolved_at') without a status filter, so reopened tickets with a stale resolved_at are still averaged (app/Filament/Widgets/TicketStatsOverview.php:36)",
+     "The ticket form has no resolved_at field and does not stamp it when status is changed to resolved in the edit form. Those tickets never reach the resolution-time stat (app/Filament/Resources/Tickets/Schemas/TicketForm.php:37-44)",
+     "is_admin added to User Fillable, making it mass-assignable (app/Models/User.php Fillable attribute)"
+    ],
+    "antipatterns": [
+     "Widget tests use assertSee('2') and assertSee('1'), which can match unrelated markup (tests/Feature/Filament/TicketStatsOverviewTest.php:20,31)",
+     "restore/forceDelete policy methods for a model without SoftDeletes (app/Policies/TicketPolicy.php:40-48)"
+    ],
+    "strengths": [
+     "Clean Filament 5 layout: Schemas/Tables classes, HasLabel/HasColor enums with badge columns, and a policy that drives delete visibility",
+     "Customer email is unique(ignoreRecord: true), with a matching failure-path test",
+     "Customers table uses counts('tickets') instead of an N+1",
+     "Widget returns 'N/A' when there is no data, with a test for that",
+     "Tests cover required-field validation, delete from the edit page and in bulk for both admin and non-admin, reply author attribution, and sorting in both directions",
+     "Relation manager assigns author_id server-side through mutateDataUsing",
+     "Resolve action requires confirmation and is hidden once a ticket is resolved"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 8,
+     "validation_form_requests": 6,
+     "eloquent_idioms": 8,
+     "architecture_fit": 6,
+     "modern_laravel": 7,
+     "focus_area": 6,
+     "tests": 6,
+     "correctness": 7,
+     "simplicity": 7
+    },
+    "overall": 6.2,
+    "rank": 4,
+    "tests_pass": true,
+    "bugs": [
+     "There is no TicketPolicy. The admin-only delete rule is enforced only by ad-hoc ->authorize() closures on three separate actions, so any new delete path (a view-page action, the API, Gate checks) is unprotected by default (app/Filament/Resources/Tickets/Tables/TicketsTable.php:73,85; app/Filament/Resources/Tickets/Pages/EditTicket.php:17)",
+     "The reply form exposes an author_id Select, defaulting to the current user, so any agent can post replies as another user (app/Filament/Resources/Tickets/RelationManagers/RepliesRelationManager.php:27-31)",
+     "Widget shows '0.0 hrs' when there are no resolved tickets, which is misleading (app/Filament/Widgets/TicketStatsWidget.php:33)",
+     "Setting status=resolved from the edit form does not stamp resolved_at"
+    ],
+    "antipatterns": [
+     "The same closure, fn () => (bool) auth()->user()?->is_admin, is repeated three times instead of a policy (app/Filament/Resources/Tickets/Tables/TicketsTable.php:73,85; app/Filament/Resources/Tickets/Pages/EditTicket.php:17)",
+     "A TernaryFilter with nullable() and custom true/false/blank queries is extra ceremony for an 'unassigned only' toggle (app/Filament/Resources/Tickets/Tables/TicketsTable.php:52-59)",
+     "Tests use the legacy v3-style callTableAction, callTableBulkAction and assertTableActionHidden instead of TestAction (tests/Feature/Filament/TicketResourceTest.php:126,148,159)",
+     "Widget registered explicitly and also auto-discovered (app/Providers/Filament/AdminPanelProvider.php:44)",
+     "No failure-path validation tests at all",
+     "Models are missing relation return-type generics and HasFactory generics, unlike the rest of the skeleton"
+    ],
+    "strengths": [
+     "Enums implement HasLabel/HasColor and are cast on the model, so badges render automatically",
+     "Schemas/Tables class split follows the Filament 5 generator layout",
+     "Tests cover delete visibility and success for both admin and non-admin, on row and bulk actions",
+     "Widget test checks the 30-day window exclusion with an exact average ('5.0 hrs')",
+     "Counting pending tickets as open is a defensible reading of 'open tickets'"
+    ]
+   },
+   "impl-4": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 6,
+     "eloquent_idioms": 9,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 7,
+     "correctness": 7,
+     "simplicity": 7
+    },
+    "overall": 7.4,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "customers.email has a DB unique index, but CustomerForm has no ->unique() rule. Creating a customer with a duplicate email throws an unhandled QueryException (UNIQUE constraint failed) instead of a form error. Confirmed with a probe test (app/Filament/Resources/Customers/Schemas/CustomerForm.php:16-19, database/migrations/2026_09_23_064623_create_customers_table.php:17)",
+     "Setting status=resolved from the edit form does not stamp resolved_at; only the row action does (app/Filament/Resources/Tickets/Schemas/TicketForm.php:42)",
+     "is_admin added to User Fillable, making it mass-assignable (app/Models/User.php:16)"
+    ],
+    "antipatterns": [
+     "Policy keeps the stub docblocks that only restate method names (app/Policies/TicketPolicy.php:10-67)",
+     "Extra View pages and Infolist classes for both resources that the task did not ask for, which adds scaffolding (app/Filament/Resources/*/Schemas/*Infolist.php, Pages/View*.php)",
+     "Widget test uses assertSee('2') and assertSee('1'), which can match unrelated markup (tests/Feature/Filament/TicketStatsOverviewTest.php:42,44)",
+     "No failure-path validation tests for the ticket or customer forms",
+     "An inline comment in the widget test restates the fixture's purpose (tests/Feature/Filament/TicketStatsOverviewTest.php:32)"
+    ],
+    "strengths": [
+     "Full Filament 5 generator-style structure (Schemas, Tables, Infolists), with HasLabel/HasColor enums rendered as badges",
+     "TicketPolicy with delete and deleteAny from is_admin, plus direct policy unit tests",
+     "Widget average filters on status=resolved and resolved_at within 30 days, and shows a dash placeholder when there is no data",
+     "Uses TestAction for row, bulk and relation-manager actions. The sort test checks both directions",
+     "'Unassigned only' is a simple toggle Filter. Resolve requires confirmation and is hidden once resolved",
+     "Relation manager sets author_id server-side through mutateDataUsing, and a test proves it"
+    ]
+   },
+   "rationale": "All four suites pass: 43, 34, 30 and 26 tests. They share the same Filament 5 skeleton and enum design, so the ranking turns on authorization, validation and test depth.\n\n- **impl-1 (rank 1):** A proper TicketPolicy, unique-email validation and the strongest tests: dataset-driven validation failures, exact widget values, and admin and non-admin delete checks on the list and edit pages. Its flaws are minor: '0.0 hrs' shown when there is no data, and invade() used on a protected method in the widget test.\n- **impl-2 (rank 2):** Nearly as good, with a policy, unique email, counts('tickets'), an 'N/A' widget placeholder, and validation and delete-path tests. Its widget tests use looser assertSee checks, and it drops resolved_at from the form.\n- **impl-4 (rank 3):** Well structured and the only one with direct policy tests. However, it has a confirmed bug: the database has a unique constraint on customer email, but the form does not validate it, so a duplicate email raises an unhandled QueryException. It also has no validation-failure tests, and adds view pages and infolists nobody asked for.\n- **impl-3 (rank 4):** It skips a policy entirely and repeats an inline is_admin closure on three actions. It lets agents pick any author for a reply, which allows impersonation, uses the legacy v3-style table test helpers, and has no validation tests.\n\nAll four treat resolved_at as settable only by the Resolve action or by hand. None of them auto-stamps it when status changes in the edit form."
+  }
+ },
+ {
+  "key": "caching",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 4,
+     "validation_form_requests": 3,
+     "eloquent_idioms": 8,
+     "architecture_fit": 6,
+     "modern_laravel": 8,
+     "focus_area": 6,
+     "tests": 6,
+     "correctness": 6,
+     "simplicity": 7
+    },
+    "overall": 5.5,
+    "rank": 4,
+    "tests_pass": true,
+    "bugs": [
+     "No invalidation on project/task changes (Team.php / DashboardController.php:20): relies only on Cache::flexible [5,300], so with sparse traffic a change can be hidden for up to 5 minutes, and a busy team is recomputed every 5s whether or not anything changed",
+     "During an outage the lock waiters run one after another: each waiter gets the lock, finds the cache still empty and calls the API again (ExchangeRateController.php:84-85). Waiters can block for up to 5s (LOCK_WAIT_SECONDS) before stale data comes back, which is longer than the 3s 'slow' budget",
+     "`$response->json('rates') ?? $response->json()` (ExchangeRateController.php:108) caches the whole body when there is no 'rates' key, or null on an empty 200"
+    ],
+    "antipatterns": [
+     "app/Http/Controllers/ExchangeRateController.php:26 validates inline with Validator::make and a hand-written 422 body instead of a FormRequest or the standard validation error shape",
+     "app/Http/Controllers/ExchangeRateController.php:53-129 the controller holds all the caching, locking and HTTP logic (fat controller)",
+     "app/Http/Controllers/ExchangeRateController.php:99 hard-codes the upstream URL instead of reading it from config/services.php",
+     "tests/Feature/ExchangeRateTest.php:58 the lock test blocks for 5 real seconds",
+     "app/TaskStatus.php enum sits in the app/ root, not app/Enums"
+    ],
+    "strengths": [
+     "Blocking lock (`block`) with a double-check inside, so concurrent cold misses wait for the one fetch instead of failing",
+     "Last-known copy is kept forever, separate from the 1h key",
+     "dashboardSnapshot uses a hasManyThrough plus a withCount alias, and the flexible stale window is tested with travel()",
+     "Handles a user with no team (404) and keeps team_id nullable"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 5,
+     "validation_form_requests": 3,
+     "eloquent_idioms": 7,
+     "architecture_fit": 5,
+     "modern_laravel": 7,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 7,
+     "simplicity": 8
+    },
+    "overall": 7,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "Cold-cache stampede: requests that miss the non-blocking lock get an immediate 503 when no last-known rates exist, even though the API is healthy (ExchangeRateController.php:37). The test at ExchangeRateTest.php:94 enshrines this",
+     "The Task/Project saved hooks forget only the current team_id, so moving a task or project to another team leaves the old team's dashboard stale (Task.php:27, Project.php:19)",
+     "Invalidation runs inside the transaction rather than after commit (no afterCommit), so a concurrent recompute can cache pre-commit data. Flexible's 5s fresh window limits the impact"
+    ],
+    "antipatterns": [
+     "routes/web.php:11 puts API routes in web.php under Route::prefix('api') (web middleware group) instead of routes/api.php via withRouting(api:)",
+     "app/Http/Controllers/ExchangeRateController.php:17 validates inline with Validator::make and a custom 422 instead of a FormRequest",
+     "app/Http/Controllers/DashboardController.php:31 builds the dashboard query in the controller",
+     "app/Models/Task.php:27 lazy-loads project in the saved hook (one extra query per write)",
+     "Upstream URL hard-coded at ExchangeRateController.php:69"
+    ],
+    "strengths": [
+     "The only implementation with both Cache::flexible([5,300]) and model-event invalidation (saved/deleted), which matches the requirements best",
+     "Uses whereRelation and withCount, orders deterministically by name as a tie-breaker, and adds composite indexes on tasks",
+     "connectTimeout + timeout of 3s, and treats both ConnectionException and failed() as down",
+     "Broad Pest coverage: exact JSON, isolation, invalidation on create and delete, timeout, 500, lock held with and without stale data; LazilyRefreshDatabase"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 9,
+     "eloquent_idioms": 9,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 6,
+     "tests": 7,
+     "correctness": 6,
+     "simplicity": 7
+    },
+    "overall": 6.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "No invalidation on project/task changes (BuildTeamDashboard.php:15): only flexible [5,300]. The test at DashboardTest.php:77 even asserts that a change is not reflected and only checks again after 6 minutes",
+     "Cold-cache stampede: requests that miss the non-blocking lock throw 503 when no last-good copy exists, even though the API is up (GetExchangeRates.php:28-43)",
+     "The last-good copy expires after one day (GetExchangeRates.php:66), so an outage longer than a day returns 503 although rates were once known"
+    ],
+    "antipatterns": [
+     "app/Actions/GetExchangeRates.php:43 throws a Symfony HttpException from a domain action, which couples the action to HTTP",
+     "app/Actions/GetExchangeRates.php:65 caches the raw upstream body without checking its shape",
+     "tests/Feature/DashboardTest.php:77 enshrines stale-until-expiry behaviour instead of testing freshness within seconds"
+    ],
+    "strengths": [
+     "The only one with a FormRequest: it normalises the route parameter in prepareForValidation and exposes a typed currency() accessor",
+     "Thin invokable controllers delegating to single-purpose Action classes",
+     "#[Scope] attribute scopes (open, completedBetween), a hasManyThrough tasks relation, and enums in app/Enums",
+     "Upstream URL in config/services.php, report() on failures, ->throw() plus catching RequestException, and versioned cache keys",
+     "Tests use Http::sequence and travel(61 minutes) to check the 1h TTL, plus assertJsonValidationErrors"
+    ]
+   },
+   "impl-4": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 4,
+     "validation_form_requests": 4,
+     "eloquent_idioms": 6,
+     "architecture_fit": 6,
+     "modern_laravel": 5,
+     "focus_area": 6,
+     "tests": 7,
+     "correctness": 6,
+     "simplicity": 8
+    },
+    "overall": 6,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "Uses Cache::remember(5 min) rather than flexible (DashboardController.php:17), so every expiry or invalidation makes a request recompute synchronously with no stampede protection. The allowance to serve stale data while recomputing is not used",
+     "Cold-cache stampede: requests that lose the non-blocking lock get 503 when no last-known rates exist, though the API is healthy (ExchangeRateController.php:31-49). The test at ExchangeRateTest.php:42 enshrines this",
+     "Invalidation runs pre-commit and targets only the current team_id; with the 5-minute remember, a racing recompute inside a transaction can cache stale data for the full 5 minutes"
+    ],
+    "antipatterns": [
+     "app/Http/Controllers/DashboardController.php:13 and ExchangeRateController.php:13 have no return types, and DashboardController.php:26 has no array return type",
+     "app/Http/Controllers/DashboardController.php:26-50 the dashboard aggregation lives in the controller",
+     "app/Http/Controllers/ExchangeRateController.php:15 validates inline with Validator instead of a FormRequest",
+     "app/Models/Project.php:16, Task.php:16, Team.php:16 use a protected $fillable property, inconsistent with the #[Fillable] attribute style of the base User model",
+     "DashboardController.php:31 repeats whereHas closures where whereRelation or hasManyThrough would do",
+     "DashboardController.php:48 ->values() on the mapped collection is redundant"
+    ],
+    "strengths": [
+     "Model-event invalidation (saved/deleted) through a Team::forgetDashboardCache helper, with tests for project creation and task completion",
+     "Keeps the last-known rates forever and handles both ConnectionException and failed() responses",
+     "Good test for stale fallback after a real success followed by a 500, via Http::sequence, plus preventStrayRequests"
+    ]
+   },
+   "rationale": "All four suites pass on Laravel 13.33.\n\nimpl-2 ranks first. It is the only one that meets both dashboard requirements: Cache::flexible([5,300]) serves stale data while recomputing, and saved/deleted model events invalidate the cache. Its weaknesses are routes placed in web.php under an 'api' prefix, inline validation instead of a FormRequest, and a non-blocking lock. With that lock, requests that lose the race on a cold cache get a 503 while the API is healthy; impl-3 and impl-4 share this bug.\n\nimpl-3 has the best Laravel style: a FormRequest that normalises the route parameter, thin controllers with Action classes, #[Scope] scopes, the URL in config, and report(). But it has no invalidation, and one test even asserts that changes are not reflected. Its last-good copy also expires after a day.\n\nimpl-4 invalidates through model events but uses plain remember instead of flexible, so it gives up the stale-while-recomputing allowance. Its style is weaker too: no return types, $fillable properties, and logic in the controller.\n\nimpl-1 has the best stampede handling for exchange rates, a blocking lock with a double-check. But it has no invalidation, puts all the caching, locking and HTTP logic in the controller with inline validation, and during an outage its waiters call the API again one after another."
+  }
+ },
+ {
+  "key": "caching",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 5,
+     "validation_form_requests": 3,
+     "eloquent_idioms": 8,
+     "architecture_fit": 6,
+     "modern_laravel": 8,
+     "focus_area": 6,
+     "tests": 6,
+     "correctness": 6,
+     "simplicity": 6
+    },
+    "overall": 5.5,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "ExchangeRateController.php:84-85: during an upstream outage, lock waiters run a second check on the cache, still find nothing (the failed fetch cached nothing), and call the API themselves. The API is then called one request after another, which breaks 'only one request may call the API'. Waiters can also take about 5s + 3s before they get stale data, which breaks the 3-second 'slow' fallback.",
+     "ExchangeRateController.php:19,84: LOCK_WAIT_SECONDS = 5 is longer than the 3s budget, so a waiting request can block for up to 5s even when the API is healthy but slow.",
+     "ExchangeRateController.php:31-35: a failed validation returns a hand-built 422 with no `errors` bag, which differs from Laravel's standard validation response."
+    ],
+    "antipatterns": [
+     "ExchangeRateController.php:26-35: inline Validator plus a manual 422 response instead of a FormRequest that validates the route parameter",
+     "ExchangeRateController.php:53-129: caching, locking and HTTP logic all sit in the controller, with four private helpers and three constants",
+     "ExchangeRateController.php:72-75: the docblock describes what the code does",
+     "DashboardTest.php / ExchangeRateTest.php:76: the lock test really blocks for 5s (suite takes about 5s), and it is tagged 'slow' instead of using a shorter wait"
+    ],
+    "strengths": [
+     "Cache::flexible([5, 300]) is exactly the right tool for 'fresh within seconds, stale for up to 5 minutes'",
+     "Only implementation that uses lock->block() and checks the cache again inside the lock, so concurrent cold misses with a healthy API all get fresh data instead of 503",
+     "Dashboard query lives on Team::dashboardSnapshot() with a hasManyThrough tasks relation and generic relation docblocks",
+     "Flexible-window test uses travel() to check stale-then-refresh behaviour"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 5,
+     "validation_form_requests": 3,
+     "eloquent_idioms": 8,
+     "architecture_fit": 4,
+     "modern_laravel": 6,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 7,
+     "simplicity": 7
+    },
+    "overall": 6.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "ExchangeRateController.php:37-44: the lock is taken without blocking. When many requests miss a cold cache at once and no last-known value exists, every request except the lock holder gets 503 even though the API is healthy. The test at ExchangeRateTest.php:94-107 treats this as intended behaviour.",
+     "routes/web.php: the /api routes are registered inside the web middleware group (session, cookies, CSRF) under a manual prefix instead of routes/api.php, so they are not real stateless API routes.",
+     "Task.php:27-28 / Project.php:19-20: invalidation only clears the cache for the current team_id. Moving a project or task leaves the old team's dashboard stale until the flexible window expires (about 5s, so this is limited)."
+    ],
+    "antipatterns": [
+     "routes/web.php:10-14: Route::prefix('api') inside web.php instead of install:api / routes/api.php",
+     "ExchangeRateController.php:17-26: inline Validator plus a hand-built 422 message, which drops the standard errors bag; a FormRequest belongs here",
+     "ExchangeRateController.php:32-88: caching, locking and HTTP logic in the controller",
+     "Task.php:27: $task->project lazy-loads in the saved hook on every save",
+     "app/TaskStatus.php: enum at the app root instead of app/Enums (minor)"
+    ],
+    "strengths": [
+     "Best dashboard caching strategy: Cache::flexible([5, 300]) combined with invalidation from model saved/deleted events, so changes show immediately and stale data is still served while recomputing",
+     "whereRelation and withCount with a constraint, plus a deterministic tie-break orderBy('name')",
+     "Adds composite indexes on tasks(project_id, status) and (status, completed_at), which suit the expensive queries",
+     "Thorough tests: assertExactJson, Http::failedConnection, preventStrayRequests, timeout and 500 paths, lock-held paths with and without stale data",
+     "connectTimeout plus timeout on the HTTP client"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 9,
+     "eloquent_idioms": 9,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 7,
+     "tests": 8,
+     "correctness": 7,
+     "simplicity": 7
+    },
+    "overall": 7.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "GetExchangeRates.php:26-38: the lock is taken without blocking. When many requests miss a cold cache at once and there is no last-good value, every request except the lock holder gets 503 even though the API is healthy.",
+     "GetExchangeRates.php:55-58: a 200 response with a body that is not JSON makes ->json() return null. Cache::put stores null, and `[...$rates]` then throws a TypeError, giving a 500 instead of stale data or 503.",
+     "BuildTeamDashboard.php:15: there is no invalidation from model events, so freshness depends entirely on the 5s flexible window. This meets 'within seconds' but not immediately."
+    ],
+    "antipatterns": [
+     "GetExchangeRates.php:43: throws a Symfony HttpException from a domain Action, which puts HTTP concerns in the action (abort(503) or a domain exception would be cleaner)",
+     "GetExchangeRates.php:18 / BuildTeamDashboard.php:16: ':v1' key suffix is a little speculative"
+    ],
+    "strengths": [
+     "Thin invokable controllers that delegate to single-purpose Action classes",
+     "Proper FormRequest that merges the route parameter in prepareForValidation, uppercases it, and exposes a typed currency() accessor",
+     "Modern Eloquent: #[Scope] attribute scopes (open, completedBetween), #[Fillable], hasManyThrough tasks relation, enum casts",
+     "Cache::flexible([5, 300]) fits the stale-while-revalidate requirement",
+     "Upstream URL in config/services.php; ->throw() with a catch for ConnectionException|RequestException, plus report()",
+     "Good tests: travel() for both the 1h TTL and the flexible expiry, a dataset for validation, a held lock with stale fallback, assertJsonPath/assertJsonCount"
+    ]
+   },
+   "impl-4": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 5,
+     "validation_form_requests": 4,
+     "eloquent_idioms": 7,
+     "architecture_fit": 6,
+     "modern_laravel": 6,
+     "focus_area": 5,
+     "tests": 7,
+     "correctness": 6,
+     "simplicity": 7
+    },
+    "overall": 5,
+    "rank": 4,
+    "tests_pass": true,
+    "bugs": [
+     "ExchangeRateController.php:29-39: the lock is taken without blocking. When many requests miss a cold cache at once and no last-known value exists, every request except the lock holder gets 503 even though the API is healthy. The test at ExchangeRateTest.php:42-50 treats this as intended behaviour.",
+     "DashboardController.php:17-21: uses Cache::remember for 5 minutes, not flexible. After an invalidation or expiry, every concurrent request recomputes the expensive dashboard at the same time, and no stale value is served while it recomputes, so the 'serve stale up to 5 min if recomputing is slow' allowance is never used.",
+     "ExchangeRateController.php:66: when the upstream response has no rates, `'rates' => []` is cached as a successful fresh result for an hour and also overwrites last-known.",
+     "ExchangeRateController.php:31-33: no second cache check after the lock is acquired, so a request that missed just before another request filled the cache calls the API again."
+    ],
+    "antipatterns": [
+     "ExchangeRateController.php:15-18: inline Validator::make instead of a FormRequest",
+     "ExchangeRateController.php:13-74: caching, locking and HTTP logic in the controller",
+     "DashboardController.php:26-50: expensive aggregation logic in a private controller method; the same whereHas closure is repeated at lines 31 and 34 where a hasManyThrough relation or scope would do",
+     "Task.php:38-39: $task->project lazy-loads inside the saved/deleted hooks",
+     "Project.php/Task.php: protected $fillable instead of the #[Fillable] attribute that User.php already uses"
+    ],
+    "strengths": [
+     "Invalidation from model saved/deleted events through a single Team::dashboardCacheKey/forgetDashboardCache helper",
+     "Validator->validate() gives the standard 422 errors shape",
+     "Http::preventStrayRequests in beforeEach; tests cover sequence(), 500, ConnectionException, and lock-held paths with and without last-known data",
+     "api.php registered properly"
+    ]
+   },
+   "rationale": "All four test suites pass. impl-3 ranks first. It is the most idiomatic: thin invokable controllers, Action classes, a FormRequest that validates the route parameter, #[Scope] attribute scopes, a hasManyThrough relation, the upstream URL in config, and Cache::flexible([5,300]), which matches the dashboard freshness and staleness rules. Its tests use travel() well. Its bugs are shared or edge-case: the non-blocking lock gives 503 on concurrent cold misses, and a 200 response that is not JSON crashes. impl-2 has the best dashboard caching (flexible plus invalidation from model events), adds indexes, and has thorough tests. It loses ground because its API routes are registered in web.php under a manual prefix, validation is a hand-built 422, and all the logic sits in the controllers; it shares the same 503-on-cold-stampede lock behaviour. impl-1 uses flexible and is the only one that blocks on the lock and checks the cache again, so the healthy-API stampede case is right. But during an outage its waiters call the API again one after another, and they can wait 5-8s, which breaks both 'only one request calls the API' and the 3s fallback. It also has a fat controller, a manual 422, and a real 5-second test. impl-4 ranks last. It uses Cache::remember instead of flexible, so it never serves stale data while recomputing and allows a recompute stampede after invalidation. It also returns 503 on concurrent cold misses, caches empty rates as a success, and puts inline validation and aggregation logic in its controllers. Its only real edge over impl-1 is that its model-event invalidation is sound."
+  }
+ },
+ {
+  "key": "webhook-worker",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 6,
+     "thin_controllers": 5,
+     "validation_form_requests": 4,
+     "eloquent_idioms": 6,
+     "architecture_fit": 6,
+     "modern_laravel": 7,
+     "focus_area": 4,
+     "tests": 6,
+     "correctness": 4,
+     "simplicity": 7
+    },
+    "overall": 4.5,
+    "rank": 4,
+    "tests_pass": true,
+    "bugs": [
+     "app/Jobs/ProcessWebhookEvent.php:17 has no $tries/backoff/failed(). With the README's plain `queue:work` (default tries=1), a job that RateLimited or WithoutOverlapping releases hits MaxAttemptsExceeded on its next pickup. The event is then left 'pending'/'processing' forever, never marked failed and never visible via ?status=failed",
+     "app/Jobs/ProcessWebhookEvent.php:51 catches every Throwable and marks the event failed on the first attempt. There are no queue-level retries: a provider 5xx outage longer than the roughly 1.7s of in-process HTTP retries (PaymentProviderClient.php:13) permanently fails the event",
+     "Services/PaymentProviderClient.php:18 retries inside a single job, so one job can make up to 4 API calls while the RateLimited middleware counts it as 1. The 10 req/s limit can be exceeded",
+     "PaymentWebhookController.php:17 uses (string) config(...). If the secret is unset, an HMAC with an empty key is accepted, so anyone can forge signatures",
+     "routes/api.php:7 uses the session 'auth' middleware in the stateless api group and Sanctum is not installed. Admins cannot authenticate in production (actingAs hides this in tests)",
+     "Duplicate concurrent deliveries race in firstOrCreate (PaymentWebhookController.php:29): the unique PK violation returns 500 instead of 200"
+    ],
+    "antipatterns": [
+     "app/Http/Controllers/PaymentWebhookController.php:14 does HMAC verification inline in the controller instead of in a middleware",
+     "app/Http/Controllers/PaymentWebhookController.php:23 uses inline $request->validate instead of a FormRequest",
+     "app/Http/Controllers/Api/WebhookEventController.php:14 has an unvalidated status filter, no pagination, no API Resource, and returns the raw model including the payload",
+     "app/Models/Order.php:17 uses string constants instead of backed enums with casts",
+     "app/Jobs/ProcessWebhookEvent.php:39 uses forceFill everywhere despite #[Fillable]",
+     "app/Notifications/PaymentReceiptNotification.php:9 sends the receipt synchronously (not ShouldQueue)",
+     "app/Jobs/ProcessWebhookEvent.php:26 uses WithoutOverlapping without expireAfter, so a crashed worker leaves the lock held indefinitely"
+    ],
+    "strengths": [
+     "Http::preventStrayRequests globally in Pest.php",
+     "Simple and readable job with WithoutOverlapping and a named RateLimited limiter",
+     "End-to-end tests through the sync queue, including an Http::sequence retry test",
+     "Signature checked against the raw body with hash_equals; CSRF excluded for webhooks"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 9,
+     "validation_form_requests": 9,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 7,
+     "tests": 8,
+     "correctness": 7,
+     "simplicity": 7
+    },
+    "overall": 7.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "app/Services/PaymentProviderClient.php:19 retries the HTTP call 4 times inside one job, and #[Tries(6)] retries on top of that. A single job can fire up to 4 requests per RateLimited slot, which breaks the 10 req/s guarantee and multiplies calls during an outage",
+     "app/Http/Middleware/VerifyPaymentWebhookSignature.php:16 casts a missing secret to ''. With PAYMENT_PROVIDER_WEBHOOK_SECRET unset, forged signatures computed with an empty key pass",
+     "app/Jobs/ProcessWebhookEvent.php:54 treats unknown event types as `default => null` and marks them 'processed' silently instead of failing or flagging them",
+     "Permanent errors (order not found, missing payment_id) are retried 6 times over about 8 minutes of backoff before being marked failed, with no fast-fail path",
+     "Concurrent duplicate deliveries race in firstOrCreate (PaymentWebhookController.php:15): the unique violation returns 500 rather than 200"
+    ],
+    "antipatterns": [
+     "README.md documents `--tries=3` while the job declares #[Tries(6)], which is inconsistent documentation",
+     "README.md tells readers to add Schedule::command(CleanupWebhookEvents) even though routes/console.php already registers it",
+     "app/Http/Requests/StorePaymentWebhookRequest.php:7: FormRequest runs after the signature middleware but has no authorize() (fine), yet type is not constrained with Rule::in",
+     "app/Notifications/PaymentReceiptNotification.php:9: receipt not ShouldQueue",
+     "app/Console/Commands/CleanupWebhookEvents.php:11: a hand-rolled command where the Prunable/MassPrunable trait plus model:prune is the idiomatic fit"
+    ],
+    "strengths": [
+     "Thin controllers with FormRequests, an API Resource and paginate(); Rule::enum plus $request->enum() for the status filter",
+     "Backed enums cast on the models; the #[Table] attribute and #[Tries]/#[Backoff] attributes (verified in the installed L13)",
+     "WithoutOverlapping with expireAfter plus a named RateLimited limiter; failed() marks the event failed with the error",
+     "Idempotent side effects: markAsPaid() returns false when already paid, so retries never resend the receipt; refund firstOrCreate on provider_refund_id",
+     "Admin endpoint on web routes so session auth actually works; signature verification in a dedicated middleware",
+     "Thorough Pest tests: idempotency on re-run, retry sequence, exhausted retries throw, failed() behaviour, invalid status filter, guest/non-admin"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 6,
+     "thin_controllers": 6,
+     "validation_form_requests": 4,
+     "eloquent_idioms": 6,
+     "architecture_fit": 6,
+     "modern_laravel": 7,
+     "focus_area": 7,
+     "tests": 7,
+     "correctness": 5,
+     "simplicity": 7
+    },
+    "overall": 5.5,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "routes/api.php:7 puts the webhook route in the api group, so it is served at POST /api/webhooks/payments instead of the required POST /webhooks/payments (confirmed via route:list)",
+     "app/Http/Controllers/PaymentWebhookController.php:51 catches any QueryException as a duplicate and then firstOrFail()s. A real DB error becomes a misleading 404 or is masked",
+     "routes/api.php:9 uses the session 'auth' middleware in the stateless api group without Sanctum, so admins cannot authenticate in production",
+     "app/Jobs/ProcessWebhookEvent.php:61 marks unknown event types 'processed' silently",
+     "app/Jobs/ProcessWebhookEvent.php:105: Refund::create has no idempotency key, and a retry after a partial success (for example, the order update failing) creates a duplicate refund. payment.succeeded retries resend the receipt",
+     "app/Jobs/ProcessWebhookEvent.php:31 uses WithoutOverlapping without expireAfter, so a killed worker holds the lock forever and the event eventually fails on release attempts"
+    ],
+    "antipatterns": [
+     "app/Http/Controllers/PaymentWebhookController.php:38 hand-rolls storeEventOnce with try/catch and a manual wasRecentlyCreated assignment instead of createOrFirst / UniqueConstraintViolationException",
+     "app/Http/Controllers/PaymentWebhookController.php:19 does signature verification inline in the controller rather than in middleware; inline validate instead of a FormRequest",
+     "app/Http/Controllers/WebhookEventController.php:14 has an unvalidated status filter and uses get() with no pagination",
+     "app/Notifications/PaymentReceiptNotification.php:12 uses the Queueable trait without implementing ShouldQueue (dead trait)",
+     "app/Models/Order.php:17 uses string status constants and no enum casts",
+     "tests/Feature/Jobs/ProcessWebhookEventTest.php:129 is a configuration-introspection test with an explanatory comment asserting that backoff is sorted, which checks very little"
+    ],
+    "strengths": [
+     "Queue-level retries: $tries=5 plus increasing backoff(); failed() writes the status and error via whereKey update",
+     "Rejects the request when the secret is not configured (`! $secret`), raw-body HMAC with hash_equals",
+     "Gate::define plus the can: middleware for admin authorisation",
+     "The job re-reads the event by id and skips processed events; the Http::preventStrayRequests tests cover the 503 propagation path",
+     "Posts the raw body in tests via call() so the signature is truly over the raw bytes"
+    ]
+   },
+   "impl-4": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 9,
+     "validation_form_requests": 9,
+     "eloquent_idioms": 8,
+     "architecture_fit": 7,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 9,
+     "correctness": 7,
+     "simplicity": 6
+    },
+    "overall": 7.8,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "app/Jobs/ProcessWebhookEvent.php:46 has no guard for an already-processed event. A retry after a partial success (for example, the final 'processed' update failing) re-runs markSucceeded and queues a second receipt",
+     "routes/api.php:6 uses the session 'auth' middleware in the stateless api group without Sanctum, so admins cannot authenticate in production",
+     "app/Http/Controllers/PaymentWebhookController.php:27 detects duplicates by string-matching 'unique' in the exception message. This is fragile across drivers and locales; UniqueConstraintViolationException or createOrFirst exist",
+     "app/Jobs/ProcessWebhookEvent.php:38 puts RateLimited before WithoutOverlapping, so an overlapping duplicate still consumes a rate-limit slot and an attempt"
+    ],
+    "antipatterns": [
+     "app/Exceptions/*: a three-class exception hierarchy (PaymentWebhookException / Rejected / Unavailable) is somewhat ceremonious for one job",
+     "app/OrderStatus.php, app/WebhookEventStatus.php: enums in the app root rather than app/Enums",
+     "app/Jobs/ProcessWebhookEvent.php:104 builds the HTTP client inline in the job; no client class, and config is read in the job",
+     "app/Console/Commands/PrunePaymentWebhookEvents.php:13: a hand-rolled command where the Prunable trait plus model:prune is the idiomatic fit",
+     "app/Http/Requests/IndexWebhookEventRequest.php:26 re-implements $request->enum() manually"
+    ],
+    "strengths": [
+     "Clear transient vs permanent split: 5xx propagates to queue retries with #[Tries(6)]/#[Backoff] increasing delays; 4xx, missing data or a missing order call $this->fail() immediately, and failed() records the error",
+     "No in-process HTTP retry loop, so each job attempt is exactly one API call under RateLimited, which keeps the 10 req/s limit honest; connect and read timeouts plus #[Timeout(30)] and WithoutOverlapping->expireAfter(120)",
+     "Queued receipt notification (ShouldQueue); refund idempotent via firstOrCreate on provider_refund_id",
+     "Signature middleware rejects the request when the secret is unset; FormRequests, API Resource, paginate(), enum casts, #[Scope] attribute",
+     "Best tests: withFakeQueueInteractions()->assertFailed() for the permanent failure paths, a double-run refund idempotency test, 503 propagation, validation errors, invalid status filter, prune boundaries",
+     "README gives a concrete Supervisor config, queue:restart on deploy, and scheduler cron"
+    ]
+   },
+   "rationale": "All four suites pass. impl-4 ranks first. It is the only one that separates transient from permanent failures properly: 5xx responses go back to the queue with increasing backoff, while 4xx responses, missing data and missing orders call fail() immediately. It makes exactly one API call per rate-limited attempt and queues the receipt notification. It also has the strongest queue-aware tests (withFakeQueueInteractions, assertFailed). Its main gaps are no guard against reprocessing an already-processed event, duplicate detection by string-matching 'unique' in the exception message, and an api-group session-auth route. impl-2 is a close second: the idiomatic FormRequest/enum/Resource layer, idempotent markAsPaid, and an admin route that actually works with session auth. It loses ground because the in-job HTTP retry loop multiplies API calls per rate-limit slot, a missing secret lets empty-key signatures through, unknown event types are marked processed silently, and permanent errors are retried six times. impl-3 has sound queue semantics ($tries, backoff, failed()), but it breaks the spec by serving the webhook at /api/webhooks/payments. It also treats every QueryException as a duplicate, and its validation and filtering are thin (inline validate, unvalidated status filter, no pagination). impl-1 is last: no $tries, backoff or failed(), and it catches every Throwable, so there are no queue-level retries. With the default single try, jobs released by RateLimited or WithoutOverlapping silently hit MaxAttemptsExceeded and are left pending instead of failed. In-process HTTP retries bypass the rate limit, and signature checking, validation and the admin filter are all done inline with no FormRequest."
+  }
+ },
+ {
+  "key": "webhook-worker",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 5,
+     "thin_controllers": 3,
+     "validation_form_requests": 3,
+     "eloquent_idioms": 4,
+     "architecture_fit": 4,
+     "modern_laravel": 4,
+     "focus_area": 2,
+     "tests": 5,
+     "correctness": 3,
+     "simplicity": 6
+    },
+    "overall": 3,
+    "rank": 4,
+    "tests_pass": true,
+    "bugs": [
+     "app/Jobs/ProcessWebhookEvent.php:51 catch (Throwable) marks the event failed and returns, so a 5xx never reaches the queue. There is no queue-level retry and no increasing backoff beyond about 1.7s of in-process HTTP retries (200/500/1000ms), so a short provider outage fails events permanently.",
+     "The job sets no $tries and has no failed() method. With the default worker --tries=1 (the README command sets none), a RateLimited or WithoutOverlapping release causes MaxAttemptsExceeded on the next pickup, and the event stays in 'processing' forever instead of being marked failed. This happens as soon as traffic goes over 10 events/s.",
+     "app/Http/Controllers/PaymentWebhookController.php:17 computes the HMAC with (string) config(...). If the secret is unset, the key is '' and anyone can forge a valid signature.",
+     "app/Services/PaymentProvider/PaymentProviderClient.php:18 Http::retry sends up to 4 requests for each job slot the rate limiter allows, so the provider's 10 req/s limit can be exceeded.",
+     "WithoutOverlapping at app/Jobs/ProcessWebhookEvent.php:26 has no expireAfter. If a worker crashes, the lock never expires and the event can never be processed.",
+     "app/Http/Controllers/Api/WebhookEventController.php:19 returns raw models, full payload included, with no resource, no pagination and no validation of status.",
+     "The receipt notification is not queued, so a mail failure in the job path ends in the catch-all and the event is marked failed after the order was already marked paid."
+    ],
+    "antipatterns": [
+     "app/Http/Controllers/PaymentWebhookController.php:14-27 signature check and validation inline in the controller; should be middleware plus a FormRequest",
+     "app/Jobs/ProcessWebhookEvent.php:51 catch-all Throwable swallows the exception, which defeats the queue's retry and failed() machinery",
+     "app/Models/WebhookEvent.php:11 and app/Models/Order.php:17 string status constants instead of backed enums with casts",
+     "app/Models/WebhookEvent.php:19-21 $incrementing/$keyType properties instead of the #[Table] attribute used elsewhere in the base",
+     "app/Jobs/ProcessWebhookEvent.php:39,70 forceFill()->save() everywhere although #[Fillable] is declared",
+     "app/Jobs/ProcessWebhookEvent.php:49 \\RuntimeException written with a fully qualified name instead of an import",
+     "app/Providers/AppServiceProvider.php:24 comment restates the code",
+     "app/Models/User.php:13 is_admin is mass assignable"
+    ],
+    "strengths": [
+     "Uses the provider event id as the string primary key, and firstOrCreate plus wasRecentlyCreated means a duplicate delivery is not dispatched again",
+     "Has both RateLimited and WithoutOverlapping middleware and a named rate limiter",
+     "Job returns early for already-processed events",
+     "Tests exercise the full flow end to end through the sync queue, with Http::preventStrayRequests set globally"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 8,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 7,
+     "modern_laravel": 8,
+     "focus_area": 6,
+     "tests": 7,
+     "correctness": 6,
+     "simplicity": 7
+    },
+    "overall": 6.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "app/Http/Middleware/VerifyPaymentWebhookSignature.php:16 computes the HMAC with (string) config(...). With no secret configured, a signature made with an empty key is accepted. A probe confirmed a forged request returns 200.",
+     "app/Services/PaymentProviderClient.php:19 Http::retry(times: 4) inside the job sends up to 4 provider requests for each RateLimited slot, so the 10 req/s limit is not actually enforced. The retries also block the worker with sleeps, and they sit on top of the job-level Tries/Backoff.",
+     "app/Http/Controllers/PaymentWebhookController.php:15 uses firstOrCreate, not createOrFirst. When two deliveries of the same id arrive at once, the second throws a UniqueConstraintViolationException and returns 500 instead of 200.",
+     "RateLimited releases count as attempts with Tries(6), so a burst of events can exhaust attempts and fail events permanently without any provider error. No retryUntil is set.",
+     "The receipt notification is not ShouldQueue, so mail is sent synchronously inside the job. markAsPaid() does prevent a duplicate send on retry."
+    ],
+    "antipatterns": [
+     "routes/web.php:16-18 the admin API route /api/webhook-events is defined in web.php rather than routes/api.php",
+     "app/Jobs/ProcessWebhookEvent.php:45 a hand-rolled attempts column duplicates the queue's own attempts()",
+     "tests/Feature/ProcessWebhookEventTest.php:94-120 tests sleep for real through the in-process HTTP retries (about 2s of suite time) instead of using Sleep::fake",
+     "README.md worker example passes --tries=3, which contradicts the job's #[Tries(6)] (the attribute wins, but the documentation is confusing)",
+     "app/Models/User.php:13 is_admin is mass assignable"
+    ],
+    "strengths": [
+     "Uses a signature middleware, StorePaymentWebhookRequest, and an Index FormRequest with Rule::enum and $this->enum()",
+     "Backed enums with casts, #[Table] attribute for a string primary key, #[Tries]/#[Backoff] attributes, WithoutOverlapping with expireAfter",
+     "Idempotency at several layers: skips processed/failed events, firstOrCreate on refund id, and markAsPaid() returns a bool that guards the notification",
+     "API resource with pagination; admin middleware alias",
+     "Solid tests: idempotency (notification sent once, HTTP called once), a 5xx sequence, failed(), an invalid status filter"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 6,
+     "thin_controllers": 4,
+     "validation_form_requests": 3,
+     "eloquent_idioms": 5,
+     "architecture_fit": 5,
+     "modern_laravel": 5,
+     "focus_area": 6,
+     "tests": 7,
+     "correctness": 5,
+     "simplicity": 6
+    },
+    "overall": 5,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "routes/api.php:7 registers the webhook at /api/webhooks/payments. The spec requires POST /webhooks/payments, and a probe confirmed that path returns 404.",
+     "app/Jobs/ProcessWebhookEvent.php:31 WithoutOverlapping has no expireAfter. If a worker crashes mid-job, the lock persists forever and the event can never be retried.",
+     "app/Http/Controllers/PaymentWebhookController.php:51 catch (QueryException) catches any DB error, not only unique violations, and treats it as a duplicate. A real DB failure then ends in firstOrFail, or silently acks a lost event.",
+     "app/Jobs/ProcessWebhookEvent.php:105 Refund::create is not idempotent and refunds have no unique key. A retry after the refund insert but before the status update creates a duplicate refund.",
+     "app/Jobs/ProcessWebhookEvent.php:61 an unknown event type falls through to default => null and is marked processed silently.",
+     "app/Http/Controllers/WebhookEventController.php:15 the status filter is unvalidated and the query is unpaginated (->get()).",
+     "RateLimited releases consume attempts with $tries = 5, so bursts over 10/s can permanently fail events."
+    ],
+    "antipatterns": [
+     "app/Http/Controllers/PaymentWebhookController.php:15-21 HMAC verification inline in the controller instead of middleware",
+     "app/Http/Controllers/PaymentWebhookController.php:23 inline $request->validate instead of a FormRequest",
+     "app/Http/Controllers/PaymentWebhookController.php:48 manually sets wasRecentlyCreated, which create() already sets; createOrFirst would replace the whole helper",
+     "app/Models/WebhookEvent.php:16 and app/Models/Order.php:17 string constants instead of backed enums and casts",
+     "app/Notifications/PaymentReceiptNotification.php:10 notification is not ShouldQueue",
+     "app/Jobs/ProcessWebhookEvent.php:21 public $tries property rather than the #[Tries] attribute available in this Laravel 13 install",
+     "tests/Feature/Jobs/ProcessWebhookEventTest.php:130-133 multi-line comment explaining the test",
+     "app/Models/User.php:13 is_admin is mass assignable"
+    ],
+    "strengths": [
+     "The job has a real failed() handler, increasing backoff, and job-level retries, so 5xx errors propagate to the queue correctly",
+     "Passes the event id to the job and re-fetches it, with a guard for already-processed events",
+     "Admin access through a Gate (can:viewWebhookEvents) and an API resource",
+     "Tests post raw bodies with call(), so signatures are checked byte for byte; assertModelMissing/assertModelExists; freezeTime in the cleanup test",
+     "README worker section is clear, including queue:restart and the scheduler cron"
+    ]
+   },
+   "impl-4": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 8,
+     "validation_form_requests": 9,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 7
+    },
+    "overall": 8,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "app/Http/Controllers/PaymentWebhookController.php:27 detects duplicates with str_contains(strtolower($message), 'unique') instead of catching UniqueConstraintViolationException or using createOrFirst. This is fragile across drivers and locales.",
+     "RateLimited releases consume attempts with #[Tries(6)], so under a sustained burst over 10/s, events can exhaust their tries and be marked failed without any provider error. No retryUntil is set.",
+     "routes/api.php:6 uses the session-based 'auth' guard in the stateless api group, so no real client can authenticate in production (tests pass only because of actingAs). impl-1 and impl-3 share this."
+    ],
+    "antipatterns": [
+     "app/Http/Controllers/PaymentWebhookController.php:20-32 try/catch on QueryException with string matching; use UniqueConstraintViolationException or createOrFirst plus wasRecentlyCreated",
+     "app/Exceptions/*.php three exception classes (one hierarchy for permanent failures, one standalone for transient) add some ceremony",
+     "app/Jobs/ProcessWebhookEvent.php:48 no guard against re-processing an event already marked Processed; it relies only on the single dispatch",
+     "app/Console/Commands/PrunePaymentWebhookEvents.php a custom command where the Prunable trait with model:prune would be the framework idiom",
+     "app/Models/User.php:13 is_admin is mass assignable"
+    ],
+    "strengths": [
+     "Separates transient from permanent failures: 5xx propagates for a backoff retry, while 4xx, a missing order or a missing field call $this->fail() immediately and failed() records the error",
+     "Current Laravel 13 idioms: #[Tries]/#[Backoff]/#[Timeout] job attributes, the #[Scope] attribute, #[Signature]/#[Description] command attributes, backed enums with casts, Rule::enum",
+     "Queued (ShouldQueue) receipt notification; WithoutOverlapping keyed by event_id with expireAfter longer than the timeout; named 10/s rate limiter",
+     "Signature middleware checks for a missing secret and uses hash_equals; FormRequests for both endpoints; API resource with pagination",
+     "Idempotent refund via firstOrCreate on provider_refund_id",
+     "Best test suite: uses withFakeQueueInteractions()->assertFailed() for permanent failures, a 5xx propagation test, a double-run refund test, an invalid filter test, Queue::fake with assertPushedTimes",
+     "The README gives a Supervisor config, queue:restart, prune-failed and the scheduler cron"
+    ]
+   },
+   "rationale": "All four suites pass: impl-4 22 tests, impl-3 18, impl-2 19, impl-1 15.\n\nimpl-4 ranks first. It is the only one that separates transient errors (5xx propagates for retry with backoff) from permanent ones ($this->fail() plus failed()). It uses a queued notification and current Laravel 13 attributes for jobs, scopes and commands. It verifies the signature in middleware and refuses to verify when the secret is missing. Its tests use withFakeQueueInteractions. Its main weakness is detecting duplicates by matching the text 'unique' in the exception message.\n\nimpl-2 ranks second. It is well structured: FormRequests, enums, the #[Table] attribute, WithoutOverlapping with expireAfter, and layered idempotency. Two real problems:\n- It accepts forged signatures when no secret is configured (a probe confirmed this).\n- Its in-process Http::retry multiplies the calls each rate-limited job makes, which breaks the 10 req/s limit.\n\nimpl-3 ranks third. Its queue semantics are correct (failed(), backoff, tries). But it:\n- puts the webhook at /api/webhooks/payments, so the required POST /webhooks/payments returns 404 (probe confirmed);\n- has a fat controller with inline HMAC checks and validation, and a catch-all on QueryException;\n- uses string constants instead of enums and a non-idempotent Refund::create;\n- sets no expireAfter on WithoutOverlapping.\n\nimpl-1 ranks last:\n- A catch (Throwable) inside handle() turns every 5xx into an immediate permanent failure after about 1.7s of in-process retries, so there are no real queue retries or backoff.\n- It has no tries and no failed(), so rate-limit releases leave events stuck in 'processing'.\n- It accepts forged signatures when no secret is configured.\n- The admin endpoint returns raw models with no validation or pagination."
+  }
+ },
+ {
+  "key": "sales-report",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 10,
+     "validation_form_requests": 9,
+     "eloquent_idioms": 9,
+     "architecture_fit": 9,
+     "modern_laravel": 10,
+     "focus_area": 9,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 8.7,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "?country[]=x returns 500 (Array to string conversion): prepareForValidation calls $this->string('country') on an array before the 'string' rule runs (app/Http/Requests/SalesReportRequest.php:26)",
+     "?country= (empty) returns 422 instead of being ignored like other optional params (the 'sometimes' rule plus a null value fails 'string'/'size:2'); debatable, minor"
+    ],
+    "antipatterns": [
+     "app/Reports/BuildSalesReport.php:14 closure factory `$orders()` rebuilt five times; a single base builder with clone or a subquery variable would read more clearly",
+     "app/Reports/BuildSalesReport.php:30-73 three near-identical join/whereIn/selectRaw blocks; the revenue expression is repeated as a raw string 4 times",
+     "app/Http/Requests/SalesReportRequest.php:18 'size:2' hard-codes an ISO-2 assumption without documenting it in the API contract"
+    ],
+    "strengths": [
+     "Invokable controller of one line, with a FormRequest that returns a readonly SalesReportFilters DTO; the action class does the work",
+     "All aggregation happens in SQL (SUM, GROUP BY, LIMIT) through whereIn subqueries, so it scales and avoids N+1",
+     "Backed OrderStatus enum with a model cast, Rule::enum and $request->enum() with a Paid default",
+     "Modern Laravel 13 idioms: #[Fillable] and #[Scope] attributes, casts() method, Number::currency",
+     "Date bounds handled correctly: startOfDay/endOfDay, so same-day ranges and datetime inputs work; country input normalised to uppercase",
+     "Tests cover each filter, top-N caps and ordering, the empty result, and four distinct 422 paths"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 3,
+     "validation_form_requests": 5,
+     "eloquent_idioms": 5,
+     "architecture_fit": 4,
+     "modern_laravel": 5,
+     "focus_area": 4,
+     "tests": 7,
+     "correctness": 6,
+     "simplicity": 6
+    },
+    "overall": 5,
+    "rank": 4,
+    "tests_pass": true,
+    "bugs": [
+     "Loads every matching order with customer and items.product into memory, then aggregates in PHP (app/Http/Controllers/Api/SalesReportController.php:17-33); on a real order table this is unbounded memory and time for a reporting endpoint",
+     "Reads raw $request->query() instead of validated data (lines 15, 21, 25, 29), so the FormRequest only gates and nothing downstream is typed",
+     "whereDate('placed_at', '>=', $from) is compared against the raw input string; on SQLite ?from=2026-01-11T00:00:00Z silently returns zero orders",
+     "Country filter is exact and case-sensitive with no normalisation (?country=dk matches nothing), and the factory stores full country names",
+     "Deleted the unrelated tests/Feature/ExampleTest.php"
+    ],
+    "antipatterns": [
+     "app/Models/Order.php:18-22 string class constants instead of a backed enum, and no status cast",
+     "app/Http/Requests/Api/SalesReportRequest.php:25 Rule::in over constants instead of Rule::enum",
+     "app/Http/Controllers/Api/SalesReportController.php:13-127 all report logic sits in the controller (fat controller)",
+     "app/Http/Controllers/Api/SalesReportController.php:125 hand-rolled '$'.number_format instead of Number::currency",
+     "app/Http/Controllers/Api/SalesReportController.php:21-31 imperative if-blocks instead of ->when()"
+    ],
+    "strengths": [
+     "Readable collection pipelines (groupBy, flatMap, sortByDesc, take, values)",
+     "Eager loading avoids N+1 within the in-memory approach",
+     "Uses #[Fillable] attributes and a casts() method",
+     "Tests cover each filter, top-N limits, the empty result and three 422 paths"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 4,
+     "validation_form_requests": 6,
+     "eloquent_idioms": 7,
+     "architecture_fit": 6,
+     "modern_laravel": 8,
+     "focus_area": 7,
+     "tests": 8,
+     "correctness": 7,
+     "simplicity": 6
+    },
+    "overall": 6.6,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "?status= (empty) returns 500 ValueError: ConvertEmptyStringsToNull turns it into null, input('status', default) keeps the null, the 'nullable' rule lets it through, and OrderStatus::from('') throws (app/Http/Requests/SalesReportRequest.php:26,41 + app/Http/Controllers/SalesReportController.php:19). This breaks the requirement that invalid params return 422",
+     "Country filter is exact and case-sensitive with no normalisation (?country=dk matches nothing)"
+    ],
+    "antipatterns": [
+     "app/Http/Controllers/SalesReportController.php:24-38 the filter logic is written twice, once on Order and once on the joined OrderItem query; this invites drift and belongs in scopes or a single base query",
+     "app/Http/Controllers/SalesReportController.php:17-95 an 80-line controller action holding all report logic (fat controller)",
+     "app/Http/Controllers/SalesReportController.php:19-22 reads $request->string()/date() rather than validated() or $request->enum()",
+     "app/Http/Requests/SalesReportRequest.php:12-34 boilerplate docblocks and an explicit authorize() returning true"
+    ],
+    "strengths": [
+     "Aggregation in SQL with clone, sum(DB::raw) and grouped selectRaw, so it scales",
+     "Backed enum with a model cast, Rule::enum, Number::currency and ->when()/whereRelation",
+     "Correct endOfDay handling for the 'to' bound; indexes on status and placed_at",
+     "Strong full-shape assertion test plus top-N caps, the empty result and four 422 cases, including array input"
+    ]
+   },
+   "impl-4": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 4,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 6,
+     "architecture_fit": 5,
+     "modern_laravel": 8,
+     "focus_area": 6,
+     "tests": 8,
+     "correctness": 6,
+     "simplicity": 6
+    },
+    "overall": 6.2,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "Loads every matching order with customer and items.product into memory and aggregates in PHP (app/Http/Controllers/SalesReportController.php:50-68); for a sales report this is unbounded memory and time",
+     "whereDate against the raw validated string: on SQLite ?from=2026-01-11T00:00:00Z silently returns zero orders (line 57)",
+     "Country filter is exact and case-sensitive with no normalisation (?country=dk matches nothing)"
+    ],
+    "antipatterns": [
+     "app/Http/Controllers/SalesReportController.php:19-148 the whole report is built in private controller methods instead of an action or query class (fat controller)",
+     "app/Http/Controllers/SalesReportController.php:21 OrderStatus::from($request->validated('status')) where $request->enum() exists",
+     "app/Http/Controllers/SalesReportController.php:56-65 calls $request->validated() repeatedly per field instead of once",
+     "app/Support/Money.php static helper class with a single method, which adds ceremony",
+     "app/Http/Requests/SalesReportRequest.php:12-34 boilerplate docblocks and an explicit authorize() returning true"
+    ],
+    "strengths": [
+     "Status default applied in prepareForValidation with a 'required' plus Rule::enum rule, so an empty status returns a clean 422",
+     "Uses validated() data consistently; the response echoes the applied filters",
+     "Backed enum with a cast, typed collection pipelines with PHPDoc shapes, Number::currency",
+     "restrictOnDelete on products and a composite (status, placed_at) index show sound schema design",
+     "Tests use LazilyRefreshDatabase, for()/factory relationships, assertJsonMissing, and assert the exact validation messages"
+    ]
+   },
+   "rationale": "All four pass their own suites (impl-1 14, impl-2 12, impl-3 13, impl-4 13). I probed each with 14 extra query strings. impl-1 ranks first. It is the only one with a truly thin invokable controller, a FormRequest that yields a readonly filters DTO, an action class, #[Scope] model scopes and SQL-side aggregation, plus correct startOfDay/endOfDay bounds and country normalisation. Its one real bug is a 500 on ?country[]=x, because prepareForValidation calls string() on an array. impl-3 also aggregates in SQL and uses the enum properly. Its controller is fat with duplicated filter logic, and ?status= crashes with a 500 ValueError through OrderStatus::from(''), which breaks the requirement that invalid params return 422. impl-4 handles validation best: the default goes in through prepareForValidation, status is required with Rule::enum, and there are no 500s. But it loads every order and its items into PHP to aggregate, and all the logic lives in private controller methods. impl-2 ranks last. It has the same in-memory design and fat controller, uses string constants instead of an enum, reads raw query() values instead of validated data, formats money by hand, and deleted an unrelated example test. impl-2 and impl-4 also silently return empty results on SQLite for ISO datetime 'from' values because of whereDate string comparison. None of the four normalises country case except impl-1."
+  }
+ },
+ {
+  "key": "sales-report",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 10,
+     "validation_form_requests": 7,
+     "eloquent_idioms": 9,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 7,
+     "simplicity": 7
+    },
+    "overall": 7.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "app/Http/Requests/SalesReportRequest.php:26 - prepareForValidation runs strtoupper($this->string('country')) before validation, so ?country[]=x returns 500 'Array to string conversion' when it should return 422",
+     "app/Reports/BuildSalesReport.php:64 - top_customers returns only name and spend, with no email or id, so two customers with the same name cannot be told apart",
+     "app/Http/Requests/SalesReportRequest.php:16-19 - with 'sometimes', an empty value such as ?country= or ?status= or ?from= returns 422 instead of being treated as absent; ?status= does not fall back to the paid default"
+    ],
+    "antipatterns": [
+     "app/Http/Requests/SalesReportRequest.php:18 - 'size:2' assumes ISO-2 country codes, which the task did not ask for",
+     "app/Reports/BuildSalesReport.php:14 - a closure factory is used to rebuild the base query five times; a named scope chain or one clone would read more clearly",
+     "app/Reports/BuildSalesReport.php:12 - returns an untyped array with no shape docblock",
+     "app/Reports/BuildSalesReport.php:47 - long selectRaw strings where select() plus selectRaw for the aggregates would be clearer"
+    ],
+    "strengths": [
+     "Very thin invokable controller; the FormRequest builds a readonly SalesReportFilters DTO",
+     "Uses #[Scope] attribute scopes (ofStatus, placedBetween, inCountry), which exist in the installed Laravel 13.33",
+     "All aggregation runs in SQL (SUM, GROUP BY, LIMIT) through whereIn subqueries, so it scales",
+     "Dates are normalised with startOfDay/endOfDay; status uses an enum cast; money uses Number::currency",
+     "The most thorough tests, 14 of them, including the invalid-country path and uppercasing of the country filter"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 5,
+     "validation_form_requests": 5,
+     "eloquent_idioms": 6,
+     "architecture_fit": 5,
+     "modern_laravel": 5,
+     "focus_area": 5,
+     "tests": 7,
+     "correctness": 7,
+     "simplicity": 7
+    },
+    "overall": 5.5,
+    "rank": 4,
+    "tests_pass": true,
+    "bugs": [
+     "app/Http/Controllers/Api/SalesReportController.php:15-33 - the filters come from raw $request->query() instead of validated(), so the validation rules and the values actually used can drift apart",
+     "app/Http/Controllers/Api/SalesReportController.php:17-33 - every matching order with its customer and items.product is loaded into memory and aggregated in PHP; the report grows without bound on large datasets"
+    ],
+    "antipatterns": [
+     "app/Models/Order.php:18-22 - string constants STATUS_* instead of a backed enum with an enum cast; the FormRequest uses Rule::in instead of Rule::enum",
+     "app/Http/Controllers/Api/SalesReportController.php:125 - hand-rolled '$'.number_format instead of Number::currency",
+     "app/Http/Controllers/Api/SalesReportController.php:21-31 - imperative if-assignments instead of ->when() or model scopes",
+     "app/Http/Controllers/Api/SalesReportController.php:13-127 - all reporting logic lives in the controller",
+     "app/Http/Controllers/Api/SalesReportController.php:15 - the default status is applied in the controller rather than in the request",
+     "database/factories/OrderFactory.php:23 - a random default status makes tests that do not set status non-deterministic",
+     "tests/Feature/ExampleTest.php - the base example test was deleted, which is out of scope"
+    ],
+    "strengths": [
+     "Clean collection pipelines (groupBy, flatMap, sortByDesc, take, values)",
+     "Eager loads relations, so there is no N+1",
+     "Good test coverage of filters, the caps, the empty state and 422 paths",
+     "Handles blank params gracefully in probes (status= falls back to paid, from= is ignored)"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 4,
+     "validation_form_requests": 6,
+     "eloquent_idioms": 7,
+     "architecture_fit": 6,
+     "modern_laravel": 8,
+     "focus_area": 7,
+     "tests": 8,
+     "correctness": 6,
+     "simplicity": 6
+    },
+    "overall": 6,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "app/Http/Requests/SalesReportRequest.php:26,41 + app/Http/Controllers/SalesReportController.php:19 - ?status= becomes null after ConvertEmptyStringsToNull, passes the 'nullable' rule, and OrderStatus::from('') then throws a ValueError, returning 500 instead of 422 or the paid default (confirmed by probe)"
+    ],
+    "antipatterns": [
+     "app/Http/Controllers/SalesReportController.php:17-95 - an 80-line controller action that holds all the query and report logic; it should be an action/query class or model scopes",
+     "app/Http/Controllers/SalesReportController.php:24-38 - the filter logic is duplicated between the Order query and the OrderItem join query, so the two can drift",
+     "app/Http/Controllers/SalesReportController.php:19-22 - reads $request->string()/date() instead of validated() data",
+     "app/Http/Requests/SalesReportRequest.php:41 - 'nullable' on status contradicts the default merged in prepareForValidation",
+     "app/Http/Controllers/SalesReportController.php:104 - Number::currency without an explicit currency relies on the locale default"
+    ],
+    "strengths": [
+     "SQL-side aggregation with GROUP BY, ORDER BY and LIMIT, so it scales",
+     "Correct handling of an inclusive 'to' date via endOfDay()",
+     "Typed when() closures; generics on the relation docblocks; enum cast and Rule::enum",
+     "One comprehensive test asserts the whole payload, and there are tests for non-string country and to-before-from"
+    ]
+   },
+   "impl-4": {
+    "scores": {
+     "collections_helpers": 9,
+     "thin_controllers": 6,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 7,
+     "modern_laravel": 8,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 7.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "app/Http/Controllers/SalesReportController.php:50-67 - every matching order with its customer and items.product is loaded and aggregated in PHP; this is correct, but memory use grows without bound for a sales report over a large date range"
+    ],
+    "antipatterns": [
+     "app/Http/Controllers/SalesReportController.php:47-147 - report-building private methods live in the controller rather than an action or query class",
+     "app/Http/Controllers/SalesReportController.php:21 - OrderStatus::from() on validated input where $request->enum('status', OrderStatus::class) exists",
+     "app/Http/Requests/SalesReportRequest.php:12-28 - boilerplate docblocks ('Determine if the user is authorized...') add noise",
+     "app/Http/Requests/SalesReportRequest.php:41 - ?status= (blank) returns 422 'required' rather than falling back to the paid default"
+    ],
+    "strengths": [
+     "No crash paths found in probes: blank, array and ISO-datetime params all return 200 or 422 correctly",
+     "Idiomatic collection pipelines (flatMap, groupBy, sortByDesc, take, values) with typed closures and array-shape docblocks",
+     "A small App\\Support\\Money helper using Number::currency with an explicit currency",
+     "Uses validated() data throughout with when() and whereRelation; enum cast plus Rule::enum; composite index on (status, placed_at)",
+     "Echoes the applied filters in the response; tests assert exact validation messages and cover the empty state, caps and ordering"
+    ]
+   },
+   "rationale": "I ran `php artisan test` on all four and every suite passed. I also ran a throwaway probe test against each one, covering blank params, array params, a to-only date, a same-day range and ISO datetimes, then deleted it.\n\nimpl-4 is the only one with no crash path and no validation that gets bypassed. It uses validated() data, an enum, Number::currency and clean collection pipelines. Its main weakness is that it aggregates in PHP over every eagerly loaded order, which will not scale for a sales report.\n\nimpl-1 has the best architecture:\n- a thin invokable controller\n- a FormRequest that builds a readonly filters DTO\n- #[Scope] attribute scopes, which I confirmed exist in the installed Laravel 13.33\n- all aggregation in SQL\n\nBut ?country[]=x returns a 500, because the request calls strtoupper on the array before validation runs. Its top customers also carry no email, and blank params return 422 instead of being ignored.\n\nimpl-3 aggregates correctly in SQL, but ?status= crashes with a 500 (a ValueError from OrderStatus::from('')). It also puts about 80 lines of duplicated query logic in the controller.\n\nimpl-2 is correct in the probes but the least idiomatic:\n- it reads raw query() values instead of validated() data\n- it uses string constants instead of an enum\n- it formats money by hand\n- it keeps imperative if-blocks in the controller\n- it aggregates everything in memory\n\nFinal ranking: impl-4, then impl-1, then impl-3, then impl-2. I weighted the crash bugs in impl-1 and impl-3 more heavily than the scalability problem in impl-4, and impl-1's architecture keeps it above impl-3."
+  }
+ },
+ {
+  "key": "blog-crud",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 7,
+     "validation_form_requests": 6,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 7,
+     "focus_area": 7,
+     "tests": 7,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 7.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Index query params are not validated: ?status=bogus silently returns 200 with an empty list, and per_page is unbounded (?per_page=-1 on SQLite gives LIMIT -1, which returns every row) (PostController.php:22,28)",
+     "A title that slugifies to an empty string (e.g. '!!!') is stored with slug '' and the next one gets '-2' (Post.php:52). All four implementations share this",
+     "Create and tag sync are not in a transaction, so a failed tag write leaves a post with no tags (PostController.php:37-42)"
+    ],
+    "antipatterns": [
+     "app/Http/Controllers/Api/PostController.php:17 uses a plain Request with no validation for filters or per_page; an IndexPostRequest would fit better",
+     "app/Http/Controllers/Controller.php:9 adds the AuthorizesRequests trait back to use $this->authorize instead of Gate::authorize, the Laravel 11+ default",
+     "app/Http/Controllers/Api/PostController.php:53-57 does slug regeneration in the controller, while the published_at rule lives in the model saving hook, so the model-lifecycle logic is split across two places",
+     "app/Http/Requests/StorePostRequest.php:25 requires status on create when it could default to draft",
+     "database/factories/PostFactory.php:27 calls Post::uniqueSlugFor in the factory, which runs a DB query per factory row"
+    ],
+    "strengths": [
+     "Clean model: casts() with a backed enum, typed relation generics, and a Post::uniqueSlugFor helper that ignores the post's own id",
+     "The published_at rule is in a booted saving hook, so it holds on both create and update",
+     "Tags use collect()->map(firstOrCreate)->sync, and update only syncs when the tags key is present",
+     "Tests cover 401, 403 on update and delete, slug collision, slug regeneration, filters, pagination and tag names"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 9,
+     "eloquent_idioms": 9,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.7,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "A title that slugifies to an empty string gives slug '' and then '-1' (PostObserver.php:26)",
+     "No transaction around create and syncTagsByName (PostController.php:33-34)"
+    ],
+    "antipatterns": [
+     "app/Observers/PostObserver.php:11 puts slugging, the status default and published_at in an observer. This hides behaviour a little more than a model saving hook would, but it is acceptable",
+     "app/Http/Controllers/Api/PostController.php:45 checks $request->has('tags') where $request->safe()->has('tags') would keep the check on validated data",
+     "app/Models/Post.php:32-40 has no relation generics docblocks, unlike the User model"
+    ],
+    "strengths": [
+     "The thinnest controller of the four: IndexPostRequest validates status as an enum and per_page between 1 and 100, and exposes filters() and perPage() helpers",
+     "Uses current idioms: #[ObservedBy], #[Scope] attribute scopes (ofStatus, taggedAs), whereRelation, $request->enum(), safe()->except(), Gate::authorize, PostResource::make",
+     "Slug and published_at are enforced centrally on saving, so they hold wherever a post is saved, factories included; the slug is regenerated only when the title is dirty",
+     "Pivot table has a composite primary key; the policy uses $post->user()->is($user)",
+     "The strongest tests: invalid status on store and update, out-of-range per_page, published_at kept on later updates, guests blocked on all four endpoints"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 5,
+     "validation_form_requests": 6,
+     "eloquent_idioms": 7,
+     "architecture_fit": 6,
+     "modern_laravel": 7,
+     "focus_area": 6,
+     "tests": 7,
+     "correctness": 8,
+     "simplicity": 6
+    },
+    "overall": 6.6,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "A title that slugifies to an empty string gives slug '' and then '-2' (Post.php:57)",
+     "No transaction around create and tag sync (PostController.php:43-53)"
+    ],
+    "antipatterns": [
+     "app/Http/Controllers/Api/PostController.php:22-26 validates inline in index instead of using a FormRequest",
+     "app/Http/Controllers/Api/PostController.php:41-48 and :73-81 put the publish/published_at rule in the controller twice instead of in a model hook",
+     "app/Http/Controllers/Api/PostController.php:64-71 assigns fields one by one with isset() instead of $post->fill($request->safe()->except('tags'))",
+     "app/Http/Controllers/Api/PostController.php:41,74 calls PostStatus::from by hand on validated input; $request->enum() would do this",
+     "app/Models/Post.php:44 names a scope 'status', the same as the status column/attribute, which reads confusingly",
+     "database/migrations/0001_01_01_000003_create_tags_table.php uses framework-style 0001_01_01 migration names for app tables",
+     "app/Models/Post.php:16 makes user_id mass-assignable when it is not needed"
+    ],
+    "strengths": [
+     "Index validates status as an enum and per_page from 1 to 100",
+     "#[Scope] attribute scopes and a uniqueSlug helper that ignores the post's own id",
+     "Tests use fluent assertion chains and cover keeping published_at, reusing an existing tag, and guests on every endpoint"
+    ]
+   },
+   "impl-4": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 4,
+     "validation_form_requests": 6,
+     "eloquent_idioms": 6,
+     "architecture_fit": 5,
+     "modern_laravel": 5,
+     "focus_area": 5,
+     "tests": 7,
+     "correctness": 6,
+     "simplicity": 6
+    },
+    "overall": 5.5,
+    "rank": 4,
+    "tests_pass": true,
+    "bugs": [
+     "Updating the title does not regenerate the slug; a probe PATCH of 'Old' to 'New Name' kept slug 'old' (PostController.php:72). The uniqueSlug helper cannot ignore the post's own id either",
+     "published_at is set only when status is dirty, so a published post with a null published_at is never fixed (PostController.php:74)",
+     "Tags are read from raw input with $request->input('tags') rather than from validated data (PostController.php:57,81)",
+     "Pagination size is fixed; there is no per_page control",
+     "A title that slugifies to an empty string gives slug ''"
+    ],
+    "antipatterns": [
+     "app/Http/Controllers/PostController.php:112-124 keeps slug generation and the publish rule (:48-52, :74-76) in the controller, which makes it fat",
+     "app/Http/Controllers/PostController.php:21,44,68,90 controller actions have no return types",
+     "app/Http/Controllers/PostController.php:60-62 sets 201 by hand with ->response()->setStatusCode(201), though JsonResource already returns 201 for a newly created model",
+     "app/Http/Controllers/PostController.php:23 validates inline in index instead of using a FormRequest",
+     "app/Http/Controllers/PostController.php:18-20 and the other methods carry boilerplate docblocks that restate the method names",
+     "database/factories/PostFactory.php:28 appends a random number to the factory slug to dodge uniqueness",
+     "app/Http/Controllers/PostController.php sits outside an Api namespace, unlike the other three"
+    ],
+    "strengths": [
+     "Resource uses whenLoaded for tags and formats published_at as ISO 8601",
+     "Pivot table has a composite primary key; the index validates the status filter",
+     "Tests cover syncing tags on update, keeping published_at, and guests on every endpoint"
+    ]
+   },
+   "rationale": "All four suites pass: impl-1 19 tests, impl-2 22, impl-3 18, impl-4 20. I ran the same throwaway probe in each and deleted it afterwards. Duplicate tag names are handled correctly everywhere because sync dedupes them. All four give an empty slug when the title has no letters or digits (e.g. '!!!').\n\nimpl-2 ranks first. It is the most idiomatic modern Laravel of the four: an IndexPostRequest with filter helpers and a bounded per_page, #[ObservedBy], #[Scope] attribute scopes, whereRelation, safe()->except() and Gate::authorize. Its controller is the thinnest, and the slug and published_at rules sit in one place and run on every save. It also has the widest test coverage, including the failure paths.\n\nimpl-1 is second. The code is clean and the published_at rule is in the model's saving hook. But the index does not validate its query parameters: an invalid status returns an empty 200, and per_page has no limit, so per_page=-1 returns every row.\n\nimpl-3 is third. It meets every requirement but puts the publish logic in the controller twice, assigns fields one by one, validates the index inline and uses odd framework-style migration names.\n\nimpl-4 is last. It has a real bug: changing the title leaves the old slug in place. It also reads tags from unvalidated input, keeps the slug and publish logic in the controller, has no return types on controller actions, sets 201 by hand and carries boilerplate docblocks."
+  }
+ },
+ {
+  "key": "blog-crud",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 6,
+     "thin_controllers": 5,
+     "validation_form_requests": 4,
+     "eloquent_idioms": 6,
+     "architecture_fit": 6,
+     "modern_laravel": 5,
+     "focus_area": 5,
+     "tests": 6,
+     "correctness": 5,
+     "simplicity": 7
+    },
+    "overall": 5,
+    "rank": 4,
+    "tests_pass": true,
+    "bugs": [
+     "Index query params are never validated (app/Http/Controllers/Api/PostController.php:17-28). Probes: ?per_page=-1, ?tag[]=x and ?status[]=x each return HTTP 500.",
+     "per_page has no upper bound (PostController.php:28), so ?per_page=100000 is accepted and a client can pull the whole table in one request.",
+     "?status=bogus is silently accepted and returns an empty list instead of a 422.",
+     "StorePostRequest.php:25 makes status 'required', so a client must always send a status even though the column defaults to draft. This adds friction to the API contract.",
+     "The post_tag migration adds id and timestamps (2026_09_23_070854_create_post_tag_table.php:15-19), but tags() has no withTimestamps(), so those pivot timestamps are always null.",
+     "Titles made only of punctuation produce an empty slug ('') and then '-2'. All four implementations share this."
+    ],
+    "antipatterns": [
+     "app/Http/Controllers/Controller.php:9 adds the AuthorizesRequests trait back to the base controller and uses $this->authorize(). Laravel 11+ skeletons use Gate::authorize() or the #[Authorize]/can middleware instead.",
+     "StorePostRequest.php:25 uses new Enum(...) where Rule::enum() is the current idiom.",
+     "PostController.php:38 uses collect($validated)->except('tags')->all() where $request->safe()->except('tags') does the same job.",
+     "PostController.php:55-57 keeps the slug-regeneration logic in the controller rather than in the model.",
+     "PostResource.php:22 reads $this->tags directly instead of whenLoaded, which invites lazy loading.",
+     "PostFactory.php:27 runs a DB query (uniqueSlugFor) inside definition()."
+    ],
+    "strengths": [
+     "Uses a saving hook in booted() to set published_at, which covers both create and update in one place.",
+     "uniqueSlugFor ignores the post's own row when updating, and slug regeneration happens only when the title actually changes.",
+     "Relationships carry generics docblocks, and tag syncing is written as a collection map.",
+     "Tests cover ownership 403s, slug collisions, tag filtering and pagination meta."
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 9,
+     "eloquent_idioms": 9,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.7,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "Titles made only of punctuation get an empty slug (''), and the next one gets '-1'. All implementations share this.",
+     "Collision suffixes start at '-1' ('hello-world-1'). This is only a style difference from '-2' and does not affect correctness."
+    ],
+    "antipatterns": [
+     "app/Observers/PostObserver.php:11-22 puts slug generation and the defaulting of status inside a saving observer. It works and is attached with #[ObservedBy], but the behaviour is implicit and every save path goes through it.",
+     "IndexPostRequest.php:33 returns validated('per_page') ?? 15. The value is a string that relies on loose coercion to the int return type.",
+     "Post::syncTagsByName (Post.php:42-48) runs firstOrCreate once per tag inside a loop, which is N queries. This is acceptable at this scale."
+    ],
+    "strengths": [
+     "The thinnest controller of the four: an IndexPostRequest with filters()/perPage() helpers, safe()->except('tags'), and $request->enum() for the status filter.",
+     "Modern Laravel 12/13 idioms: #[Fillable], #[ObservedBy] and #[Scope] attributes, whereRelation, and eager loading of tags:id,name.",
+     "Fillable is limited to title, body and status, so slug, published_at and user_id cannot be mass-assigned.",
+     "The policy uses $post->user()->is($user).",
+     "Index validation rejects bad status, tag and per_page values (bounded between:1,100) with 422. Probes confirmed no 500s.",
+     "The most thorough tests: invalid status on store and update, per_page out of range, pagination meta, preservation of published_at, slug regeneration, and travelTo for ordering."
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 6,
+     "validation_form_requests": 7,
+     "eloquent_idioms": 8,
+     "architecture_fit": 6,
+     "modern_laravel": 8,
+     "focus_area": 7,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 7
+    },
+    "overall": 7.4,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Titles made only of punctuation produce an empty slug ('') and then '-2'. All implementations share this.",
+     "Store never sets published_at through a model-level path, so any other code path that creates or saves a Post does not apply the publish rule. The rule lives only in the controller."
+    ],
+    "antipatterns": [
+     "The migrations are named 0001_01_01_000003..5 (database/migrations/), which mimics the framework's skeleton migrations instead of using timestamped names.",
+     "PostController.php:64-81 hand-rolls field-by-field isset() assignment and PostStatus::from() instead of fill($request->safe()) plus the enum cast. The controller carries domain logic.",
+     "PostController.php:22-26 uses inline $request->validate in the controller for the index instead of a FormRequest.",
+     "Post.php:16 includes 'user_id' in Fillable, even though posts are created through the relation.",
+     "The status scope (Post.php:44-47) accepts PostStatus|string and re-parses the value, so the scope does validation work.",
+     "PostResource.php:24 reads tags without whenLoaded."
+    ],
+    "strengths": [
+     "Validates index filters, including a bounded per_page. Probes showed 422 for bad input and no 500s.",
+     "Adds #[Scope] query scopes for status and tag, and puts uniqueSlug on the model with an ignore-self option.",
+     "Tests use the expressive assertion helpers (assertCreated, assertForbidden, assertUnprocessable) and cover tag reuse, slug regeneration and preservation of published_at."
+    ]
+   },
+   "impl-4": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 5,
+     "validation_form_requests": 7,
+     "eloquent_idioms": 7,
+     "architecture_fit": 6,
+     "modern_laravel": 7,
+     "focus_area": 7,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 7
+    },
+    "overall": 7,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "Update sets published_at only when isDirty('status') (PostController.php:74). A post that is already 'published' but has a null published_at, for example after an import, never gets a published_at when it is re-published.",
+     "Titles made only of punctuation produce an empty slug ('') and then '-2'. All implementations share this.",
+     "The index has no way to control page size and ignores per_page. This is acceptable, but the paginated API is rigid."
+    ],
+    "antipatterns": [
+     "The publish rule is duplicated in store (PostController.php:50-52) and update (PostController.php:74-76), and the slug generation (PostController.php:112-124) is a private controller method. This is domain logic in the controller rather than in the model or an observer.",
+     "PostController.php:23-26 validates the index inline instead of in a FormRequest.",
+     "Stub docblocks restate the method names ('Display a listing...', 'Store a newly created...') throughout the controller and policy.",
+     "PostResource.php:23 formats published_at as ISO8601 by hand while created_at and updated_at use the default serialization, so date formats are inconsistent.",
+     "The controller methods have no return types.",
+     "(new PostResource(...))->response()->setStatusCode(201) is unnecessary, because a resource wrapping a recently created model already returns 201."
+    ],
+    "strengths": [
+     "Correct on every core requirement: 401 for guests, 403 for non-owners, unique slugs, tags created on the fly, and filters that return 422 on bad input.",
+     "Fillable excludes user_id, and slug and published_at are never taken from request input.",
+     "Uses whenLoaded for tags and a composite primary key on the pivot table.",
+     "Good test coverage, including preservation of published_at, tag sync replacement, and guest checks on all endpoints."
+    ]
+   },
+   "rationale": "All four suites pass: 20, 18, 22 and 19 tests for impl-4, impl-3, impl-2 and impl-1. Sanctum isn't installed, so every implementation uses the 'auth' guard with actingAs, which the task allows.\n\nOne probe test was run against each implementation and then deleted. It showed that impl-1 is the only one that returns HTTP 500 for malformed index input (per_page=-1, tag[]=x, status[]=x). impl-1 also leaves per_page unbounded, makes status required on create, and adds the AuthorizesRequests trait back to the base controller. Those real bugs put it last.\n\nimpl-2 is the most idiomatic modern Laravel:\n- an IndexPostRequest with filter helpers\n- a thin controller that uses safe()->except()\n- #[ObservedBy] and #[Scope] attributes, and whereRelation\n- a tight Fillable list\n- the broadest failure-path tests\n\nimpl-3 is correct and validates per_page with an upper bound. It loses points for:\n- skeleton-style 0001_01_01 migration names\n- manual field-by-field assignment in update\n- inline validation in the controller\n- user_id in Fillable\n\nimpl-4 is correct and well tested. However, it duplicates the publish logic across store and update and keeps slug generation in the controller. It also has an isDirty('status') edge case that stops an already-published post with a null published_at from getting one, and it carries stub docblocks throughout.\n\nAll four produce an empty slug for titles made only of punctuation."
+  }
+ }
+]

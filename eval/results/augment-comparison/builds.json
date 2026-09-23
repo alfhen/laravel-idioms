@@ -1,0 +1,321 @@
+[
+ {
+  "build": "blade-catalogue-augment",
+  "task": "blade-catalogue",
+  "arm": "augment",
+  "seconds": 1202,
+  "turns": 129,
+  "cost_usd": 5.43,
+  "skills": {
+   "laravel-idioms": 1,
+   "laravel-best-practices": 1,
+   "testing-best-practices": 1
+  },
+  "mcp_tools": {}
+ },
+ {
+  "build": "blade-catalogue-boost",
+  "task": "blade-catalogue",
+  "arm": "boost",
+  "seconds": 407,
+  "turns": 77,
+  "cost_usd": 1.73,
+  "skills": {
+   "testing-best-practices": 1
+  },
+  "mcp_tools": {
+   "search-docs": 1
+  }
+ },
+ {
+  "build": "blade-catalogue-both",
+  "task": "blade-catalogue",
+  "arm": "both",
+  "seconds": 455,
+  "turns": 84,
+  "cost_usd": 2.12,
+  "skills": {
+   "laravel-best-practices": 1,
+   "testing-best-practices": 1
+  },
+  "mcp_tools": {}
+ },
+ {
+  "build": "blade-catalogue-skill",
+  "task": "blade-catalogue",
+  "arm": "skill",
+  "seconds": 619,
+  "turns": 94,
+  "cost_usd": 2.56,
+  "skills": {
+   "laravel-idioms": 1
+  },
+  "mcp_tools": {}
+ },
+ {
+  "build": "blog-crud-augment",
+  "task": "blog-crud",
+  "arm": "augment",
+  "seconds": 372,
+  "turns": 57,
+  "cost_usd": 1.4,
+  "skills": {
+   "laravel-idioms": 1,
+   "laravel-best-practices": 1,
+   "testing-best-practices": 1
+  },
+  "mcp_tools": {}
+ },
+ {
+  "build": "blog-crud-boost",
+  "task": "blog-crud",
+  "arm": "boost",
+  "seconds": 269,
+  "turns": 59,
+  "cost_usd": 1.19,
+  "skills": {},
+  "mcp_tools": {
+   "application-info": 1,
+   "search-docs": 1
+  }
+ },
+ {
+  "build": "blog-crud-both",
+  "task": "blog-crud",
+  "arm": "both",
+  "seconds": 267,
+  "turns": 50,
+  "cost_usd": 1.23,
+  "skills": {},
+  "mcp_tools": {
+   "search-docs": 1
+  }
+ },
+ {
+  "build": "blog-crud-skill",
+  "task": "blog-crud",
+  "arm": "skill",
+  "seconds": 450,
+  "turns": 62,
+  "cost_usd": 1.78,
+  "skills": {
+   "laravel-idioms": 1
+  },
+  "mcp_tools": {}
+ },
+ {
+  "build": "caching-augment",
+  "task": "caching",
+  "arm": "augment",
+  "seconds": 545,
+  "turns": 63,
+  "cost_usd": 2.14,
+  "skills": {
+   "laravel-idioms": 1,
+   "laravel-best-practices": 1
+  },
+  "mcp_tools": {}
+ },
+ {
+  "build": "caching-boost",
+  "task": "caching",
+  "arm": "boost",
+  "seconds": 408,
+  "turns": 52,
+  "cost_usd": 1.24,
+  "skills": {},
+  "mcp_tools": {
+   "search-docs": 1
+  }
+ },
+ {
+  "build": "caching-both",
+  "task": "caching",
+  "arm": "both",
+  "seconds": 529,
+  "turns": 76,
+  "cost_usd": 1.69,
+  "skills": {
+   "testing-best-practices": 1,
+   "laravel-best-practices": 1
+  },
+  "mcp_tools": {
+   "search-docs": 2
+  }
+ },
+ {
+  "build": "caching-skill",
+  "task": "caching",
+  "arm": "skill",
+  "seconds": 600,
+  "turns": 81,
+  "cost_usd": 2.21,
+  "skills": {
+   "laravel-idioms": 1
+  },
+  "mcp_tools": {}
+ },
+ {
+  "build": "filament-admin-augment",
+  "task": "filament-admin",
+  "arm": "augment",
+  "seconds": 793,
+  "turns": 128,
+  "cost_usd": 3.41,
+  "skills": {
+   "laravel-idioms": 1
+  },
+  "mcp_tools": {}
+ },
+ {
+  "build": "filament-admin-boost",
+  "task": "filament-admin",
+  "arm": "boost",
+  "seconds": 654,
+  "turns": 114,
+  "cost_usd": 3.78,
+  "skills": {},
+  "mcp_tools": {
+   "application-info": 1,
+   "search-docs": 11
+  }
+ },
+ {
+  "build": "filament-admin-both",
+  "task": "filament-admin",
+  "arm": "both",
+  "seconds": 612,
+  "turns": 116,
+  "cost_usd": 3.01,
+  "skills": {},
+  "mcp_tools": {
+   "application-info": 1,
+   "search-docs": 10
+  }
+ },
+ {
+  "build": "filament-admin-skill",
+  "task": "filament-admin",
+  "arm": "skill",
+  "seconds": 678,
+  "turns": 124,
+  "cost_usd": 3.39,
+  "skills": {
+   "laravel-idioms": 1
+  },
+  "mcp_tools": {}
+ },
+ {
+  "build": "sales-report-augment",
+  "task": "sales-report",
+  "arm": "augment",
+  "seconds": 488,
+  "turns": 62,
+  "cost_usd": 1.8,
+  "skills": {
+   "laravel-idioms": 1,
+   "laravel-best-practices": 1,
+   "testing-best-practices": 1
+  },
+  "mcp_tools": {}
+ },
+ {
+  "build": "sales-report-boost",
+  "task": "sales-report",
+  "arm": "boost",
+  "seconds": 326,
+  "turns": 89,
+  "cost_usd": 1.69,
+  "skills": {
+   "laravel-best-practices": 1,
+   "testing-best-practices": 1
+  },
+  "mcp_tools": {
+   "search-docs": 2,
+   "database-schema": 1
+  }
+ },
+ {
+  "build": "sales-report-both",
+  "task": "sales-report",
+  "arm": "both",
+  "seconds": 417,
+  "turns": 68,
+  "cost_usd": 1.62,
+  "skills": {},
+  "mcp_tools": {
+   "application-info": 1,
+   "search-docs": 2
+  }
+ },
+ {
+  "build": "sales-report-skill",
+  "task": "sales-report",
+  "arm": "skill",
+  "seconds": 336,
+  "turns": 49,
+  "cost_usd": 1.22,
+  "skills": {
+   "laravel-idioms": 1
+  },
+  "mcp_tools": {}
+ },
+ {
+  "build": "webhook-worker-augment",
+  "task": "webhook-worker",
+  "arm": "augment",
+  "seconds": 1045,
+  "turns": 147,
+  "cost_usd": 5.42,
+  "skills": {
+   "laravel-idioms": 1,
+   "laravel-best-practices": 1,
+   "testing-best-practices": 1
+  },
+  "mcp_tools": {
+   "application-info": 1,
+   "search-docs": 2
+  }
+ },
+ {
+  "build": "webhook-worker-boost",
+  "task": "webhook-worker",
+  "arm": "boost",
+  "seconds": 720,
+  "turns": 103,
+  "cost_usd": 2.95,
+  "skills": {
+   "testing-best-practices": 1
+  },
+  "mcp_tools": {
+   "search-docs": 2,
+   "application-info": 1
+  }
+ },
+ {
+  "build": "webhook-worker-both",
+  "task": "webhook-worker",
+  "arm": "both",
+  "seconds": 805,
+  "turns": 116,
+  "cost_usd": 3.12,
+  "skills": {
+   "laravel-idioms": 1,
+   "testing-best-practices": 1,
+   "laravel-best-practices": 1
+  },
+  "mcp_tools": {}
+ },
+ {
+  "build": "webhook-worker-skill",
+  "task": "webhook-worker",
+  "arm": "skill",
+  "seconds": 755,
+  "turns": 96,
+  "cost_usd": 3.35,
+  "skills": {
+   "laravel-idioms": 1
+  },
+  "mcp_tools": {}
+ }
+]

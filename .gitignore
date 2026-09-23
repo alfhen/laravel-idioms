@@ -1,2 +1,6 @@
 .DS_Store
 /vendor/
+/eval/.work/
+/.claude/
+__pycache__/
+/eval/.work-judge/

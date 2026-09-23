@@ -28,3 +28,17 @@ jobs:
         run: |
           ! grep -nE '<(script|link)[^>]+(src|href)=["'"'"']https?://' resources/boost/skills/laravel-idioms/assets/audit-report-template.html
       - run: composer validate --strict
+
+  eval-harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile eval/*.py
+      - run: bash -n eval/setup.sh
+      - name: Published tables re-derive from committed results
+        run: |
+          for run in boost-comparison augment-comparison; do
+            python3 eval/aggregate.py --judgements eval/results/$run/judgements.json \
+              --mapping eval/results/$run/mapping.json --builds eval/results/$run/builds.json \
+              | diff -u eval/results/$run/tables.md -
+          done
