@@ -1,0 +1,30 @@
+name: validate
+
+on: [push, pull_request]
+
+jobs:
+  skill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install pyyaml
+      - name: SKILL.md frontmatter parses and names match directories
+        run: |
+          python3 - <<'PY'
+          import pathlib, sys, yaml
+          skills = list(pathlib.Path('resources/boost/skills').glob('*/SKILL.md'))
+          assert skills, 'no skills found'
+          for path in skills:
+              meta = yaml.safe_load(path.read_text().split('---')[1])
+              assert meta['name'] == path.parent.name, f'{path}: name {meta["name"]!r} != directory'
+              assert 0 < len(meta['description']) <= 1024, f'{path}: description length {len(meta["description"])}'
+              print(f'ok {path}')
+          PY
+      - name: Referenced files exist
+        run: |
+          cd resources/boost/skills/laravel-idioms
+          grep -oE '(references|assets)/[a-z-]+\.(md|html)' SKILL.md references/*.md | cut -d: -f2 | sort -u | while read -r f; do test -f "$f" || { echo "missing $f"; exit 1; }; done
+      - name: Audit report template is self-contained
+        run: |
+          ! grep -nE '<(script|link)[^>]+(src|href)=["'"'"']https?://' resources/boost/skills/laravel-idioms/assets/audit-report-template.html
+      - run: composer validate --strict

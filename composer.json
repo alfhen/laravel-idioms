@@ -1,0 +1,23 @@
+{
+    "name": "alfhen/laravel-idioms",
+    "description": "Idiomatic modern Laravel (11-13) for AI coding agents: a Laravel Boost guideline plus the laravel-idioms skill (thin controllers, FormRequests, collections, Eloquent, queues, caching, Blade, Filament 5, Pest 5) and a codebase audit mode.",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.2"
+    },
+    "keywords": [
+        "laravel",
+        "boost",
+        "ai",
+        "claude",
+        "agent-skills",
+        "laravel-boost"
+    ],
+    "homepage": "https://github.com/alfhen/laravel-idioms",
+    "authors": [
+        {
+            "name": "Alf Henderson"
+        }
+    ]
+}

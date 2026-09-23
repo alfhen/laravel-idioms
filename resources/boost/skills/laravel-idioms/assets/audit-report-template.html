@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laravel Refactor Report</title>
+<style>
+:root {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --surface-2: #f1f1ee;
+  --border: #e2e1dc;
+  --text: #1c1c1a;
+  --muted: #6b6a64;
+  --accent: #c2410c;
+  --code-bg: #f4f4f1;
+  --before-bg: #fdf1f0;
+  --before-bar: #d4574a;
+  --after-bg: #eff7f1;
+  --after-bar: #3f8f5a;
+  --high: #c0392b;
+  --high-bg: #fbe9e7;
+  --medium: #b7791f;
+  --medium-bg: #fcf3e3;
+  --low: #3d6fb4;
+  --low-bg: #e9f0fa;
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 1px 1px rgba(0,0,0,.03);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #151514;
+    --surface: #1d1d1b;
+    --surface-2: #262624;
+    --border: #34332f;
+    --text: #ecebe6;
+    --muted: #9c9a92;
+    --accent: #f08a5d;
+    --code-bg: #232321;
+    --before-bg: #2c1d1b;
+    --before-bar: #e0786b;
+    --after-bg: #1a2a1f;
+    --after-bar: #6cc28a;
+    --high: #f0857a;
+    --high-bg: #3a1f1c;
+    --medium: #e5b560;
+    --medium-bg: #36291a;
+    --low: #86aee6;
+    --low-bg: #1c2638;
+    --shadow: none;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 12.5px; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; }
+header h1 { font-size: 26px; line-height: 1.2; margin: 0 0 6px; letter-spacing: -.01em; }
+header .meta { color: var(--muted); font-size: 13.5px; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+header .meta b { color: var(--text); font-weight: 600; }
+.summary { margin: 20px 0 0; font-size: 16px; max-width: 72ch; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 36px 0 12px; font-weight: 600; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.stat { padding: 14px 16px; }
+.stat .n { font-size: 26px; font-weight: 650; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat .l { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.stat.high .n { color: var(--high); }
+.stat.medium .n { color: var(--medium); }
+.stat.low .n { color: var(--low); }
+.breakdown { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.breakdown .card { padding: 16px; }
+.breakdown h3 { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
+.bar-row { display: grid; grid-template-columns: 110px 1fr 32px; align-items: center; gap: 10px; font-size: 13px; margin: 6px 0; }
+.bar-row .track { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.bar-row .fill { height: 100%; border-radius: 4px; background: var(--accent); }
+.bar-row .fill.high { background: var(--high); }
+.bar-row .fill.medium { background: var(--medium); }
+.bar-row .fill.low { background: var(--low); }
+.bar-row .c { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.quick { padding: 6px 0; }
+.quick a { display: grid; grid-template-columns: 64px 1fr auto; gap: 12px; align-items: baseline; padding: 10px 16px; color: inherit; text-decoration: none; border-top: 1px solid var(--border); }
+.quick a:first-child { border-top: 0; }
+.quick a:hover { background: var(--surface-2); }
+.quick .id { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+.quick .loc { color: var(--muted); font-size: 12.5px; }
+.empty { padding: 16px; color: var(--muted); }
+.toolbar { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 10px 0; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.filters .label { font-size: 12px; color: var(--muted); width: 70px; }
+.chip { appearance: none; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 999px; padding: 4px 11px; font: inherit; font-size: 12.5px; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+.chip:focus-visible, .search:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.search { flex: 1; min-width: 180px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 13.5px; }
+.count { font-size: 12.5px; color: var(--muted); }
+.finding { margin-bottom: 14px; overflow: hidden; scroll-margin-top: 150px; }
+.finding-head { padding: 14px 16px 10px; }
+.finding-head .top { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+.finding h3 { margin: 0; font-size: 16px; line-height: 1.35; }
+.badge { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); text-transform: capitalize; }
+.badge.high { background: var(--high-bg); color: var(--high); }
+.badge.medium { background: var(--medium-bg); color: var(--medium); }
+.badge.low { background: var(--low-bg); color: var(--low); }
+.badge.id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: none; font-weight: 500; }
+.loc { font-size: 12.5px; color: var(--muted); word-break: break-all; }
+.loc code { color: var(--text); }
+.why { margin: 8px 0 0; max-width: 80ch; }
+.diff { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--border); }
+.pane { min-width: 0; }
+.pane + .pane { border-left: 1px solid var(--border); }
+.pane .ph { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; padding: 6px 12px; color: var(--muted); }
+.pane.before .ph { box-shadow: inset 3px 0 0 var(--before-bar); background: var(--before-bg); }
+.pane.after .ph { box-shadow: inset 3px 0 0 var(--after-bar); background: var(--after-bg); }
+.pane pre { margin: 0; padding: 12px; overflow-x: auto; background: var(--code-bg); line-height: 1.5; tab-size: 4; min-height: 100%; }
+.more { padding: 10px 16px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+.more summary { cursor: pointer; }
+.more ul { margin: 6px 0 0; padding-left: 18px; }
+.also { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; }
+.also code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+.links { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; font-size: 12.5px; color: var(--muted); }
+.link-chip { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--text); text-decoration: none; background: var(--surface); }
+.link-chip:hover { border-color: var(--accent); color: var(--accent); }
+.link-chip.dep { border-color: var(--accent); }
+.order { margin: 0; padding: 6px 0; list-style: none; counter-reset: step; }
+.order li { counter-increment: step; display: grid; grid-template-columns: 32px 64px 1fr; gap: 10px; align-items: baseline; padding: 9px 16px; border-top: 1px solid var(--border); }
+.order li:first-child { border-top: 0; }
+.order li::before { content: counter(step); color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12.5px; }
+.order .id { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+.order .note { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.order .note a { color: inherit; }
+.note-line { padding: 12px 16px; color: var(--muted); font-size: 13.5px; }
+.cov { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.cov th, .cov td { text-align: left; padding: 8px 16px; border-top: 1px solid var(--border); vertical-align: top; }
+.cov thead th { border-top: 0; font-size: 12px; color: var(--muted); font-weight: 600; }
+.cov td.num { font-variant-numeric: tabular-nums; }
+.cov td a { color: inherit; }
+.cov-wrap { overflow-x: auto; }
+.cov-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.badge.cleared { background: var(--after-bg); color: var(--after-bar); }
+.badge.finding { background: var(--medium-bg); color: var(--medium); }
+.static { padding: 4px 16px 16px; }
+.static ol { padding-left: 20px; }
+.static li { margin: 12px 0; }
+.link-reset { appearance: none; border: 0; background: none; color: var(--accent); font: inherit; font-size: 12.5px; cursor: pointer; padding: 0; text-decoration: underline; }
+footer { margin-top: 40px; color: var(--muted); font-size: 12.5px; }
+@media (max-width: 760px) {
+  .breakdown, .diff { grid-template-columns: 1fr; }
+  .pane + .pane { border-left: 0; border-top: 1px solid var(--border); }
+  .quick a { grid-template-columns: 1fr; gap: 2px; }
+  .order li { grid-template-columns: 24px 1fr; }
+  .order li > span:last-child { grid-column: 2; }
+  .cov th, .cov td { padding: 8px 10px; }
+  .bar-row { grid-template-columns: 90px 1fr 28px; }
+  .filters .label { width: 100%; }
+  header h1 { font-size: 22px; }
+}
+@media print {
+  .toolbar { position: static; }
+  .toolbar .filters { display: none; }
+  .finding { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="title">Laravel refactor report</h1>
+    <div class="meta" id="meta"></div>
+    <p class="summary" id="summary"></p>
+  </header>
+
+  <section id="static">
+    <h2>Findings</h2>
+    <div class="card static"><!--static:start--><p>Replace this with a two to four sentence executive summary: overall health, the top themes, and the suggested first step.</p><ol><li id="s-F-001"><b>F-001</b> [high, S] Validate post input in a FormRequest and persist only validated data<br><code>app/Http/Controllers/PostController.php:26</code><br>$request-&gt;all() passes keys that were never validated to create(), so any fillable column can be set by the client.</li><li id="s-F-002"><b>F-002</b> [medium, S] Assert the 422 message for an invalid post status<br><code>tests/Feature/PostTest.php:88</code> (needs F-001, F-003)<br>No test covers an unknown status, so a regression that accepts it would pass the suite.</li><li id="s-F-003"><b>F-003</b> [medium, S] Replace post status string constants with a backed enum and cast<br><code>app/Models/Post.php:14</code><br>Constants don&#x27;t constrain the column: any string can be saved, and every comparison is a string match that typos pass silently.</li></ol><!--static:end--></div>
+  </section>
+
+  <div id="app" hidden>
+  <h2>Overview</h2>
+  <div class="stats" id="stats"></div>
+
+  <h2>Breakdown</h2>
+  <div class="breakdown">
+    <div class="card"><h3>By severity</h3><div id="by-severity"></div></div>
+    <div class="card"><h3>By category</h3><div id="by-category"></div></div>
+  </div>
+
+  <h2>Quick wins</h2>
+  <div class="card quick" id="quick"></div>
+
+  <h2>Apply order</h2>
+  <div class="card" id="apply-order"></div>
+
+  <h2>Findings</h2>
+  <div class="toolbar">
+    <div class="filters" id="sev-filters"><span class="label">Severity</span></div>
+    <div class="filters" id="cat-filters"><span class="label">Category</span></div>
+    <div class="filters"><span class="label">Search</span><input class="search" id="search" type="search" placeholder="File, title or code"><span class="count" id="count"></span></div>
+  </div>
+  <div id="findings"></div>
+
+  <h2>Coverage</h2>
+  <div class="cov-grid">
+    <div class="card cov-wrap" id="cov-areas"></div>
+    <div class="card cov-wrap" id="cov-checklist"></div>
+  </div>
+  </div>
+
+  <footer id="footer">Findings were verified against the source at generation time. Line numbers refer to the audited revision.</footer>
+</div>
+
+<script id="report-data" type="application/json">
+{
+ "project": "example/app",
+ "generated": "2026-01-01",
+ "laravelVersion": "13.0.0",
+ "phpVersion": "^8.3",
+ "summary": "Replace this with a two to four sentence executive summary: overall health, the top themes, and the suggested first step.",
+ "scope": ["app/", "routes/", "database/", "tests/"],
+ "stats": { "filesScanned": 0, "controllers": 0, "models": 0, "jobs": 0, "testFiles": 0 },
+ "coverage": {
+  "areas": [
+   { "name": "HTTP layer", "files": 0, "note": "Controllers, form requests, resources, routes" },
+   { "name": "Eloquent & queries", "files": 0, "note": "Models, factories, migrations" },
+   { "name": "Tests", "files": 0, "note": "Feature and unit tests" }
+  ],
+  "checklist": [
+   { "item": "Validation", "status": "finding", "findings": ["F-001"] },
+   { "item": "Models", "status": "finding", "findings": ["F-003"] },
+   { "item": "Tests", "status": "finding", "findings": ["F-002"] },
+   { "item": "Collections", "status": "cleared", "note": "grep -rn 'foreach\\|&\\$' app/: no accumulators or captured references" },
+   { "item": "Jobs", "status": "n/a", "note": "The app has no jobs" }
+  ]
+ },
+ "findings": [
+  {
+   "id": "F-001",
+   "title": "Validate post input in a FormRequest and persist only validated data",
+   "category": "http",
+   "severity": "high",
+   "effort": "S",
+   "file": "app/Http/Controllers/PostController.php",
+   "line": 26,
+   "locations": ["app/Http/Controllers/PageController.php:30"],
+   "current": "public function store(Request $request)\n{\n    $request->validate(['title' => 'required']);\n\n    Post::create($request->all());\n}",
+   "suggested": "public function store(StorePostRequest $request): RedirectResponse\n{\n    $post = $request->user()->posts()->create($request->validated());\n\n    return to_route('posts.show', $post);\n}",
+   "why": "$request->all() passes keys that were never validated to create(), so any fillable column can be set by the client.",
+   "reference": "http-layer.md#formrequests",
+   "dependsOn": [],
+   "overlaps": []
+  },
+  {
+   "id": "F-002",
+   "title": "Assert the 422 message for an invalid post status",
+   "category": "testing",
+   "severity": "medium",
+   "effort": "S",
+   "file": "tests/Feature/PostTest.php",
+   "line": 88,
+   "locations": [],
+   "current": "it('creates a post', function () {\n    // no failure-path test follows\n});",
+   "suggested": "it('rejects an unknown status', function () {\n    $this->actingAs(User::factory()->create())\n        ->postJson('/api/posts', ['title' => 'T', 'status' => 'bogus'])\n        ->assertUnprocessable()\n        ->assertJsonValidationErrors(['status' => 'invalid']);\n});",
+   "why": "No test covers an unknown status, so a regression that accepts it would pass the suite.",
+   "reference": "SKILL.md#10-tests-prove-every-requirement-and-every-failure",
+   "dependsOn": ["F-001", "F-003"],
+   "overlaps": []
+  },
+  {
+   "id": "F-003",
+   "title": "Replace post status string constants with a backed enum and cast",
+   "category": "eloquent",
+   "severity": "medium",
+   "effort": "S",
+   "file": "app/Models/Post.php",
+   "line": 14,
+   "locations": [],
+   "current": "public const STATUS_DRAFT = 'draft';\npublic const STATUS_PUBLISHED = 'published';",
+   "suggested": "protected function casts(): array\n{\n    return ['status' => PostStatus::class];\n}",
+   "why": "Constants don't constrain the column: any string can be saved, and every comparison is a string match that typos pass silently.",
+   "reference": "eloquent.md#casts",
+   "dependsOn": [],
+   "overlaps": ["F-001"]
+  }
+ ]
+}
+</script>
+<script>
+(function () {
+  var data = JSON.parse(document.getElementById('report-data').textContent);
+  var findings = data.findings || [];
+  var byId = {};
+  findings.forEach(function (f) { byId[f.id] = f; });
+  var SEV = ['high', 'medium', 'low'];
+  var SEV_RANK = { high: 0, medium: 1, low: 2 };
+  var EFFORT_RANK = { S: 0, M: 1, L: 2 };
+  var CAT_LABEL = {
+    http: 'HTTP layer', eloquent: 'Eloquent', collections: 'Collections', architecture: 'Architecture',
+    testing: 'Testing', queues: 'Queues & workers', caching: 'Caching', blade: 'Blade', filament: 'Filament',
+    modern: 'Outdated patterns', style: 'Style', security: 'Security', performance: 'Performance'
+  };
+  var STAT_LABEL = [['filesScanned', 'Files scanned'], ['controllers', 'Controllers'], ['models', 'Models'], ['jobs', 'Jobs'], ['testFiles', 'Test files'], ['tests', 'Tests']];
+
+  function el(tag, attrs, children) {
+    var n = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      if (k === 'text') n.textContent = attrs[k];
+      else if (k === 'class') n.className = attrs[k];
+      else n.setAttribute(k, attrs[k]);
+    });
+    (children || []).forEach(function (c) { if (c) n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+    return n;
+  }
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  function catLabel(c) { return CAT_LABEL[c] || c; }
+  function loc(f) { return f.file + (f.line ? ':' + f.line : ''); }
+  function list(v) { return Array.isArray(v) ? v : []; }
+  function countBy(key) {
+    return findings.reduce(function (acc, f) { acc[f[key]] = (acc[f[key]] || 0) + 1; return acc; }, {});
+  }
+  function idLink(id, cls) {
+    return el('a', { class: 'link-chip' + (cls ? ' ' + cls : ''), href: '#' + id, title: byId[id] ? byId[id].title : 'Unknown finding', text: id });
+  }
+
+  findings.sort(function (a, b) {
+    return (SEV_RANK[a.severity] - SEV_RANK[b.severity])
+      || (EFFORT_RANK[a.effort] - EFFORT_RANK[b.effort])
+      || (list(b.locations).length - list(a.locations).length);
+  });
+  var rank = {};
+  findings.forEach(function (f, i) { rank[f.id] = i; });
+
+  var dependents = {};
+  findings.forEach(function (f) {
+    list(f.dependsOn).forEach(function (d) { (dependents[d] = dependents[d] || []).push(f.id); });
+  });
+
+  document.title = 'Laravel refactor report' + (data.project ? ' · ' + data.project : '');
+  document.getElementById('title').textContent = 'Laravel refactor report' + (data.project ? ': ' + data.project : '');
+  var meta = document.getElementById('meta');
+  [['Laravel', data.laravelVersion], ['PHP', data.phpVersion], ['Generated', data.generated], ['Scope', list(data.scope).join(', ')]]
+    .forEach(function (p) { if (p[1]) meta.appendChild(el('span', null, [p[0] + ' ', el('b', { text: p[1] })])); });
+  document.getElementById('summary').textContent = data.summary || '';
+
+  var sevCounts = countBy('severity');
+  var catCounts = countBy('category');
+  var stats = document.getElementById('stats');
+  var statItems = [['Findings', findings.length, '']]
+    .concat(SEV.map(function (s) { return [cap(s) + ' severity', sevCounts[s] || 0, s]; }));
+  var st = data.stats || {};
+  STAT_LABEL.forEach(function (p) { if (st[p[0]] != null) statItems.push([p[1], st[p[0]], '']); });
+  statItems.forEach(function (s) {
+    stats.appendChild(el('div', { class: 'card stat ' + s[2] }, [el('div', { class: 'n', text: String(s[1]) }), el('div', { class: 'l', text: s[0] })]));
+  });
+
+  function bars(target, entries, isSeverity) {
+    var max = Math.max.apply(null, entries.map(function (e) { return e[1]; }).concat([1]));
+    entries.forEach(function (e) {
+      var fill = el('div', { class: 'fill ' + (isSeverity ? e[0] : '') });
+      fill.style.width = (e[1] / max * 100) + '%';
+      target.appendChild(el('div', { class: 'bar-row' }, [
+        el('span', { text: isSeverity ? cap(e[0]) : catLabel(e[0]) }),
+        el('div', { class: 'track' }, [fill]),
+        el('span', { class: 'c', text: String(e[1]) })
+      ]));
+    });
+  }
+  bars(document.getElementById('by-severity'), SEV.map(function (s) { return [s, sevCounts[s] || 0]; }), true);
+  bars(document.getElementById('by-category'),
+    Object.keys(catCounts).sort(function (a, b) { return catCounts[b] - catCounts[a]; }).map(function (c) { return [c, catCounts[c]]; }), false);
+
+  var quick = document.getElementById('quick');
+  var wins = findings.filter(function (f) { return f.effort === 'S' && f.severity !== 'low' && !list(f.dependsOn).length; }).slice(0, 8);
+  if (!wins.length) quick.appendChild(el('div', { class: 'empty', text: 'No small-effort, medium-or-high findings.' }));
+  wins.forEach(function (f) {
+    quick.appendChild(el('a', { href: '#' + f.id }, [
+      el('span', { class: 'id', text: f.id }),
+      el('span', null, [el('span', { class: 'badge ' + f.severity, text: f.severity }), ' ', f.title]),
+      el('span', { class: 'loc', text: loc(f) })
+    ]));
+  });
+
+  // Kahn's algorithm over dependsOn, ties broken by priority rank; cycles are appended and flagged.
+  (function applyOrder() {
+    var box = document.getElementById('apply-order');
+    var linked = findings.filter(function (f) {
+      return list(f.dependsOn).length || list(f.overlaps).length || dependents[f.id];
+    });
+    if (!linked.length) {
+      box.appendChild(el('div', { class: 'note-line', text: 'No finding depends on another. Apply them in priority order.' }));
+      return;
+    }
+    var pending = {};
+    linked.forEach(function (f) { pending[f.id] = list(f.dependsOn).filter(function (d) { return byId[d]; }).length; });
+    var order = [];
+    var done = {};
+    while (order.length < linked.length) {
+      var ready = linked.filter(function (f) { return !done[f.id] && pending[f.id] === 0; });
+      var cyclic = false;
+      if (!ready.length) { ready = linked.filter(function (f) { return !done[f.id]; }); cyclic = true; }
+      ready.sort(function (a, b) { return rank[a.id] - rank[b.id]; });
+      var next = ready[0];
+      done[next.id] = true;
+      order.push({ f: next, cyclic: cyclic });
+      (dependents[next.id] || []).forEach(function (d) { if (pending[d] > 0) pending[d]--; });
+    }
+    var ol = el('ol', { class: 'order' });
+    order.forEach(function (o) {
+      var f = o.f;
+      var notes = [];
+      if (list(f.dependsOn).length) notes.push(['after ', list(f.dependsOn)]);
+      if (list(f.overlaps).length) notes.push(['overlaps ', list(f.overlaps)]);
+      var noteEl = el('span', { class: 'note' });
+      notes.forEach(function (n, i) {
+        if (i) noteEl.appendChild(document.createTextNode(' · '));
+        noteEl.appendChild(document.createTextNode(n[0]));
+        n[1].forEach(function (id, j) {
+          if (j) noteEl.appendChild(document.createTextNode(', '));
+          noteEl.appendChild(el('a', { href: '#' + id, text: id }));
+        });
+      });
+      if (o.cyclic) noteEl.appendChild(document.createTextNode((notes.length ? ' · ' : '') + 'dependency cycle: check these findings'));
+      ol.appendChild(el('li', null, [
+        el('span', { class: 'id', text: f.id }),
+        el('span', null, [el('a', { href: '#' + f.id, text: f.title, style: 'color:inherit' }), notes.length || o.cyclic ? noteEl : null])
+      ]));
+    });
+    box.appendChild(ol);
+    var rest = findings.length - linked.length;
+    if (rest) box.appendChild(el('div', { class: 'note-line', text: rest + ' other finding' + (rest > 1 ? 's are' : ' is') + ' independent; apply in priority order.' }));
+  })();
+
+  (function coverage() {
+    var cov = data.coverage || {};
+    var areas = list(cov.areas);
+    var checklist = list(cov.checklist);
+    var aBox = document.getElementById('cov-areas');
+    var cBox = document.getElementById('cov-checklist');
+    function findingLinks(ids) {
+      var span = el('span');
+      list(ids).forEach(function (id, i) {
+        if (i) span.appendChild(document.createTextNode(', '));
+        span.appendChild(el('a', { href: '#' + id, text: id }));
+      });
+      return span;
+    }
+    var ver = cov.verified;
+    aBox.appendChild(el('div', { class: 'note-line', text: ver && list(ver.applied).length
+      ? 'Verified: ' + list(ver.applied).join(', ') + ' applied in apply order to a scratch copy; test suite: ' + (ver.suite || 'passed') + '.'
+      : 'Unverified: suggested fixes were not applied and tested together.' }));
+    if (!areas.length) aBox.appendChild(el('div', { class: 'note-line', text: 'Areas examined were not recorded.' }));
+    else aBox.appendChild(el('table', { class: 'cov' }, [
+      el('thead', null, [el('tr', null, [el('th', { text: 'Area examined' }), el('th', { text: 'Files' }), el('th', { text: 'Notes' })])]),
+      el('tbody', null, areas.map(function (a) {
+        return el('tr', null, [el('td', { text: a.name || '' }), el('td', { class: 'num', text: a.files != null ? String(a.files) : '' }), el('td', { text: a.note || '' })]);
+      }))
+    ]));
+    if (!checklist.length) cBox.appendChild(el('div', { class: 'note-line', text: 'The checklist pass was not recorded, so recall is unverified.' }));
+    else cBox.appendChild(el('table', { class: 'cov' }, [
+      el('thead', null, [el('tr', null, [el('th', { text: 'Checklist item' }), el('th', { text: 'Result' }), el('th', { text: 'Findings or evidence' })])]),
+      el('tbody', null, checklist.map(function (c) {
+        var status = c.status || 'cleared';
+        var detail = el('td', null, [list(c.findings).length ? findingLinks(c.findings) : null, c.note ? (list(c.findings).length ? ' · ' : '') + c.note : null]);
+        return el('tr', null, [el('td', { text: c.item || '' }), el('td', null, [el('span', { class: 'badge ' + status, text: status })]), detail]);
+      }))
+    ]));
+  })();
+
+  var state = { sev: null, cat: null, q: '' };
+  var searchInput = document.getElementById('search');
+
+  function chips(containerId, values, key, labelFn) {
+    var c = document.getElementById(containerId);
+    [null].concat(values).forEach(function (v) {
+      var b = el('button', { class: 'chip', type: 'button', text: v === null ? 'All' : labelFn(v) });
+      b.dataset.value = v === null ? '' : v;
+      b.addEventListener('click', function () { state[key] = v; commit(); });
+      c.appendChild(b);
+    });
+  }
+  function syncControls() {
+    [['sev-filters', 'sev'], ['cat-filters', 'cat']].forEach(function (p) {
+      Array.prototype.forEach.call(document.querySelectorAll('#' + p[0] + ' .chip'), function (b) {
+        b.setAttribute('aria-pressed', b.dataset.value === (state[p[1]] || '') ? 'true' : 'false');
+      });
+    });
+    if (searchInput.value.toLowerCase() !== state.q) searchInput.value = state.q;
+  }
+  chips('sev-filters', SEV.filter(function (s) { return sevCounts[s]; }), 'sev', function (s) { return cap(s) + ' (' + sevCounts[s] + ')'; });
+  chips('cat-filters', Object.keys(catCounts).sort(), 'cat', function (c) { return catLabel(c) + ' (' + catCounts[c] + ')'; });
+  searchInput.addEventListener('input', function (e) { state.q = e.target.value.toLowerCase(); commit(); });
+
+  function filterHash() {
+    var parts = [];
+    if (state.sev) parts.push('sev=' + encodeURIComponent(state.sev));
+    if (state.cat) parts.push('cat=' + encodeURIComponent(state.cat));
+    if (state.q) parts.push('q=' + encodeURIComponent(state.q));
+    return parts.join('&');
+  }
+  function readFilterHash(h) {
+    var next = { sev: null, cat: null, q: '' };
+    h.split('&').forEach(function (kv) {
+      var i = kv.indexOf('=');
+      if (i < 0) return;
+      var k = kv.slice(0, i), v = decodeURIComponent(kv.slice(i + 1));
+      if (k === 'sev' && sevCounts[v]) next.sev = v;
+      else if (k === 'cat' && catCounts[v]) next.cat = v;
+      else if (k === 'q') next.q = v.toLowerCase();
+    });
+    return next;
+  }
+  function writeHash() {
+    var h = filterHash();
+    var url = location.pathname + location.search + (h ? '#' + h : '');
+    try { history.replaceState(null, '', url); } catch (e) { if (h) location.hash = h; }
+  }
+  function commit() { syncControls(); render(); writeHash(); }
+
+  function matches(f) {
+    if (state.sev && f.severity !== state.sev) return false;
+    if (state.cat && f.category !== state.cat) return false;
+    if (state.q) {
+      var hay = [f.id, f.title, f.file, f.why, f.current, f.suggested, f.reference].concat(list(f.locations)).join(' ').toLowerCase();
+      if (hay.indexOf(state.q) === -1) return false;
+    }
+    return true;
+  }
+  function reveal(id) {
+    if (!byId[id]) return false;
+    if (!matches(byId[id])) { state = { sev: null, cat: null, q: '' }; syncControls(); render(); }
+    return true;
+  }
+
+  function relations(f) {
+    var groups = [];
+    if (list(f.dependsOn).length) groups.push(['Apply after', f.dependsOn, 'dep']);
+    if (dependents[f.id]) groups.push(['Needed by', dependents[f.id], '']);
+    if (list(f.overlaps).length) groups.push(['Overlaps', f.overlaps, '']);
+    if (!groups.length) return null;
+    var box = el('div', { class: 'links' });
+    groups.forEach(function (g) {
+      box.appendChild(el('span', { text: g[0] }));
+      g[1].forEach(function (id) { box.appendChild(idLink(id, g[2])); });
+    });
+    return box;
+  }
+
+  function card(f) {
+    var locs = list(f.locations);
+    var head = el('div', { class: 'finding-head' }, [
+      el('div', { class: 'top' }, [
+        el('span', { class: 'badge id', text: f.id }),
+        el('span', { class: 'badge ' + f.severity, text: f.severity }),
+        el('span', { class: 'badge', text: catLabel(f.category) }),
+        el('span', { class: 'badge', text: 'Effort ' + f.effort })
+      ]),
+      el('h3', { text: f.title }),
+      el('div', { class: 'loc' }, [el('code', { text: loc(f) })]),
+      locs.length ? el('div', { class: 'loc also' }, [el('span', { text: 'Also at' })].concat(locs.map(function (l) { return el('code', { text: l }); }))) : null,
+      f.why ? el('p', { class: 'why', text: f.why }) : null,
+      relations(f)
+    ]);
+    var diff = el('div', { class: 'diff' }, [
+      el('div', { class: 'pane before' }, [el('div', { class: 'ph', text: 'Current' }), el('pre', null, [el('code', { text: f.current || '' })])]),
+      el('div', { class: 'pane after' }, [el('div', { class: 'ph', text: 'Suggested' }), el('pre', null, [el('code', { text: f.suggested || '' })])])
+    ]);
+    var ref = null;
+    if (f.reference) {
+      var target = /^https?:\/\//.test(f.reference)
+        ? el('a', { href: f.reference, rel: 'noopener', text: f.reference })
+        : el('code', { text: f.reference });
+      ref = el('div', { class: 'more' }, ['Reference: ', target]);
+    }
+    return el('article', { class: 'card finding', id: f.id }, [head, diff, ref]);
+  }
+
+  function render() {
+    var box = document.getElementById('findings');
+    box.textContent = '';
+    var shown = findings.filter(matches);
+    shown.forEach(function (f) { box.appendChild(card(f)); });
+    if (!shown.length) {
+      var reset = el('button', { class: 'link-reset', type: 'button', text: 'Clear filters' });
+      reset.addEventListener('click', function () { state = { sev: null, cat: null, q: '' }; commit(); });
+      box.appendChild(el('div', { class: 'card empty' }, ['No findings match these filters. ', reset]));
+    }
+    document.getElementById('count').textContent = shown.length + ' of ' + findings.length;
+  }
+
+  // Runs before the browser follows the link, so a filtered-out target exists by the time it scrolls.
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="#"]');
+    if (a) reveal(decodeURIComponent(a.getAttribute('href').slice(1)));
+  }, true);
+
+  function onHash() {
+    var h = decodeURIComponent(location.hash.slice(1));
+    if (!h) return;
+    if (byId[h]) {
+      reveal(h);
+      var t = document.getElementById(h);
+      if (t) t.scrollIntoView();
+    } else if (h.indexOf('=') > -1) {
+      state = readFilterHash(location.hash.slice(1));
+      syncControls();
+      render();
+    }
+  }
+  window.addEventListener('hashchange', onHash);
+
+  document.getElementById('static').hidden = true;
+  document.getElementById('app').hidden = false;
+  syncControls();
+  render();
+  onHash();
+})();
+</script>
+</body>
+</html>
