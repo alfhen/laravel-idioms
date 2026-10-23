@@ -75,6 +75,28 @@ foreach ($urls->pluck('path')->unique()->chunk(100) as $paths) {
 ```
 Never force this into `each(function () use (&$viewCounts) { ... })`.
 
+## When array functions win
+
+A pipeline earns its place by replacing an accumulator loop or a multi-step transformation. A one-line `array_keys(array_filter(...))` or `array_values(array_unique(...))` over a plain array is already idiomatic; don't rewrite it if the rewrite costs a type.
+
+The framework's generics make `all()` `array<TKey, TValue>` and `keys()`/`values()` `static<int, …>`, so `->keys()->all()` and `->values()->all()` are `array<int, T>`. Larastan never narrows that to `list<T>` (PHPStan reports the mismatch from level 7), while PHPStan types `array_keys()` and `array_values()` as lists.
+```php
+// bad: a temp exists only to carry a @var
+/** @var list<string> $enabled */
+$enabled = collect($this->languages($account))
+    ->filter(fn (array $language): bool => $language['enabled'] ?? false)
+    ->keys()
+    ->all();
+
+return $enabled;
+
+// good
+return array_keys(array_filter($this->languages($account), fn (array $language): bool => $language['enabled'] ?? false));
+```
+- `list<T>` on a return type or a property other classes read is a contract: keep the array functions.
+- A private property read only by `in_array()`, `foreach` or `=== []` doesn't need `list`: widen its docblock to `array<int, string>` and assign the pipeline directly (`$this->hosts = collect($hosts)->map(...)->values()->all();`).
+- If the caller can take a collection, return it typed `Collection<int, string>` instead of calling `->all()`.
+
 ## Arr and data_get
 
 ```php
@@ -147,6 +169,7 @@ $order = Pipeline::send($order)->through([ApplyDiscount::class, CalculateTax::cl
 - Collection methods return new instances; `$c->map(...)` without assignment does nothing. `transform`, `push`, `put`, `forget`, `pull`, `pop`, `shift`, `prepend` mutate.
 - `each()` stops when the callback returns exactly `false`: `fn ($x) => $x->save()` can stop early.
 - `contains`, `where`, `whereIn` compare loosely; use `containsStrict` / `whereStrict` / `whereInStrict` with mixed `'1'`/`1`/`true`.
+- `unique()` with no key runs `array_unique($items, SORT_REGULAR)`, which is looser than both `in_array(..., true)` and plain `array_unique()` (string comparison): `'0'`/`'00'` and `'1e3'`/`'1000'` collapse to one. Replace a strict dedupe with `uniqueStrict()`.
 - `env()` in app code returns null after `config:cache`.
 
 Evidence: `Illuminate/Collections/Traits/EnumeratesValues.php`, `Illuminate/Collections/Collection.php`, `Illuminate/Support/helpers.php`, `Illuminate/Database/Concerns/BuildsQueries.php`, laravel.io `app/Console/Commands/UpdateArticleViewCounts.php`.

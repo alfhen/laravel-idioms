@@ -75,7 +75,9 @@ protected function draft(Builder $query): void
 
 User::popular()->ofType('admin')->get();
 ```
-Protected (not private), no `scope` prefix, returns void. Inside the model, call through `static::query()->ofType(...)`. The `scopeX` form still resolves but is not the documented style.
+Protected (not private), no `scope` prefix, returns void. Inside the model, call through `static::query()->ofType(...)`. The `scopeX` form still resolves but is not the documented style. `#[Scope]` doesn't exist on 11.
+
+A `#[Scope]` method is a real method, and attribute access treats any model method as a relation whenever the key isn't a loaded attribute (`isRelation()` is `method_exists`). With `#[Scope] protected function accepted(Builder $q)`, `$model->accepted` and `isset($model->accepted)` throw `ArgumentCountError` wherever `accepted` isn't in the selected columns; with `scopeAccepted()`, `isset()` was `false` and the read was `null` (a `MissingAttributeException` under strict mode). Convert `scopeX` only when `grep -rnE "(->|\[')accepted\b([^(]|$)" app resources tests` finds no attribute access on that model.
 
 ## Strict mode
 
