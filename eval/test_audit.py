@@ -9,7 +9,7 @@ import json
 import os
 import tempfile
 import unittest
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 os.environ.setdefault('WORK', tempfile.mkdtemp())
 spec = importlib.util.spec_from_file_location('audit', Path(__file__).with_name('audit.py'))
@@ -47,6 +47,14 @@ class Mentions(unittest.TestCase):
         self.check({'file': str(self.run_dir / OFFER) + ':12'}, True)
         self.check({'file': f'/tmp/scratch/app/{OFFER}'}, False)
 
+    def test_windows_absolute_paths_keep_their_drive(self):
+        windows_run = PureWindowsPath('C:/repo/runs/head-1')
+        finding = {'file': 'C:\\repo\\runs\\head-1\\app\\Models\\Offer.php:12'}
+        self.assertTrue(audit.mentions(finding, OFFER, windows_run))
+        self.assertEqual(audit.place_path(finding['file'], windows_run), OFFER)
+        self.assertFalse(audit.mentions({'file': 'D:\\elsewhere\\app\\Models\\Offer.php:12'}, OFFER, windows_run))
+        self.assertIsNone(audit.place_path(finding['file'], self.run_dir))
+
     def test_no_suffix_or_prefix_matching(self):
         for place in ['Models/Offer.php', 'Offer.php:12', f'{OFFER}.bak', f'vendor/{OFFER}']:
             self.check({'file': place}, False)
@@ -71,8 +79,13 @@ class Apply(unittest.TestCase):
 
     def test_refuses_incomplete_suggestions_without_touching_the_file(self):
         current = '    public function scopeAccepted(Builder $query): void'
+        imports_only = ['use Illuminate\\Database\\Eloquent\\Attributes\\Scope;', 'use DateTime as Clock;',
+                        'use App\\{Foo, Bar};', 'use function App\\helper;', 'use const App\\LIMIT;',
+                        'use function strlen;\nuse A\\B, C\\D as E;']
+        comments_only = ['    // removed', '    /* gone\n       entirely */', '    # removed', '    /** @deprecated */\n    // gone']
         for finding in [{'current': current, 'suggested': ''}, {'current': current, 'suggested': '   \n'},
-                        {'current': current, 'suggested': 'use Illuminate\\Database\\Eloquent\\Attributes\\Scope;'},
+                        *({'current': current, 'suggested': s} for s in imports_only + comments_only),
+                        {'current': current, 'suggested': 'use App\\Foo;\n// only a comment'},
                         {'current': '', 'suggested': '#[Scope]'}, {'suggested': '#[Scope]'}, {'current': current}]:
             self.assertFalse(audit.apply(self.app, OFFER, finding), finding)
             self.assertEqual(self.content(), MODEL)
@@ -88,9 +101,15 @@ class Apply(unittest.TestCase):
 
     def test_matches_current_ignoring_indentation(self):
         finding = {'current': "public function scopeAccepted(Builder $query): void\n{\n$query->where('accepted', true);\n}",
-                   'suggested': '    // replaced'}
+                   'suggested': '    public function scopeAccepted(Builder $query): void {}'}
         self.assertTrue(audit.apply(self.app, OFFER, finding))
-        self.assertIn('    // replaced', self.content())
+        self.assertIn('    public function scopeAccepted(Builder $query): void {}', self.content())
+
+    def test_trait_uses_and_attributes_count_as_code(self):
+        for suggested in ['    use HasFactory;', '    use HasTags { tags as baseTags; }', '    #[Scope]']:
+            self.setUp()
+            self.assertTrue(audit.apply(self.app, OFFER, {'current': '    public function scopeAccepted(Builder $query): void',
+                                                          'suggested': suggested}), suggested)
 
     def test_current_not_found(self):
         self.assertFalse(audit.apply(self.app, OFFER, {'current': 'public function nope()', 'suggested': 'x'}))
@@ -108,7 +127,8 @@ class Score(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(MODEL)
         self.patches = {'AUDIT': self.root, 'FIXTURE': self.fixture,
-                        'phpstan': lambda app: {'errors': int('BREAK_TYPES' in (app / OFFER).read_text()), 'messages': []},
+                        'phpstan': lambda app: {'errors': None if 'NO_PHPSTAN' in (app / OFFER).read_text()
+                                                else int('BREAK_TYPES' in (app / OFFER).read_text()), 'messages': []},
                         'tests': lambda app: {'pass': 'BREAK_TESTS' not in (app / OFFER).read_text(), 'summary': ''}}
         self.saved = {k: getattr(audit, k) for k in self.patches}
         for k, v in self.patches.items():
@@ -129,6 +149,7 @@ class Score(unittest.TestCase):
         return json.loads((self.root / 'scores.json').read_text())[0]['traps'][trap]['verdict']
 
     current = '    public function scopeAccepted(Builder $query): void'
+    clean = '    public function scopeAccepted(Builder $query): void {}'
 
     def finding(self, fid, suggested, current=None):
         return {'id': fid, 'file': f'{OFFER}:7', 'current': self.current if current is None else current,
@@ -138,24 +159,31 @@ class Score(unittest.TestCase):
         self.assertEqual(self.verdict([]), 'pass (left alone)')
 
     def test_verified_pass(self):
-        self.assertEqual(self.verdict([self.finding('F-1', '    // fine')]), 'pass (flagged safely, verified)')
+        self.assertEqual(self.verdict([self.finding('F-1', self.clean)]), 'pass (flagged safely, verified)')
+
+    def test_missing_phpstan_result_is_not_verified(self):
+        self.assertEqual(self.verdict([self.finding('F-1', "    $marker = 'NO_PHPSTAN';")]),
+                         'pass (flagged safely, not verified: PHPStan result unavailable)')
+        self.assertEqual(self.verdict([self.finding('F-1', "    $marker = 'NO_PHPSTAN BREAK_TESTS';")]),
+                         'FAIL (rewrite breaks tests)')
 
     def test_flagged_without_a_complete_suggestion_is_not_verified(self):
-        for suggested in ['', 'use Illuminate\\Database\\Eloquent\\Attributes\\Scope;']:
+        for suggested in ['', 'use Illuminate\\Database\\Eloquent\\Attributes\\Scope;', 'use DateTime as Clock;',
+                          'use App\\{Foo, Bar};', '    // removed']:
             self.assertEqual(self.verdict([self.finding('F-1', suggested)]),
                              'pass (flagged safely, not verified: no complete suggestion in F-1)')
-        self.assertEqual(self.verdict([self.finding('F-1', '    // fine'), self.finding('F-2', '')]),
+        self.assertEqual(self.verdict([self.finding('F-1', self.clean), self.finding('F-2', '')]),
                          'pass (flagged safely, not verified: no complete suggestion in F-2)')
 
     def test_unapplicable_rewrite_is_unverified_even_next_to_a_clean_one(self):
         self.assertEqual(self.verdict([self.finding('F-1', 'x', current='public function nope()')]),
                          'UNVERIFIED (rewrite not applicable)')
         self.assertEqual(self.verdict([self.finding('F-1', 'x', current='public function nope()'),
-                                       self.finding('F-2', '    // fine')]), 'UNVERIFIED (rewrite not applicable)')
+                                       self.finding('F-2', self.clean)]), 'UNVERIFIED (rewrite not applicable)')
 
     def test_rewrite_that_breaks_types_or_tests_fails(self):
-        self.assertEqual(self.verdict([self.finding('F-1', '    // BREAK_TYPES')]), 'FAIL (rewrite breaks PHPStan)')
-        self.assertEqual(self.verdict([self.finding('F-1', '    // BREAK_TYPES BREAK_TESTS')]),
+        self.assertEqual(self.verdict([self.finding('F-1', "    $marker = 'BREAK_TYPES';")]), 'FAIL (rewrite breaks PHPStan)')
+        self.assertEqual(self.verdict([self.finding('F-1', "    $marker = 'BREAK_TYPES BREAK_TESTS';")]),
                          'FAIL (rewrite breaks PHPStan and tests)')
 
     def test_bad_suggestion_fails_and_is_still_applied_for_evidence(self):
