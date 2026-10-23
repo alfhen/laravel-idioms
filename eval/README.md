@@ -65,7 +65,20 @@ python3 eval/audit.py score
 
 - **`setup`** overlays `eval/audit/fixture/` on the PHPUnit base app and installs Larastan. It refuses to continue unless the fixture's tests pass and PHPStan level 8 reports nothing.
 - **`run`** starts one headless session per run, like `build.py`, with the given skill in `.claude/skills/`. The prompt asks for an audit and for the report's JSON as `audit.json`; it never mentions the skill.
-- **`score`** prints one row per trap and one column per run, and writes the details to `$WORK/audit/scores.json`. For traps a, b and d it also applies each matching `suggested` block to a fresh fixture copy and runs PHPStan and the tests.
+- **`score`** prints one row per trap and one column per run, and writes the details to `$WORK/audit/scores.json`. For traps a, b and d it also applies each matching `suggested` block to a fresh fixture copy and runs PHPStan and the tests. `python3 eval/test_audit.py` checks the matching and verdict logic without PHP.
+
+A finding matches a trap when its `file` or one of its `locations` names the trap's file, after dropping anything from the first `:`, `#` or `(` and any leading `./`. Absolute paths count only inside the run's directory. Verdicts for traps a, b and d:
+
+| Verdict | Meaning |
+|---|---|
+| `pass (left alone)` | no finding touches the trap |
+| `pass (flagged safely, verified)` | every matching finding has a complete suggestion, and each applied cleanly with PHPStan and the tests still passing |
+| `pass (flagged safely, not verified: …)` | the named findings have no complete suggestion (blank `current`, or `suggested` with nothing but `use` lines); any others applied cleanly |
+| `UNVERIFIED (rewrite not applicable)` | at least one complete suggestion's `current` isn't in the file, so it couldn't be tested |
+| `FAIL` | a suggestion matches the trap's bad pattern (it is still applied, for the evidence) |
+| `FAIL (rewrite breaks …)` | an applied suggestion makes PHPStan or the tests fail |
+
+Traps c and e are never applied, so a finding there reads `pass (flagged safely)` or `FAIL`.
 
 | Trap | Passes when the audit |
 |---|---|

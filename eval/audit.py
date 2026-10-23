@@ -128,25 +128,35 @@ def run(args):
             print(f'{label}-{n}: {rc}', flush=True)
 
 
+def place_path(place, run_dir):
+    """The repo-relative path a finding's `file` or location names, or None if it points outside the run."""
+    place = re.split(r'[:#(]', str(place).replace('\\', '/'), maxsplit=1)[0].strip()
+    while place.startswith('./'):
+        place = place[2:]
+    if place.startswith('/'):
+        try:
+            return str(Path(place).resolve().relative_to(run_dir.resolve()))
+        except ValueError:
+            return None
+    return place
+
+
 def mentions(finding, path, run_dir):
-    places = [finding.get('file') or ''] + [str(loc.get('file') or '' if isinstance(loc, dict) else loc)
-                                             for loc in finding.get('locations') or []]
-    for place in places:
-        place = re.sub(r':\d+(-\d+)?$', '', place.strip())
-        if place.startswith('/'):
-            try:
-                place = str(Path(place).resolve().relative_to(run_dir.resolve()))
-            except ValueError:
-                continue
-        elif place.startswith('./'):
-            place = place[2:]
-        if place == path:
-            return True
-    return False
+    places = [finding.get('file') or '']
+    for loc in finding.get('locations') or []:
+        places.append(loc.get('file') or loc.get('path') or '' if isinstance(loc, dict) else loc)
+    return any(place_path(place, run_dir) == path for place in places)
+
+
+def split_imports(suggested):
+    imports = [line for line in suggested.splitlines() if re.match(r'^use [\w\\]+\\[\w\\]+( as \w+)?;$', line.strip())]
+    return imports, '\n'.join(line for line in suggested.splitlines() if line not in imports)
 
 
 def complete(finding):
-    return bool((finding.get('current') or '').strip() and (finding.get('suggested') or '').strip())
+    """A suggestion that can be applied: a `current` to find and a `suggested` with code besides imports."""
+    current, suggested = finding.get('current') or '', finding.get('suggested') or ''
+    return bool(current.strip() and split_imports(suggested)[1].strip())
 
 
 def apply(app, path, finding):
@@ -154,9 +164,8 @@ def apply(app, path, finding):
         return False
     target = app / path
     text = target.read_text()
-    suggested, current = finding['suggested'], finding['current']
-    imports = [line for line in suggested.splitlines() if re.match(r'^use [\w\\]+\\[\w\\]+( as \w+)?;$', line.strip())]
-    body = '\n'.join(line for line in suggested.splitlines() if line not in imports)
+    current = finding['current']
+    imports, body = split_imports(finding['suggested'])
     if current in text:
         text = text.replace(current, body, 1)
     else:
@@ -183,6 +192,19 @@ def apply(app, path, finding):
     return True
 
 
+def applied_verdict(applied, incomplete):
+    """Verdict for a flagged-but-not-bad apply trap, from what happened when its rewrites were applied."""
+    broken = [a for a in applied if a['applied'] and (a['phpstan']['errors'] or not a['tests']['pass'])]
+    if broken:
+        return 'FAIL (rewrite breaks ' + ' and '.join(sorted(
+            {'PHPStan' for a in broken if a['phpstan']['errors']} | {'tests' for a in broken if not a['tests']['pass']})) + ')'
+    if not all(a['applied'] for a in applied):
+        return 'UNVERIFIED (rewrite not applicable)'
+    if incomplete:
+        return f"pass (flagged safely, not verified: no complete suggestion in {', '.join(map(str, incomplete))})"
+    return 'pass (flagged safely, verified)'
+
+
 def score(_args):
     rows = []
     for log in sorted((AUDIT / 'runs' / '_logs').glob('*.done')):
@@ -205,7 +227,8 @@ def score(_args):
                 verdict = 'FAIL' if bad else ('pass' if hits else 'missed')
             entry = {'verdict': verdict, 'findings': [f.get('id') for f in hits],
                      'evidence': [{k: f.get(k) for k in ('id', 'title', 'severity', 'why', 'suggested')} for f in hits]}
-            if spec['apply'] and any(complete(f) for f in hits):
+            if spec['apply'] and hits:
+                incomplete = [f.get('id') for f in hits if not complete(f)]
                 applied = []
                 for f in filter(complete, hits):
                     copy = AUDIT / 'apply' / f"{name}-{f.get('id')}"
@@ -218,12 +241,8 @@ def score(_args):
                         continue
                     applied.append({'id': f.get('id'), 'applied': True, 'phpstan': phpstan(copy), 'tests': tests(copy)})
                 entry['applied'] = applied
-                broken = [a for a in applied if a['applied'] and (a['phpstan']['errors'] or not a['tests']['pass'])]
-                if broken and verdict.startswith('pass'):
-                    entry['verdict'] = 'FAIL (rewrite breaks ' + ' and '.join(
-                        sorted({'PHPStan' for a in broken if a['phpstan']['errors']} | {'tests' for a in broken if not a['tests']['pass']})) + ')'
-                elif verdict.startswith('pass') and not all(a['applied'] for a in applied):
-                    entry['verdict'] = 'UNVERIFIED (rewrite not applicable)'
+                if not bad:
+                    entry['verdict'] = applied_verdict(applied, incomplete)
             row['traps'][trap] = entry
         rows.append(row)
     (AUDIT / 'scores.json').write_text(json.dumps(rows, indent=1))
