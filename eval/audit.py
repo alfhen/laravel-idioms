@@ -128,17 +128,35 @@ def run(args):
             print(f'{label}-{n}: {rc}', flush=True)
 
 
-def mentions(finding, path):
-    places = [finding.get('file', '')] + [str(loc) for loc in finding.get('locations', [])]
-    return any(p.lstrip('./').split(':')[0] == path for p in places)
+def mentions(finding, path, run_dir):
+    places = [finding.get('file') or ''] + [str(loc.get('file') or '' if isinstance(loc, dict) else loc)
+                                             for loc in finding.get('locations') or []]
+    for place in places:
+        place = re.sub(r':\d+(-\d+)?$', '', place.strip())
+        if place.startswith('/'):
+            try:
+                place = str(Path(place).resolve().relative_to(run_dir.resolve()))
+            except ValueError:
+                continue
+        elif place.startswith('./'):
+            place = place[2:]
+        if place == path:
+            return True
+    return False
 
 
-def apply(app, finding):
-    target = app / finding['file'].lstrip('./')
+def complete(finding):
+    return bool((finding.get('current') or '').strip() and (finding.get('suggested') or '').strip())
+
+
+def apply(app, path, finding):
+    if not complete(finding):
+        return False
+    target = app / path
     text = target.read_text()
-    imports = [line for line in finding['suggested'].splitlines() if re.match(r'^use [\w\\]+\\[\w\\]+( as \w+)?;$', line.strip())]
-    body = '\n'.join(line for line in finding['suggested'].splitlines() if line not in imports)
-    current = finding['current']
+    suggested, current = finding['suggested'], finding['current']
+    imports = [line for line in suggested.splitlines() if re.match(r'^use [\w\\]+\\[\w\\]+( as \w+)?;$', line.strip())]
+    body = '\n'.join(line for line in suggested.splitlines() if line not in imports)
     if current in text:
         text = text.replace(current, body, 1)
     else:
@@ -175,26 +193,27 @@ def score(_args):
             row['error'] = 'no audit.json'
             rows.append(row)
             continue
-        findings = json.loads(report.read_text()).get('findings', [])
+        findings = [{**f, **{k: f.get(k) or '' for k in ('current', 'suggested', 'why', 'title')}}
+                    for f in json.loads(report.read_text()).get('findings') or []]
         row['findings'] = len(findings)
         for trap, spec in TRAPS.items():
-            hits = [f for f in findings if mentions(f, spec['file']) and spec.get('match', lambda f: True)(f)]
-            bad = [f for f in hits if spec['bad']({**f, 'suggested': f.get('suggested', '') or ''})]
+            hits = [f for f in findings if mentions(f, spec['file'], AUDIT / 'runs' / name) and spec.get('match', lambda f: True)(f)]
+            bad = [f for f in hits if spec['bad'](f)]
             if spec['kind'] == 'trap':
                 verdict = 'FAIL' if bad else ('pass (flagged safely)' if hits else 'pass (left alone)')
             else:
                 verdict = 'FAIL' if bad else ('pass' if hits else 'missed')
             entry = {'verdict': verdict, 'findings': [f.get('id') for f in hits],
                      'evidence': [{k: f.get(k) for k in ('id', 'title', 'severity', 'why', 'suggested')} for f in hits]}
-            if spec['apply'] and hits:
+            if spec['apply'] and any(complete(f) for f in hits):
                 applied = []
-                for f in hits:
+                for f in filter(complete, hits):
                     copy = AUDIT / 'apply' / f"{name}-{f.get('id')}"
                     if copy.exists():
                         shutil.rmtree(copy)
                     copy.parent.mkdir(parents=True, exist_ok=True)
                     subprocess.run(['cp', '-R', str(FIXTURE), str(copy)], check=True)
-                    if not apply(copy, f):
+                    if not apply(copy, spec['file'], f):
                         applied.append({'id': f.get('id'), 'applied': False})
                         continue
                     applied.append({'id': f.get('id'), 'applied': True, 'phpstan': phpstan(copy), 'tests': tests(copy)})
@@ -203,6 +222,8 @@ def score(_args):
                 if broken and verdict.startswith('pass'):
                     entry['verdict'] = 'FAIL (rewrite breaks ' + ' and '.join(
                         sorted({'PHPStan' for a in broken if a['phpstan']['errors']} | {'tests' for a in broken if not a['tests']['pass']})) + ')'
+                elif verdict.startswith('pass') and not all(a['applied'] for a in applied):
+                    entry['verdict'] = 'UNVERIFIED (rewrite not applicable)'
             row['traps'][trap] = entry
         rows.append(row)
     (AUDIT / 'scores.json').write_text(json.dumps(rows, indent=1))
