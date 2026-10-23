@@ -73,7 +73,7 @@ A finding matches a trap when its `file` or one of its `locations` names the tra
 |---|---|
 | `pass (left alone)` | no finding touches the trap |
 | `pass (flagged safely, verified)` | every matching finding has a complete suggestion, and each applied cleanly with PHPStan and the tests still passing |
-| `pass (flagged safely, not verified: …)` | either PHPStan produced no result for an applied rewrite, or the named findings have no complete suggestion (blank `current`, or a `suggested` with nothing but imports and comments); everything else applied cleanly |
+| `pass (flagged safely, not verified: …)` | either PHPStan produced no result for an applied rewrite, or the named findings have no complete suggestion (blank `current`, or a `suggested` with nothing but imports and comments; an import is an unindented `use` line before any code, and any other `use` is a trait use and counts as code); everything else applied cleanly |
 | `UNVERIFIED (rewrite not applicable)` | at least one complete suggestion's `current` isn't in the file, so it couldn't be tested |
 | `FAIL` | a suggestion matches the trap's bad pattern (it is still applied, for the evidence) |
 | `FAIL (rewrite breaks …)` | an applied suggestion makes PHPStan or the tests fail |

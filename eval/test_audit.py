@@ -111,6 +111,43 @@ class Apply(unittest.TestCase):
             self.assertTrue(audit.apply(self.app, OFFER, {'current': '    public function scopeAccepted(Builder $query): void',
                                                           'suggested': suggested}), suggested)
 
+    def class_body(self):
+        text = self.content()
+        return text[text.index('class Offer'):]
+
+    def test_qualified_trait_use_alone_stays_in_the_class(self):
+        finding = {'current': '    public function scopeAccepted(Builder $query): void', 'suggested': '    use App\\Traits\\Offers;'}
+        self.assertTrue(audit.complete(finding))
+        self.assertTrue(audit.apply(self.app, OFFER, finding))
+        self.assertIn('    use App\\Traits\\Offers;', self.class_body())
+        self.assertNotIn('namespace App\\Models;\n\nuse App\\Traits\\Offers;', self.content())
+
+    def test_trait_use_plus_method_stays_in_the_class(self):
+        for trait in ['    use App\\Traits\\Offers;', '    use App\\Concerns\\HasTags { tags as baseTags; }', '    use HasFactory;']:
+            self.setUp()
+            suggested = f'{trait}\n\n    public function accepted(): bool\n    {{\n        return true;\n    }}'
+            self.assertTrue(audit.apply(self.app, OFFER, {'current': '    public function scopeAccepted(Builder $query): void',
+                                                          'suggested': suggested}), trait)
+            self.assertIn(trait, self.class_body())
+
+    def test_use_after_code_is_a_trait_use_even_unindented(self):
+        imports, body = audit.split_imports('class Offer extends Model\n{\nuse App\\Traits\\Offers;\n}')
+        self.assertEqual(imports, [])
+        self.assertIn('use App\\Traits\\Offers;', body)
+
+    def test_file_level_import_is_split_from_a_class_member(self):
+        suggested = ('use Illuminate\\Database\\Eloquent\\Attributes\\Scope;\nuse DateTime as Clock;\n\n'
+                     '    #[Scope]\n    protected function accepted(Builder $query): void')
+        imports, body = audit.split_imports(suggested)
+        self.assertEqual(imports, ['use Illuminate\\Database\\Eloquent\\Attributes\\Scope;', 'use DateTime as Clock;'])
+        self.assertNotIn('use ', body)
+        self.assertTrue(audit.apply(self.app, OFFER, {'current': '    public function scopeAccepted(Builder $query): void',
+                                                      'suggested': suggested}))
+        header = self.content().split('class Offer')[0]
+        self.assertIn('\nuse DateTime as Clock;\n', header)
+        self.assertIn('\nuse Illuminate\\Database\\Eloquent\\Attributes\\Scope;\n', header)
+        self.assertNotIn('use ', self.class_body())
+
     def test_current_not_found(self):
         self.assertFalse(audit.apply(self.app, OFFER, {'current': 'public function nope()', 'suggested': 'x'}))
         self.assertEqual(self.content(), MODEL)

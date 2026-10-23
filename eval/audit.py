@@ -156,14 +156,23 @@ def mentions(finding, path, run_dir):
     return any(place_path(place, run_dir) == path for place in places)
 
 
-# Namespace imports, as opposed to `use HasFactory;` trait uses: a backslash, an alias, a group, or function/const.
+# The shape of a namespace import: a backslash, an alias, a group, or function/const. A bare `use HasFactory;` is
+# always a trait use; split_imports() decides the rest by position.
 IMPORT = re.compile(r'^(?=use\s+(function|const)\s|[^;{]*\\|[^;{]*\sas\s)use\s+((function|const)\s+)?'
                     r'[\w\\]+(\s*\{[^}]*\}|\s+as\s+\w+)?(\s*,\s*[\w\\]+(\s+as\s+\w+)?)*\s*;$')
 
 
 def split_imports(suggested):
-    imports = [line for line in suggested.splitlines() if IMPORT.match(line.strip())]
-    return imports, '\n'.join(line for line in suggested.splitlines() if line not in imports)
+    """File-level imports: unindented `use` lines before any code. An indented `use`, or one after code (such as a
+    class's opening brace), is a trait use and stays in the body."""
+    imports, body = [], []
+    for line in suggested.splitlines():
+        leading = not code_only('\n'.join(body)).strip()
+        if leading and line == line.lstrip() and IMPORT.match(line.strip()):
+            imports.append(line)
+        else:
+            body.append(line)
+    return imports, '\n'.join(body)
 
 
 def code_only(source):
