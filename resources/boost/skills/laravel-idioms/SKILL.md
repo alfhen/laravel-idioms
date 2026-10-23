@@ -114,7 +114,7 @@ $names = $users->filter->active->pluck('name')->values();
 ```
 A closure inside `map`/`each`/`mapWithKeys` never captures `&$var`. If a step needs a running total, use a plain `foreach` with a named accumulator, or `reduce`. Call `->values()` after `filter/reject/unique` before JSON. Format money with `Number::currency($cents / 100, in: 'USD')`, not `number_format`.
 
-Pipelines replace loops; they are not a mandate to rewrite `array_*` calls. Never add a temp variable and `@var` just to make a pipeline fit a declared type.
+Pipelines replace loops; they are not a mandate to rewrite `array_*` calls. Never add a temp variable and `@var`, or silence the error (`@phpstan-ignore`, `assert()`, a cast), just to make a pipeline fit a declared type.
 ```php
 // bad: the temp exists only to carry a @var
 /** @var list<string> $enabled */

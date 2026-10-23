@@ -17,6 +17,8 @@ In application code use `collect()` and `str()`. Framework and package internals
 | `new Money($x)` per item | `mapInto(Money::class)` |
 | `instanceof` check in loop | `ensure(Handler::class)` at the boundary |
 
+Inside a method or property typed `list<…>`, see "When array functions win" first.
+
 ```php
 $names = $users
     ->filter(fn (User $u) => $u->active)
@@ -98,7 +100,7 @@ When the method returns or a property holds `list<T>`, write it without a temp:
 - a real multi-step transformation, or the loop it replaces: `return array_values(collect($rows)->map(...)->filter(...)->sort()->all());`;
 - widen the declared type to `array<int, T>` only when no caller relies on a list, e.g. a private property read only by `in_array()`, `foreach` or `=== []`; then assign the pipeline directly (`$this->hosts = collect($hosts)->map(...)->values()->all();`).
 
-A `Collection<int, string>` return type doesn't avoid this: `TValue` isn't covariant, so `->map(fn (string $h): string => strtolower($h))` returns `Collection<int, lowercase-string>` and fails at level 8.
+A `Collection<int, string>` return type doesn't avoid this: Larastan's stubs declare `TValue` invariant (the framework docblock says covariant), so a pipeline whose element type is narrower than `string` (`strtolower`, concatenation, `filter()`) can't be returned as `Collection<int, string>`; PHPStan reports it from level 3. Suppressing the error (`@phpstan-ignore`, `assert()`, a cast) is not an alternative to the forms above.
 
 ## Arr and data_get
 
