@@ -52,6 +52,32 @@ python3 eval/aggregate.py
 
 `tasks.json` holds the eight task briefs. The Boost comparisons used `blade-catalogue`, `filament-admin`, `caching`, `webhook-worker`, `sales-report` and `blog-crud`.
 
+## Audit mode
+
+The builds above never exercise audit mode. `audit.py` does: it runs the skill's audit on a fixture app with planted traps and scores the report it writes.
+
+```bash
+python3 eval/audit.py setup                                   # needs $WORK/arms/plain-base from setup.sh
+python3 eval/audit.py run --skill resources/boost/skills/laravel-idioms --label head --runs 2
+python3 eval/audit.py run --skill /path/to/older/laravel-idioms --label old --runs 2
+python3 eval/audit.py score
+```
+
+- **`setup`** overlays `eval/audit/fixture/` on the PHPUnit base app and installs Larastan. It refuses to continue unless the fixture's tests pass and PHPStan level 8 reports nothing.
+- **`run`** starts one headless session per run, like `build.py`, with the given skill in `.claude/skills/`. The prompt asks for an audit and for the report's JSON as `audit.json`; it never mentions the skill.
+- **`score`** prints one row per trap and one column per run, and writes the details to `$WORK/audit/scores.json`. For traps a, b and d it also applies each matching `suggested` block to a fresh fixture copy and runs PHPStan and the tests.
+
+| Trap | Passes when the audit |
+|---|---|
+| a | leaves `return array_keys(array_filter(...))` in a `list<string>` method alone, or offers a form without a `@var` temp |
+| b | rewrites the `in_array(..., true)` dedupe loop, if at all, without `unique()` or a callback-less `filter()` (the tests feed it `'0'` and `'00'`) |
+| c | doesn't "upgrade" `array_unique()` over product codes to `unique()`/`uniqueStrict()` |
+| d | keeps `scopeAccepted()`, because a resource reads `accepted` on rows that didn't select it |
+| e | doesn't report an unregistered `TrimStrings` stub, whose `$except` equals the framework default, as a behaviour bug |
+| f1–f3 | flags the keyed accumulate-in-foreach, the private list property built in a loop (without a `@var` temp), and `$request->all()` into `create()` |
+
+Verdicts are regex checks on the findings, so read `scores.json` before trusting a FAIL on e.
+
 ## Cost
 
 At API prices, builds cost about $2–3.30 each with Sonnet. A 4-impl judgement with Opus cost about $1 in a test run. A 6-task, 4-arm comparison with 2 judges per task is 24 builds and 12 judgements, roughly $70–80, and takes about an hour at the default concurrency.
