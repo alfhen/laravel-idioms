@@ -17,6 +17,8 @@ In application code use `collect()` and `str()`. Framework and package internals
 | `new Money($x)` per item | `mapInto(Money::class)` |
 | `instanceof` check in loop | `ensure(Handler::class)` at the boundary |
 
+Inside a method or property typed `list<…>`, see "When array functions win" first.
+
 ```php
 $names = $users
     ->filter(fn (User $u) => $u->active)
@@ -74,6 +76,31 @@ foreach ($urls->pluck('path')->unique()->chunk(100) as $paths) {
 }
 ```
 Never force this into `each(function () use (&$viewCounts) { ... })`.
+
+## When array functions win
+
+A pipeline earns its place by replacing an accumulator loop or a multi-step transformation. A one-line `array_keys(array_filter(...))` or `array_values(array_unique(...))` over a plain array is already idiomatic; don't rewrite it if the rewrite costs a type.
+
+The framework's generics make `all()` `array<TKey, TValue>` and `keys()`/`values()` `static<int, …>`, so `->keys()->all()` and `->values()->all()` are `array<int, T>` (as is `Eloquent\Collection::modelKeys()`). Larastan never narrows that to `list<T>` (PHPStan reports the mismatch from level 7), while PHPStan types `array_keys()` and `array_values()` as lists.
+```php
+// bad: a temp exists only to carry a @var
+/** @var list<string> $enabled */
+$enabled = collect($this->languages($account))
+    ->filter(fn (array $language): bool => $language['enabled'] ?? false)
+    ->keys()
+    ->all();
+
+return $enabled;
+
+// good
+return array_keys(array_filter($this->languages($account), fn (array $language): bool => $language['enabled'] ?? false));
+```
+When the method returns or a property holds `list<T>`, write it without a temp:
+- one step (including a loop that only maps or only filters): `array_map(fn ..., $list)`, `array_keys(array_filter(...))`, `array_values(array_filter(...))`;
+- a real multi-step transformation, or the loop it replaces: `return array_values(collect($rows)->map(...)->filter(...)->sort()->all());`;
+- widen the declared type to `array<int, T>` only when no caller relies on a list, e.g. a private property read only by `in_array()`, `foreach` or `=== []`; then assign the pipeline directly (`$this->hosts = collect($hosts)->map(...)->values()->all();`).
+
+A `Collection<int, string>` return type doesn't avoid this: Larastan's stubs declare `TValue` invariant (the framework docblock says covariant), so a pipeline whose element type is narrower than `string` (`strtolower`, concatenation, `filter()`) can't be returned as `Collection<int, string>`; PHPStan reports it from level 3. Suppressing the error (`@phpstan-ignore`, `assert()`, a cast) is not an alternative to the forms above.
 
 ## Arr and data_get
 
@@ -147,6 +174,8 @@ $order = Pipeline::send($order)->through([ApplyDiscount::class, CalculateTax::cl
 - Collection methods return new instances; `$c->map(...)` without assignment does nothing. `transform`, `push`, `put`, `forget`, `pull`, `pop`, `shift`, `prepend` mutate.
 - `each()` stops when the callback returns exactly `false`: `fn ($x) => $x->save()` can stop early.
 - `contains`, `where`, `whereIn` compare loosely; use `containsStrict` / `whereStrict` / `whereInStrict` with mixed `'1'`/`1`/`true`.
+- `unique()` with no key runs `array_unique($items, SORT_REGULAR)`: `'0'`/`'00'`, `'1e3'`/`'1000'` and `1`/`'1'`/`true` each collapse to one. `uniqueStrict()` compares with `===`, so it replaces an `in_array($x, $seen, true)` dedupe, at the same O(n²) cost (it rejects through `in_array(..., true)`; about 0.4 s for 20k strings, against 0.3 ms for `array_unique()`).
+- Plain `array_unique()` compares as strings: `1`/`'1'` collapse, `'0'`/`'00'` don't, and nested arrays raise "Array to string conversion" and collapse into one. It is neither strict nor the same as `unique()`; on a list of strings, keep it.
 - `env()` in app code returns null after `config:cache`.
 
 Evidence: `Illuminate/Collections/Traits/EnumeratesValues.php`, `Illuminate/Collections/Collection.php`, `Illuminate/Support/helpers.php`, `Illuminate/Database/Concerns/BuildsQueries.php`, laravel.io `app/Console/Commands/UpdateArticleViewCounts.php`.

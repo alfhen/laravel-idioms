@@ -74,7 +74,7 @@ Queue::route(ProcessPodcast::class, connection: 'redis', queue: 'podcasts');   /
 |---|---|
 | `protected $fillable/$hidden/$appends` | `#[Fillable([...])]`, `#[Hidden([...])]`, `#[Appends([...])]` |
 | `$table`, `$primaryKey`, `$keyType`, `$incrementing`, `$timestamps` | `#[Table('x', key:, keyType:, incrementing:, timestamps:)]` |
-| `scopeActive($q)` | `#[Scope] protected function active(Builder $q): void` |
+| `scopeActive($q)` | `#[Scope] protected function active(Builder $q): void`, unless `active` is also read as an attribute (`eloquent.md`, Scopes) |
 | `User::observe(...)` in provider | `#[ObservedBy([...])]` |
 | `addGlobalScope` in `booted()` | `#[ScopedBy([...])]` |
 | `newFactory()` override | `#[UseFactory(...)]` |

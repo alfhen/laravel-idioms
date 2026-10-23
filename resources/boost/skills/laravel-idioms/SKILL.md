@@ -66,7 +66,7 @@ Choose one mechanism per controller and use it for every action: `Gate::authoriz
 
 A filter rule is written once, as a composable scope, and every query reuses it: counts, sums and joins alike. Never write a second copy of the same `where` logic in a `DB::table()` query.
 ```php
-#[Scope]
+#[Scope]   // 12.4+; scopeCreatedBetween() before that
 protected function createdBetween(Builder $query, ?CarbonInterface $from, ?CarbonInterface $to): void
 {
     $query->when($from, fn ($q, $from) => $q->where('created_at', '>=', $from))
@@ -113,6 +113,20 @@ $names = $users->filter->active->pluck('name')->values();
 [$active, $idle] = $users->partition(fn (User $u) => $u->isActive());
 ```
 A closure inside `map`/`each`/`mapWithKeys` never captures `&$var`. If a step needs a running total, use a plain `foreach` with a named accumulator, or `reduce`. Call `->values()` after `filter/reject/unique` before JSON. Format money with `Number::currency($cents / 100, in: 'USD')`, not `number_format`.
+
+Pipelines replace loops; they are not a mandate to rewrite `array_*` calls. Never add a temp variable and `@var`, or silence the error (`@phpstan-ignore`, `assert()`, a cast), just to make a pipeline fit a declared type.
+```php
+// bad: the temp exists only to carry a @var
+/** @var list<string> $enabled */
+$enabled = collect($this->languages($account))->filter(fn (array $l): bool => $l['enabled'] ?? false)->keys()->all();
+
+return $enabled;
+// good
+return array_keys(array_filter($this->languages($account), fn (array $l): bool => $l['enabled'] ?? false));
+```
+The framework types `->all()` as `array<TKey, TValue>` and `->keys()->all()`/`->values()->all()` as `array<int, T>`, never `list<T>`. Where a method returns or a property holds `list<…>`, a single step stays `array_map(...)` / `array_keys(array_filter(...))` / `array_values(array_filter(...))`, and a real multi-step pipeline (or the loop it replaces) returns `array_values(collect($x)->...->all())`. Widen the type to `array<int, T>` only when no caller relies on a list.
+
+A strict `in_array(..., true)` dedupe becomes `->uniqueStrict()`, never `->unique()`, which compares loosely (`'0'`/`'00'` collapse). Leave `array_unique()` on strings as it is.
 
 ## 7. Queues, workers and external input
 
@@ -207,7 +221,7 @@ Run `php artisan test` and `vendor/bin/pint --dirty` if present. Then go through
 - [ ] **Authorization:** policy-based, with the same mechanism in every action of a controller. No `$this->authorize()` on an 11+ base controller.
 - [ ] **Queries:** each filter rule exists once, as a scope. No `DB::table()` duplicates a model query, no joins the query doesn't read, no N+1.
 - [ ] **Models:** enums (not constants) with casts, `casts()` method, L13 attributes in every new model, writes go through relationships, and the inverse relations exist.
-- [ ] **Collections:** no accumulate-foreach and no `&$` captured in collection closures. Money uses `Number::currency`.
+- [ ] **Collections:** no accumulate-foreach, no `&$` in collection closures, no temp + `@var` to fit a pipeline to `list<…>`, and strict `in_array` checks stay strict (`uniqueStrict`, `containsStrict`). Money uses `Number::currency`.
 - [ ] **Jobs:** `Queueable`, `failed()` resets status, input shape is checked before use, `readStream`.
 - [ ] **Queues/workers:** idempotent `handle()`, tries/`retryUntil` fit every release path, backoff set, timeout < `retry_after`, `afterCommit` inside transactions, unique jobs have `uniqueId()` + `#[UniqueFor]`, workers restarted on deploy.
 - [ ] **Caching:** every write has a TTL, keys are namespaced and tenant-scoped, no cached models, no `flush()`, no `has()`+`put()` race, locks have seconds and release in `finally`, no tags on a non-tag store.
