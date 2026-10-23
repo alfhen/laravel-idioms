@@ -79,7 +79,7 @@ Never force this into `each(function () use (&$viewCounts) { ... })`.
 
 A pipeline earns its place by replacing an accumulator loop or a multi-step transformation. A one-line `array_keys(array_filter(...))` or `array_values(array_unique(...))` over a plain array is already idiomatic; don't rewrite it if the rewrite costs a type.
 
-The framework's generics make `all()` `array<TKey, TValue>` and `keys()`/`values()` `static<int, …>`, so `->keys()->all()` and `->values()->all()` are `array<int, T>`. Larastan never narrows that to `list<T>` (PHPStan reports the mismatch from level 7), while PHPStan types `array_keys()` and `array_values()` as lists.
+The framework's generics make `all()` `array<TKey, TValue>` and `keys()`/`values()` `static<int, …>`, so `->keys()->all()` and `->values()->all()` are `array<int, T>` (as is `Eloquent\Collection::modelKeys()`). Larastan never narrows that to `list<T>` (PHPStan reports the mismatch from level 7), while PHPStan types `array_keys()` and `array_values()` as lists.
 ```php
 // bad: a temp exists only to carry a @var
 /** @var list<string> $enabled */
@@ -93,9 +93,12 @@ return $enabled;
 // good
 return array_keys(array_filter($this->languages($account), fn (array $language): bool => $language['enabled'] ?? false));
 ```
-- `list<T>` on a return type or a property other classes read is a contract: keep the array functions.
-- A private property read only by `in_array()`, `foreach` or `=== []` doesn't need `list`: widen its docblock to `array<int, string>` and assign the pipeline directly (`$this->hosts = collect($hosts)->map(...)->values()->all();`).
-- If the caller can take a collection, return it typed `Collection<int, string>` instead of calling `->all()`.
+When the method returns or a property holds `list<T>`, write it without a temp:
+- one step (including a loop that only maps or only filters): `array_map(fn ..., $list)`, `array_keys(array_filter(...))`, `array_values(array_filter(...))`;
+- a real multi-step transformation, or the loop it replaces: `return array_values(collect($rows)->map(...)->filter(...)->sort()->all());`;
+- widen the declared type to `array<int, T>` only when no caller relies on a list, e.g. a private property read only by `in_array()`, `foreach` or `=== []`; then assign the pipeline directly (`$this->hosts = collect($hosts)->map(...)->values()->all();`).
+
+A `Collection<int, string>` return type doesn't avoid this: `TValue` isn't covariant, so `->map(fn (string $h): string => strtolower($h))` returns `Collection<int, lowercase-string>` and fails at level 8.
 
 ## Arr and data_get
 
@@ -169,7 +172,8 @@ $order = Pipeline::send($order)->through([ApplyDiscount::class, CalculateTax::cl
 - Collection methods return new instances; `$c->map(...)` without assignment does nothing. `transform`, `push`, `put`, `forget`, `pull`, `pop`, `shift`, `prepend` mutate.
 - `each()` stops when the callback returns exactly `false`: `fn ($x) => $x->save()` can stop early.
 - `contains`, `where`, `whereIn` compare loosely; use `containsStrict` / `whereStrict` / `whereInStrict` with mixed `'1'`/`1`/`true`.
-- `unique()` with no key runs `array_unique($items, SORT_REGULAR)`, which is looser than both `in_array(..., true)` and plain `array_unique()` (string comparison): `'0'`/`'00'` and `'1e3'`/`'1000'` collapse to one. Replace a strict dedupe with `uniqueStrict()`.
+- `unique()` with no key runs `array_unique($items, SORT_REGULAR)`: `'0'`/`'00'`, `'1e3'`/`'1000'` and `1`/`'1'`/`true` each collapse to one. `uniqueStrict()` compares with `===`, so it replaces an `in_array($x, $seen, true)` dedupe, at the same O(n²) cost (it rejects through `in_array(..., true)`; about 0.4 s for 20k strings, against 0.3 ms for `array_unique()`).
+- Plain `array_unique()` compares as strings: `1`/`'1'` collapse, `'0'`/`'00'` don't, and nested arrays raise "Array to string conversion" and collapse into one. It is neither strict nor the same as `unique()`; on a list of strings, keep it.
 - `env()` in app code returns null after `config:cache`.
 
 Evidence: `Illuminate/Collections/Traits/EnumeratesValues.php`, `Illuminate/Collections/Collection.php`, `Illuminate/Support/helpers.php`, `Illuminate/Database/Concerns/BuildsQueries.php`, laravel.io `app/Console/Commands/UpdateArticleViewCounts.php`.

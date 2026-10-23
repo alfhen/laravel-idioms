@@ -77,7 +77,7 @@ public static function teamModel(): string
 ```
 Native types on every property, parameter and return (`void`, `static`, `?T`, unions). Docblocks only for generics, array shapes, `class-string`, or non-obvious behaviour. No `@param string $x` restating the signature.
 
-Return or assign the expression; never put it in a variable only to return or assign it on the next line. A `/** @var */` on such a temp to make PHPStan accept a rewrite means the rewrite fights the declared type: change the expression or the type, not the shape of the method (`collections-and-helpers.md`, "When array functions win").
+Return or assign the expression rather than putting it in a variable only to return it on the next line. The exception is a `/** @var */` that narrows a `mixed` source (`config()`, `Cache::get()`, `json_decode()`), which PHPStan level 9 needs. A `@var` temp added so a collection pipeline fits `list<…>` is not that case: the rewrite fights the declared type, so change the expression or the type (`collections-and-helpers.md`, "When array functions win").
 
 ## Classes
 
