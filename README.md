@@ -53,7 +53,7 @@ On older versions of Claude Code, add the marketplace first and then install:
 
 The skill loads as `laravel-idioms:laravel-idioms`. If you copied the folder into `~/.claude/skills/laravel-idioms` before, remove that copy. Otherwise both load.
 
-Auto-update is off by default for third-party marketplaces. New versions arrive with each tagged release. To update, run these in a terminal, then restart Claude Code or run `/reload-plugins`:
+Auto-update is off by default for third-party marketplaces. A new version is published when a release bumps `version` in `.claude-plugin/plugin.json` on `main`; a tag alone publishes nothing. To update, run these in a terminal, then restart Claude Code or run `/reload-plugins`:
 
 ```bash
 claude plugin marketplace update alfhen
