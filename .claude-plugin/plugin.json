@@ -1,0 +1,13 @@
+{
+  "name": "laravel-idioms",
+  "version": "0.2.0",
+  "description": "Idiomatic modern Laravel (11-13) for coding agents: thin controllers, FormRequests, Eloquent, queues, caching, Blade, Filament 5, Pest 5, plus a codebase audit mode with an HTML refactor report.",
+  "author": {
+    "name": "Alf Henderson"
+  },
+  "homepage": "https://github.com/alfhen/laravel-idioms",
+  "repository": "https://github.com/alfhen/laravel-idioms",
+  "license": "MIT",
+  "keywords": ["laravel", "php", "eloquent", "filament", "pest", "code-audit", "agent-skills"],
+  "skills": ["./resources/boost/skills/"]
+}

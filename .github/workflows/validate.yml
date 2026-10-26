@@ -28,6 +28,13 @@ jobs:
         run: |
           ! grep -nE '<(script|link)[^>]+(src|href)=["'"'"']https?://' resources/boost/skills/laravel-idioms/assets/audit-report-template.html
       - run: composer validate --strict
+      - name: Claude Code plugin manifests validate
+        run: npx --yes @anthropic-ai/claude-code@2.1.308 plugin validate . --strict
+      - name: Plugin version matches the release tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version=$(jq -r .version .claude-plugin/plugin.json)
+          test "$version" = "${GITHUB_REF_NAME#v}" || { echo "plugin.json version $version does not match tag $GITHUB_REF_NAME"; exit 1; }
 
   eval-harness:
     runs-on: ubuntu-latest

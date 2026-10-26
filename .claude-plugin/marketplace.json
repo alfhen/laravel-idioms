@@ -1,0 +1,14 @@
+{
+  "name": "alfhen",
+  "owner": {
+    "name": "Alf Henderson"
+  },
+  "description": "Agent skills by Alf Henderson.",
+  "plugins": [
+    {
+      "name": "laravel-idioms",
+      "source": "./",
+      "description": "Idiomatic modern Laravel (11-13) conventions for coding agents, plus a codebase audit mode."
+    }
+  ]
+}
