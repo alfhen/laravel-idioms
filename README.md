@@ -34,13 +34,44 @@ php artisan boost:add-skill alfhen/laravel-idioms
 
 This installs the skill but not the guideline, so in a Boost project the agent may not activate it reliably. Prefer the Composer route.
 
-### Without Boost (Claude Code)
+### Claude Code plugin
 
-Copy `resources/boost/skills/laravel-idioms` into your project's `.claude/skills/` directory, or into `~/.claude/skills/` to use it in every project.
+For Claude Code without Boost, install the repo as a plugin:
+
+```
+/plugin install laravel-idioms --marketplace alfhen/laravel-idioms
+```
+
+Claude Code asks you to confirm the new marketplace, then opens the plugin's details so you can choose a scope.
+
+On older versions of Claude Code, add the marketplace first and then install:
+
+```
+/plugin marketplace add alfhen/laravel-idioms
+/plugin install laravel-idioms@alfhen
+```
+
+The skill loads as `laravel-idioms:laravel-idioms`. If you copied the folder into `~/.claude/skills/laravel-idioms` before, remove that copy. Otherwise both load.
+
+Auto-update is off by default for third-party marketplaces. A new version is published when a release bumps `version` in `.claude-plugin/plugin.json` on `main`; a tag alone publishes nothing. To update, run these in a terminal, then restart Claude Code or run `/reload-plugins`:
+
+```bash
+claude plugin marketplace update alfhen
+claude plugin update laravel-idioms@alfhen
+```
+
+Projects that use Boost should keep the Composer route above. The plugin installs the skill but not the guideline in `resources/boost/guidelines/core.md`, and Boost already copies the skill into `.claude/skills/`, so adding the plugin would load it twice.
+
+### Copy the folder (Claude Code)
+
+If you can't use plugins, copy `resources/boost/skills/laravel-idioms` into your project's `.claude/skills/` directory, or into `~/.claude/skills/` to use it in every project.
 
 ## What's inside
 
 ```
+.claude-plugin/
+├── plugin.json                         # Claude Code plugin manifest
+└── marketplace.json                    # makes this repo its own marketplace
 resources/boost/
 ├── guidelines/core.md                  # merged into Boost's CLAUDE.md/AGENTS.md
 └── skills/laravel-idioms/
