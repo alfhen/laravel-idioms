@@ -42,6 +42,8 @@ For Claude Code without Boost, install the repo as a plugin:
 /plugin install laravel-idioms --marketplace alfhen/laravel-idioms
 ```
 
+Claude Code asks you to confirm the new marketplace, then opens the plugin's details so you can choose a scope.
+
 On older versions of Claude Code, add the marketplace first and then install:
 
 ```
@@ -51,16 +53,14 @@ On older versions of Claude Code, add the marketplace first and then install:
 
 The skill loads as `laravel-idioms:laravel-idioms`. If you copied the folder into `~/.claude/skills/laravel-idioms` before, remove that copy. Otherwise both load.
 
-To update, refresh the marketplace and update the plugin. Auto-update is off by default for third-party marketplaces, and you only get a new version when `version` in `.claude-plugin/plugin.json` changes.
+Auto-update is off by default for third-party marketplaces. New versions arrive with each tagged release. To update, run these in a terminal, then restart Claude Code or run `/reload-plugins`:
 
-```
-/plugin marketplace update alfhen
+```bash
+claude plugin marketplace update alfhen
 claude plugin update laravel-idioms@alfhen
 ```
 
-The marketplace is cloned from GitHub over SSH when you have a GitHub SSH key. If you don't, set `CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1` before you install.
-
-Projects that use Boost should keep the Composer route above. The plugin installs the skill but not the guideline in `resources/boost/guidelines/core.md`.
+Projects that use Boost should keep the Composer route above. The plugin installs the skill but not the guideline in `resources/boost/guidelines/core.md`, and Boost already copies the skill into `.claude/skills/`, so adding the plugin would load it twice.
 
 ### Copy the folder (Claude Code)
 
