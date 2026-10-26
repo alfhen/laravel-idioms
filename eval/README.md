@@ -120,7 +120,7 @@ A run that crashes, hits an API error or never loads the plugin is listed as an 
 
 **Isolation changes the result.** The numbers in [docs/evaluation.md](../docs/evaluation.md) were measured without `--isolated`, in a full user environment with about 15 other plugins installed. Whether the model picks this skill depends on what else is in the skill list, so a crowded environment and an isolated one give different rates. Compare runs only against others made the same way.
 
-Cost: a 36-run round (12 prompts, 3 runs) cost about $0.50 with Haiku 5.5 and about $5.50 with Sonnet 5.5 in that crowded environment.
+Cost: a 36-run round (12 prompts, 3 runs) cost about $0.50 with Haiku 5.5 and $6–8 with Sonnet 5.5 in that crowded environment.
 
 ## Cost
 

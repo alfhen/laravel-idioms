@@ -82,15 +82,15 @@ The build prompts above never mention the skill, so the agent has to decide to l
 | v0.2.0 description | 5/24 | 8/24 |
 | New description | 13/24 | not run |
 | v0.2.0 description + SessionStart hook | 22/24 | not run |
-| New description + SessionStart hook | 23/24 | TODO |
+| New description + SessionStart hook | 23/24 | 24/24 |
 
 The new description is trigger-first: it opens with the situations to use the skill in and names the Laravel signals in a project (an `artisan` file, `laravel/framework` in `composer.json`). The hook is the plugin's `SessionStart` hook. In a Laravel app without `boost.json` it adds a short note that points at the skill. See the README.
 
 In every measured row, the should-not prompts loaded the skill 0 times out of 12.
 
-With the v0.2.0 description on Sonnet, only the explicit review and refactor prompts triggered it. The plan, build, performance, test and assessment prompts did not trigger it in any of their 3 runs.
+With the new description and the hook, Sonnet loaded the skill in all 3 runs of every should-trigger prompt.
 
-TODO: the Sonnet result for the new description with the hook is still pending.
+With the v0.2.0 description on Sonnet, only the explicit review and refactor prompts triggered it. The plan, build, performance, test and assessment prompts did not trigger it in any of their 3 runs.
 
 **Caveats.**
 - The samples are small: 24 runs per cell, and 3 per prompt. A difference of one or two runs is noise.
