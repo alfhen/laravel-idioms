@@ -4,7 +4,7 @@ An agent skill that makes AI coding agents write Laravel the way the framework, 
 
 It also has an **audit mode**. Ask the agent to "audit this Laravel codebase" and it maps the app and hunts for real bugs as well as idiom problems. It verifies its suggested fixes by applying them to a scratch copy and running the test suite, and then writes a self-contained HTML refactor report.
 
-It works on its own, and it works alongside [Laravel Boost](https://github.com/laravel/boost). With Boost, the package adds a guideline so the agent loads this skill together with Boost's `laravel-best-practices`.
+It works on its own, and it works alongside [Laravel Boost](https://github.com/laravel/boost). With Boost, the package adds a guideline so the agent loads this skill together with Boost's `laravel-best-practices`. Claude Code users without Boost can [install it as a plugin](#claude-code-plugin).
 
 ## Install
 
@@ -36,13 +36,17 @@ This installs the skill but not the guideline, so in a Boost project the agent m
 
 ### Claude Code plugin
 
-For Claude Code without Boost, install the repo as a plugin:
+For Claude Code without Boost, install the repo as a plugin. In a Claude Code session:
 
 ```
 /plugin install laravel-idioms --marketplace alfhen/laravel-idioms
 ```
 
-Claude Code asks you to confirm the new marketplace, then opens the plugin's details so you can choose a scope.
+Claude Code asks you to confirm the new marketplace, then opens the plugin's details so you can choose a scope. From a terminal, the same install is:
+
+```bash
+claude plugin install laravel-idioms --marketplace alfhen/laravel-idioms
+```
 
 On older versions of Claude Code, add the marketplace first and then install:
 
@@ -53,14 +57,30 @@ On older versions of Claude Code, add the marketplace first and then install:
 
 The skill loads as `laravel-idioms:laravel-idioms`. If you copied the folder into `~/.claude/skills/laravel-idioms` before, remove that copy. Otherwise both load.
 
-The plugin also adds a `SessionStart` hook. When a session starts in a Laravel app, it adds a short note that says to use this skill when you review, plan, build, refactor, debug or test the code, even if your request never says "Laravel". Without the note, the agent often skips the skill unless you ask for a review or a refactor ([measurements](docs/evaluation.md#skill-triggering)). The hook adds the note only if the project has an `artisan` file and `laravel/framework` in `composer.json`, and neither `CLAUDE.md` nor `AGENTS.md` already mentions `laravel-idioms`. Boost puts that mention there when the project requires this package, so those projects don't get the note twice. A Boost project without the package does get it. If the session starts at the root of a repository that isn't a Laravel app itself, the hook looks one and two folders down, for example `backend/` or `apps/api/`, skipping `vendor/` and `node_modules/`. The note then names the Laravel apps it found. Anywhere else the hook prints nothing. On Windows the hook needs Git Bash. Without it, Claude Code shows a hook error at session start, and the skill still works. To turn the hook off, disable the plugin or set `"disableAllHooks": true` in your settings. That setting turns off every hook and any custom status line, not only this one. A change takes effect in a new session or after `/reload-plugins`.
+**For a whole team**, run these once in the project and commit the `.claude/settings.json` they write. Teammates get the plugin when they trust the folder.
 
-Auto-update is off by default for third-party marketplaces. A new version is published when a release bumps `version` in `.claude-plugin/plugin.json` on `main`; a tag alone publishes nothing. To update, run these in a terminal, then restart Claude Code or run `/reload-plugins`:
+```bash
+claude plugin marketplace add alfhen/laravel-idioms --scope project
+claude plugin install laravel-idioms@alfhen --scope project
+```
+
+**The `SessionStart` hook.** The plugin adds a short note at the start of each session in a Laravel app. The note says to use this skill when you review, plan, build, refactor, debug or test the code, even if your request never says "Laravel". Without it, the agent often skips the skill unless you ask for a review or a refactor ([measurements](docs/evaluation.md#skill-triggering)).
+
+- The note is added when the project has an `artisan` file and `laravel/framework` in `composer.json`.
+- In a repository whose root isn't a Laravel app, the hook looks one and two folders down, for example `backend/` or `apps/api/`, skipping `vendor/` and `node_modules/`. The note then names the apps it found.
+- It skips any app whose `CLAUDE.md` or `AGENTS.md` already mentions `laravel-idioms`. Boost puts that mention there when the project requires this package. A Boost project without the package does get the note.
+- Anywhere else the hook prints nothing.
+- On Windows the hook needs Git Bash. Without it, Claude Code shows a hook error at session start, and the skill still works.
+- To turn the hook off, disable the plugin, or set `"disableAllHooks": true` in your settings. That setting also turns off every other hook and any custom status line. A change takes effect in a new session or after `/reload-plugins`.
+
+**Updating.** Auto-update is off by default for third-party marketplaces. A new version is published when a release bumps `version` in `.claude-plugin/plugin.json` on `main`; a tag alone publishes nothing. To update, run these in a terminal, then restart Claude Code or run `/reload-plugins`:
 
 ```bash
 claude plugin marketplace update alfhen
 claude plugin update laravel-idioms@alfhen
 ```
+
+To remove it, run `claude plugin uninstall laravel-idioms@alfhen`.
 
 Projects that use Boost should keep the Composer route above. The plugin installs the skill but not the guideline in `resources/boost/guidelines/core.md`, and Boost already copies the skill into `.claude/skills/`, so adding the plugin would load it twice.
 
