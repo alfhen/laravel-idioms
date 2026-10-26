@@ -39,6 +39,20 @@ class ParseStream(unittest.TestCase):
     def test_api_error_and_noise_are_an_error_not_a_miss(self):
         self.assertEqual(parse('api-error.jsonl')['error'], 'api error 529')
 
+    def test_similarly_named_skill_does_not_count(self):
+        stream = (HERE / 'trigger' / 'testdata' / 'fired.jsonl').read_text().replace(
+            '"skill":"laravel-idioms:laravel-idioms"', '"skill":"laravel-idioms-extra"')
+        self.assertIn('laravel-idioms-extra', stream)
+        self.assertFalse(trigger.parse_stream(stream)['fired'])
+
+    def test_skill_call_then_api_error_is_an_error_not_a_hit(self):
+        fired = (HERE / 'trigger' / 'testdata' / 'fired.jsonl').read_text().splitlines()
+        stream = '\n'.join(line for line in fired if '"type":"result"' not in line.replace(' ', ''))
+        stream += '\n{"type":"result","subtype":"success","is_error":true,"api_error_status":529}\n'
+        run = trigger.parse_stream(stream)
+        self.assertTrue(run['fired'])
+        self.assertEqual(run['error'], 'api error 529')
+
     def test_truncated_stream_is_an_error(self):
         self.assertEqual(trigger.parse_stream('{"type":"system","subtype":"init","skills":[]}\n')['error'], 'no result event')
         self.assertEqual(trigger.parse_stream('')['error'], 'no result event')

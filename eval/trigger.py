@@ -69,12 +69,12 @@ def parse_stream(text):
                     called.append(str(args.get('skill') or '') if isinstance(args, dict) else '')
         elif kind == 'result':
             result = event
-    fired = any(SKILL in name for name in called)
+    fired = any(name in (SKILL, SKILL_ID) for name in called)
     # A run that hit --max-turns is a normal outcome here; any other failure says nothing about triggering.
     finished = result is not None and not result.get('api_error_status') and (
         not result.get('is_error') or result.get('subtype') == 'error_max_turns')
     error = None
-    if not (fired or finished):
+    if not finished:
         if result is None:
             error = 'no result event'
         else:
