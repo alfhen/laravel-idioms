@@ -53,7 +53,7 @@ On older versions of Claude Code, add the marketplace first and then install:
 
 The skill loads as `laravel-idioms:laravel-idioms`. If you copied the folder into `~/.claude/skills/laravel-idioms` before, remove that copy. Otherwise both load.
 
-The plugin also adds a `SessionStart` hook. When a session starts in a Laravel app, it adds a short note that says to use this skill when you review, plan, build, refactor, debug or test the code, even if your request never says "Laravel". Without the note, the agent often skips the skill unless you ask for a review or a refactor ([measurements](docs/evaluation.md#skill-triggering)). The hook adds the note only if the project has an `artisan` file, `laravel/framework` in `composer.json` and no `boost.json`. Anywhere else it prints nothing. On Windows the hook needs Git Bash. Without it, the hook does not run, and the skill still works. To turn the hook off, disable the plugin or set `"disableAllHooks": true` in your settings. That setting turns off every hook, not only this one. A change takes effect in a new session or after `/reload-plugins`.
+The plugin also adds a `SessionStart` hook. When a session starts in a Laravel app, it adds a short note that says to use this skill when you review, plan, build, refactor, debug or test the code, even if your request never says "Laravel". Without the note, the agent often skips the skill unless you ask for a review or a refactor ([measurements](docs/evaluation.md#skill-triggering)). The hook adds the note only if the project has an `artisan` file and `laravel/framework` in `composer.json`, and neither `CLAUDE.md` nor `AGENTS.md` already mentions `laravel-idioms`. Boost puts that mention there when the project requires this package, so those projects don't get the note twice. A Boost project without the package does get it. Anywhere else the hook prints nothing. On Windows the hook needs Git Bash. Without it, Claude Code shows a hook error at session start, and the skill still works. To turn the hook off, disable the plugin or set `"disableAllHooks": true` in your settings. That setting turns off every hook and any custom status line, not only this one. A change takes effect in a new session or after `/reload-plugins`.
 
 Auto-update is off by default for third-party marketplaces. A new version is published when a release bumps `version` in `.claude-plugin/plugin.json` on `main`; a tag alone publishes nothing. To update, run these in a terminal, then restart Claude Code or run `/reload-plugins`:
 
@@ -76,7 +76,7 @@ If you can't use plugins, copy `resources/boost/skills/laravel-idioms` into your
 └── marketplace.json                    # makes this repo its own marketplace
 hooks/
 ├── hooks.json                          # plugin SessionStart hook
-└── laravel-context.sh                  # adds the skill pointer in Laravel apps without Boost
+└── laravel-context.sh                  # adds the skill pointer in Laravel apps that lack it
 resources/boost/
 ├── guidelines/core.md                  # merged into Boost's CLAUDE.md/AGENTS.md
 └── skills/laravel-idioms/
