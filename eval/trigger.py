@@ -7,7 +7,8 @@ usage:
 Runs every prompt in eval/trigger/prompts.json --runs times with the plugin at --plugin-dir (default: this repo)
 and prints, per prompt, how many runs called the Skill tool for laravel-idioms. Prompts marked `trigger` should
 load the skill; prompts marked `skip` must not. The Laravel prompts run in --app (default: the committed
-eval/trigger/fixture/laravel-app); the others run in their own small fixtures. Sessions are read-only: Read, Grep,
+eval/trigger/fixture/laravel-app); the others run in their own small fixtures, and the monorepo prompts in
+the Laravel and TypeScript fixtures staged as backend/ and frontend/ of one repo. Sessions are read-only: Read, Grep,
 Glob and Skill are the only tools allowed, and a run stops after 6 turns, so a skill loaded later is missed.
 """
 import argparse
@@ -27,6 +28,8 @@ MAX_TURNS = 6
 ALLOWED_TOOLS = 'Read,Grep,Glob,Skill'
 DISALLOWED_TOOLS = 'Edit,Write,Bash,NotebookEdit,Agent,WebFetch,WebSearch'
 FIXTURES = {'laravel': 'laravel-app', 'php': 'php-app', 'typescript': 'ts-app'}
+# Assembled from the fixtures above, so the Laravel app is not at the project root.
+MONOREPO = {'backend': 'laravel', 'frontend': 'typescript'}
 
 
 def load_prompts(only=None):
@@ -84,6 +87,26 @@ def parse_stream(text):
     return {'fired': fired, 'skills': called, 'available': available, 'error': error,
             'cost': float((result or {}).get('total_cost_usd') or 0), 'turns': (result or {}).get('num_turns'),
             'stop': (result or {}).get('subtype')}
+
+
+def stage_fixtures(scratch, app=None):
+    """Copy the fixtures out of the repo, so a session's project root is the fixture and not this checkout."""
+    cwds = {}
+    for name, directory in FIXTURES.items():
+        if name == 'laravel' and app:
+            cwds[name] = app
+            continue
+        cwds[name] = scratch / directory
+        shutil.copytree(TRIGGER / 'fixture' / directory, cwds[name])
+    monorepo = scratch / 'monorepo'
+    monorepo.mkdir()
+    for subdir, name in MONOREPO.items():
+        if name == 'laravel' and app:
+            (monorepo / subdir).symlink_to(app, target_is_directory=True)
+        else:
+            shutil.copytree(TRIGGER / 'fixture' / FIXTURES[name], monorepo / subdir)
+    cwds['monorepo'] = monorepo
+    return cwds
 
 
 def run_one(task, model, plugin_dir, isolated, logs):
@@ -156,16 +179,9 @@ def main():
     if logs:
         logs.mkdir(parents=True, exist_ok=True)
 
-    # Fixtures are copied out of the repo so a session's project root is the fixture, not this checkout.
     scratch = Path(tempfile.mkdtemp(prefix='trigger-'))
     try:
-        cwds = {}
-        for name, directory in FIXTURES.items():
-            if name == 'laravel' and app:
-                cwds[name] = app
-                continue
-            cwds[name] = scratch / directory
-            shutil.copytree(TRIGGER / 'fixture' / directory, cwds[name])
+        cwds = stage_fixtures(scratch, app)
         tasks = [{**p, 'cwd': cwds[p['fixture']], 'run': n} for p in prompts for n in range(1, args.runs + 1)]
         with ThreadPoolExecutor(args.parallel) as pool:
             results = list(pool.map(lambda t: run_one(t, args.model, plugin_dir, args.isolated, logs), tasks))

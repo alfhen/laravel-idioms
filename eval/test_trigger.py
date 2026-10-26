@@ -5,6 +5,8 @@ usage: python3 eval/test_trigger.py
 import importlib.util
 import json
 import re
+import shutil
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -118,14 +120,32 @@ class PromptSet(unittest.TestCase):
         self.assertEqual(len(ids), len(set(ids)))
         for p in self.prompts:
             self.assertIn(p['expect'], ('trigger', 'skip'))
-            self.assertIn(p['fixture'], trigger.FIXTURES)
+            self.assertIn(p['fixture'], {*trigger.FIXTURES, 'monorepo'})
             self.assertTrue(p['prompt'].strip())
 
     def test_named_files_exist_in_their_fixture(self):
-        for p in self.prompts:
-            root = self.fixture / trigger.FIXTURES[p['fixture']]
-            for path in re.findall(r'\b(?:app|src)/[\w/]+\.(?:php|ts)\b', p['prompt']):
-                self.assertTrue((root / path).exists(), f"{p['id']}: {path}")
+        with tempfile.TemporaryDirectory() as scratch:
+            cwds = trigger.stage_fixtures(Path(scratch))
+            for p in self.prompts:
+                for path in re.findall(r'\b(?:(?:backend|frontend)/)?(?:app|src)/[\w/]+\.(?:php|ts)\b', p['prompt']):
+                    self.assertTrue((cwds[p['fixture']] / path).exists(), f"{p['id']}: {path}")
+
+    def test_monorepo_has_the_laravel_app_below_the_root(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            monorepo = trigger.stage_fixtures(Path(scratch))['monorepo']
+            self.assertFalse((monorepo / 'artisan').exists())
+            self.assertTrue((monorepo / 'backend' / 'artisan').exists())
+            self.assertTrue((monorepo / 'frontend' / 'package.json').exists())
+
+    def test_monorepo_links_an_external_app_instead_of_copying_it(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            app = Path(scratch) / 'app'
+            shutil.copytree(self.fixture / 'laravel-app', app)
+            staged = Path(scratch) / 'staged'
+            staged.mkdir()
+            cwds = trigger.stage_fixtures(staged, app)
+            self.assertEqual(cwds['laravel'], app)
+            self.assertTrue((cwds['monorepo'] / 'backend').is_symlink())
 
     def test_fixtures_look_like_what_the_prompts_assume(self):
         laravel = self.fixture / 'laravel-app'
@@ -137,6 +157,7 @@ class PromptSet(unittest.TestCase):
 
     def test_both_kinds_are_covered(self):
         self.assertEqual({p['expect'] for p in self.prompts}, {'trigger', 'skip'})
+        self.assertEqual({p['expect'] for p in self.prompts if p['fixture'] == 'monorepo'}, {'trigger', 'skip'})
 
 
 if __name__ == '__main__':

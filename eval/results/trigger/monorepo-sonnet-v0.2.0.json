@@ -1,0 +1,186 @@
+{
+  "plugin_dir": "v0.2.0 (tag v0.2.0)",
+  "model": "sonnet",
+  "runs": 3,
+  "isolated": false,
+  "rows": [
+    {
+      "id": "mono-review",
+      "expect": "trigger",
+      "fired": 0,
+      "runs": 3,
+      "errors": 0,
+      "cost": 0.2504912
+    },
+    {
+      "id": "mono-perf",
+      "expect": "trigger",
+      "fired": 0,
+      "runs": 3,
+      "errors": 0,
+      "cost": 0.2768026
+    },
+    {
+      "id": "mono-build",
+      "expect": "trigger",
+      "fired": 0,
+      "runs": 3,
+      "errors": 0,
+      "cost": 0.3226334
+    },
+    {
+      "id": "mono-neg-ts",
+      "expect": "skip",
+      "fired": 0,
+      "runs": 3,
+      "errors": 0,
+      "cost": 0.22246559999999999
+    }
+  ],
+  "totals": {
+    "trigger": {
+      "fired": 0,
+      "runs": 9
+    },
+    "skip": {
+      "fired": 0,
+      "runs": 3
+    },
+    "errors": 0,
+    "cost": 1.0723928
+  },
+  "results": [
+    {
+      "id": "mono-review",
+      "run": 1,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.08528240000000001,
+      "turns": 4,
+      "stop": "success"
+    },
+    {
+      "id": "mono-review",
+      "run": 2,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.0816244,
+      "turns": 3,
+      "stop": "success"
+    },
+    {
+      "id": "mono-review",
+      "run": 3,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.0835844,
+      "turns": 4,
+      "stop": "success"
+    },
+    {
+      "id": "mono-perf",
+      "run": 1,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.0881426,
+      "turns": 5,
+      "stop": "success"
+    },
+    {
+      "id": "mono-perf",
+      "run": 2,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.09363170000000001,
+      "turns": 6,
+      "stop": "success"
+    },
+    {
+      "id": "mono-perf",
+      "run": 3,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.0950283,
+      "turns": 7,
+      "stop": "success"
+    },
+    {
+      "id": "mono-build",
+      "run": 1,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.1334287,
+      "turns": 15,
+      "stop": "success"
+    },
+    {
+      "id": "mono-build",
+      "run": 2,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.1283084,
+      "turns": 15,
+      "stop": "success"
+    },
+    {
+      "id": "mono-build",
+      "run": 3,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.0608963,
+      "turns": 15,
+      "stop": "success"
+    },
+    {
+      "id": "mono-neg-ts",
+      "run": 1,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.0727338,
+      "turns": 2,
+      "stop": "success"
+    },
+    {
+      "id": "mono-neg-ts",
+      "run": 2,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.0742759,
+      "turns": 2,
+      "stop": "success"
+    },
+    {
+      "id": "mono-neg-ts",
+      "run": 3,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.07545589999999999,
+      "turns": 2,
+      "stop": "success"
+    }
+  ]
+}

@@ -101,7 +101,7 @@ python3 eval/trigger.py --model sonnet --plugin-dir /path/to/other/checkout --js
 python3 eval/test_trigger.py                                      # checks the parsing and prompt set, no claude
 ```
 
-It runs the 12 prompts in `trigger/prompts.json` `--runs` times each: eight that should load the skill (review a model, review a Filament resource, plan a refactor, refactor a widget, build a feature, a performance question, write tests, assess codebase health) and four that must not (a plain PHP controller, a TypeScript file, an HTTP 429 question, a shell one-liner). A run counts as a trigger when the model calls the `Skill` tool with a skill name containing `laravel-idioms`. The table shows, per prompt, how many runs triggered.
+It runs the 16 prompts in `trigger/prompts.json` `--runs` times each. Eleven should load the skill: review a model, review a Filament resource, plan a refactor, refactor a widget, build a feature, a performance question, write tests, assess codebase health, and three of those again in a monorepo. Five must not: a plain PHP controller, a TypeScript file (on its own and in the monorepo), an HTTP 429 question, a shell one-liner. A run counts as a trigger when the model calls the `Skill` tool for `laravel-idioms` or `laravel-idioms:laravel-idioms`. The table shows, per prompt, how many runs triggered.
 
 | Flag | Meaning |
 |---|---|
@@ -114,13 +114,13 @@ It runs the 12 prompts in `trigger/prompts.json` `--runs` times each: eight that
 | `--only ID,ID` | Run only these prompt ids. |
 | `--json FILE`, `--logs DIR` | Write per-run results as JSON, or keep each session's raw stream-json. |
 
-Sessions are read-only. `--tools Read,Grep,Glob,Skill` limits them to those four tools, and each run stops after 6 turns, so a skill loaded later is not counted. The PHP and TypeScript prompts run in `trigger/fixture/php-app` and `trigger/fixture/ts-app`. Every other prompt, including the two general ones, runs in the Laravel app. The script copies the committed fixtures out of the repo first, so the session's project root is the fixture and not this checkout. An `--app` is used in place; the sessions only read it.
+Sessions are read-only. `--tools Read,Grep,Glob,Skill` limits them to those four tools, and each run stops after 6 turns, so a skill loaded later is not counted. The PHP and TypeScript prompts run in `trigger/fixture/php-app` and `trigger/fixture/ts-app`. The `mono-*` prompts run in a repository whose root holds the Laravel app as `backend/` and the TypeScript app as `frontend/`; an `--app` is linked in as `backend/`. Every other prompt, including the two general ones, runs in the Laravel app. The script copies the committed fixtures out of the repo first, so the session's project root is the fixture and not this checkout. An `--app` is used in place; the sessions only read it.
 
 A run that crashes, hits an API error or never loads the plugin is listed as an error and left out of the fractions. The script then exits with 1. A wrong `--plugin-dir` shows up as errors, not as a row of zeros.
 
 **Isolation changes the result.** The numbers in [docs/evaluation.md](../docs/evaluation.md) were measured without `--isolated`, in a full user environment with about 15 other plugins installed. Whether the model picks this skill depends on what else is in the skill list, so a crowded environment and an isolated one give different rates. Compare runs only against others made the same way.
 
-Cost: a 36-run round (12 prompts, 3 runs) cost about $0.50 with Haiku 5.5 and $6–8 with Sonnet 5.5 in that crowded environment.
+Cost: a 36-run round (12 prompts, 3 runs) cost about $0.50 with Haiku 5.5 and $6–8 with Sonnet 5.5 in a crowded environment. With `--tools` and `--strict-mcp-config` the sessions are smaller and cheaper.
 
 ## Cost
 

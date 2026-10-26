@@ -73,7 +73,7 @@ Audit mode was checked against lists of problems that independent reviewers had 
 
 The build prompts above never mention the skill, so the agent has to decide to load it. This test measures that decision on its own: does a fresh session call the `Skill` tool for `laravel-idioms` without being asked to?
 
-**Method.** 12 prompts, 3 runs each, so 36 fresh `claude -p` sessions per row. 8 prompts should trigger the skill: review a model, review a Filament resource, plan a refactor, refactor a widget, build a feature, a performance question, write tests, assess codebase health. 4 should not: review a plain PHP controller, review a TypeScript file, an HTTP 429 question, a shell one-liner. The Laravel prompts ran in a larger Laravel 13 / Filament 5 ticketing app (tickets, replies, customers, a Filament resource and a stats widget). That app is not committed, so the table below can't be re-derived from this repo. `eval/trigger/fixture/laravel-app` is a much smaller stand-in with the same file names. Sessions were read-only (`Read`, `Grep`, `Glob` and `Skill`) and capped at 6 turns. A run counts as a hit when the model made a `Skill` call whose skill name contains `laravel-idioms`. The plugin was loaded with `claude --plugin-dir`.
+**Method.** 12 prompts, 3 runs each, so 36 fresh `claude -p` sessions per row. 8 prompts should trigger the skill: review a model, review a Filament resource, plan a refactor, refactor a widget, build a feature, a performance question, write tests, assess codebase health. 4 should not: review a plain PHP controller, review a TypeScript file, an HTTP 429 question, a shell one-liner. The Laravel prompts ran in a larger Laravel 13 / Filament 5 ticketing app (tickets, replies, customers, a Filament resource and a stats widget). That app is not committed, so the table below can't be re-derived from this repo. `eval/trigger/fixture/laravel-app` is a much smaller stand-in with the same file names. Sessions were read-only (`Read`, `Grep`, `Glob` and `Skill`) and capped at 6 turns. A run counts as a hit when the model made a `Skill` call for `laravel-idioms`. The plugin was loaded with `claude --plugin-dir`.
 
 **Results.** Should-trigger runs that loaded the skill, out of 24:
 
@@ -106,6 +106,16 @@ On the committed fixture, with `eval/trigger.py` as committed, Haiku 5.5, 3 runs
 | Should not trigger | 0/12 | 0/12 |
 
 The per-run results are in `eval/results/trigger/`. v0.2.0 does better here than in the first table (10/24 against 5/24). These sessions had only four tools and no MCP servers, so less competed with the skill. Both tables show the same gap: the v0.2.0 description triggers on "review" and "refactor" and rarely on anything else.
+
+**Monorepos.** In a repository whose root is not the Laravel app, the hook looks one and two folders down. The `mono-*` prompts run in a repo that holds the fixture app as `backend/` and the TypeScript fixture as `frontend/`. Should-trigger runs (review a model, a performance question, build a feature) that loaded the skill, out of 9:
+
+| Version | Haiku 5.5 | Sonnet 5.5 |
+|---|---|---|
+| v0.2.0 | 2/9 | 0/9 |
+| New description, hook only at the root | 4/9 | not run |
+| New description, hook with monorepo detection | 9/9 | 9/9 |
+
+Reviewing `frontend/src/RequestContext.ts` in the same repo loaded the skill 0 times out of 3 in every row. The per-run results are in `eval/results/trigger/monorepo-*.json`.
 
 With the v0.2.0 description on Sonnet, only the explicit review and refactor prompts triggered it. The plan, build, performance, test and assessment prompts did not trigger it in any of their 3 runs.
 
