@@ -69,9 +69,68 @@ Audit mode was checked against lists of problems that independent reviewers had 
 - **Accuracy:** no false positives across any run.
 - **Known gap:** test updates that a finding requires are sometimes described in prose instead of included as code.
 
+## Skill triggering
+
+The build prompts above never mention the skill, so the agent has to decide to load it. This test measures that decision on its own: does a fresh session call the `Skill` tool for `laravel-idioms` without being asked to?
+
+**Method.** 12 prompts, 3 runs each, so 36 fresh `claude -p` sessions per row. 8 prompts should trigger the skill: review a model, review a Filament resource, plan a refactor, refactor a widget, build a feature, a performance question, write tests, assess codebase health. 4 should not: review a plain PHP controller, review a TypeScript file, an HTTP 429 question, a shell one-liner. The Laravel prompts ran in a larger Laravel 13 / Filament 5 ticketing app (tickets, replies, customers, a Filament resource and a stats widget). That app is not committed, so the table below can't be re-derived from this repo. `eval/trigger/fixture/laravel-app` is a much smaller stand-in with the same file names. Sessions were read-only (`Read`, `Grep`, `Glob` and `Skill`) and capped at 6 turns. A run counts as a hit when the model made a `Skill` call for `laravel-idioms`. The plugin was loaded with `claude --plugin-dir`.
+
+**Results.** Should-trigger runs that loaded the skill, out of 24:
+
+| Setup | Haiku 5.5 | Sonnet 5.5 |
+|---|---|---|
+| v0.2.0 description | 5/24 | 8/24 |
+| New description | 13/24 | not run |
+| v0.2.0 description + SessionStart hook | 22/24 | not run |
+| New description + SessionStart hook | 23/24 | 24/24 |
+
+The new description is trigger-first: it opens with the situations to use the skill in and names the Laravel signals in a project (an `artisan` file, `laravel/framework` in `composer.json`). The hook is the plugin's `SessionStart` hook. In a Laravel app whose `CLAUDE.md` and `AGENTS.md` don't already mention the skill, it adds a short note that points at the skill. See the README.
+
+In every measured row, the should-not prompts loaded the skill 0 times out of 12.
+
+With the new description and the hook, Sonnet loaded the skill in all 3 runs of every should-trigger prompt.
+
+On the committed fixture, with `eval/trigger.py` as committed, Haiku 5.5, 3 runs per prompt:
+
+| Prompt | v0.2.0 | v0.2.1 |
+|---|---|---|
+| Review a model | 3/3 | 3/3 |
+| Review a Filament resource | 3/3 | 3/3 |
+| Plan a refactor | 0/3 | 3/3 |
+| Refactor a widget | 2/3 | 3/3 |
+| Build a feature | 0/3 | 3/3 |
+| Performance question | 0/3 | 3/3 |
+| Write tests | 1/3 | 3/3 |
+| Assess codebase health | 1/3 | 3/3 |
+| **Should trigger** | **10/24** | **24/24** |
+| Should not trigger | 0/12 | 0/12 |
+
+The per-run results are in `eval/results/trigger/`. v0.2.0 does better here than in the first table (10/24 against 5/24). These sessions had only four tools and no MCP servers, so less competed with the skill. Both tables show the same gap: the v0.2.0 description triggers on "review" and "refactor" and rarely on anything else.
+
+**Monorepos.** In a repository whose root is not the Laravel app, the hook looks one and two folders down. The `mono-*` prompts run in a repo that holds the fixture app as `backend/` and the TypeScript fixture as `frontend/`. Should-trigger runs (review a model, a performance question, build a feature) that loaded the skill, out of 9:
+
+| Version | Haiku 5.5 | Sonnet 5.5 |
+|---|---|---|
+| v0.2.0 | 2/9 | 0/9 |
+| New description, hook only at the root | 4/9 | not run |
+| New description, hook with monorepo detection | 9/9 | 9/9 |
+
+Reviewing `frontend/src/RequestContext.ts` in the same repo loaded the skill 0 times out of 3 in every row. The per-run results are in `eval/results/trigger/monorepo-*.json`.
+
+With the v0.2.0 description on Sonnet, only the explicit review and refactor prompts triggered it. The plan, build, performance, test and assessment prompts did not trigger it in any of their 3 runs.
+
+**Caveats.**
+- The samples are small: 24 runs per cell, and 3 per prompt. A difference of one or two runs is noise.
+- The runs were made in one user environment with about 15 other plugins installed, so the skill list was crowded. Another environment can give other rates. `eval/trigger.py --isolated` measures the isolated case, and its numbers are not comparable with the table.
+- `eval/trigger.py` always passes `--strict-mcp-config` and `--tools Read,Grep,Glob,Skill`. The runs in the table did not pass `--strict-mcp-config`, so their sessions also had the MCP servers of that user environment.
+- Runs stopped after 6 turns. A skill the model would have loaded on turn 7 is counted as a miss.
+- The results are model-specific. Haiku and Sonnet behave differently, and the table says nothing about Opus or later releases.
+- The prompts are short and plain. They were written for this test, and users phrase requests in other ways.
+- A hit shows that the skill was loaded, not that the work improved. The earlier sections measure the effect of the skill.
+
 ## Reproduce
 
-The harness is in [`eval/`](../eval): setup, headless builds, anonymisation, judging and aggregation. The raw judgements and per-build stats behind the tables above are in [`eval/results/`](../eval/results). `eval/aggregate.py` re-derives the tables from them.
+The harness is in [`eval/`](../eval): setup, headless builds, anonymisation, judging and aggregation. `eval/trigger.py` reruns the triggering test. The raw judgements and per-build stats behind the tables above are in [`eval/results/`](../eval/results). `eval/aggregate.py` re-derives the tables from them.
 
 ## Caveats
 

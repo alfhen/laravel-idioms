@@ -1,0 +1,3 @@
+{"type":"system","subtype":"init","skills":["laravel-idioms:laravel-idioms"],"plugins":[{"name":"laravel-idioms"}]}
+not json at all
+{"type":"result","subtype":"success","is_error":true,"api_error_status":529,"num_turns":1,"total_cost_usd":0}

@@ -47,6 +47,8 @@ jobs:
       - run: bash -n eval/setup.sh
       - name: Audit scorer self-check (no PHP)
         run: python3 eval/test_audit.py
+      - name: Trigger eval self-check (no claude)
+        run: python3 eval/test_trigger.py
       - name: Published tables re-derive from committed results
         run: |
           for run in boost-comparison augment-comparison; do

@@ -1,0 +1,190 @@
+{
+  "plugin_dir": "v0.2.0 (tag v0.2.0)",
+  "model": "haiku",
+  "runs": 3,
+  "isolated": false,
+  "rows": [
+    {
+      "id": "mono-review",
+      "expect": "trigger",
+      "fired": 2,
+      "runs": 3,
+      "errors": 0,
+      "cost": 0.02451828
+    },
+    {
+      "id": "mono-perf",
+      "expect": "trigger",
+      "fired": 0,
+      "runs": 3,
+      "errors": 0,
+      "cost": 0.01933707
+    },
+    {
+      "id": "mono-build",
+      "expect": "trigger",
+      "fired": 0,
+      "runs": 3,
+      "errors": 0,
+      "cost": 0.02220017
+    },
+    {
+      "id": "mono-neg-ts",
+      "expect": "skip",
+      "fired": 0,
+      "runs": 3,
+      "errors": 0,
+      "cost": 0.008211419999999999
+    }
+  ],
+  "totals": {
+    "trigger": {
+      "fired": 2,
+      "runs": 9
+    },
+    "skip": {
+      "fired": 0,
+      "runs": 3
+    },
+    "errors": 0,
+    "cost": 0.07426694
+  },
+  "results": [
+    {
+      "id": "mono-review",
+      "run": 1,
+      "fired": true,
+      "skills": [
+        "laravel-idioms:laravel-idioms"
+      ],
+      "available": true,
+      "error": null,
+      "cost": 0.00999059,
+      "turns": 11,
+      "stop": "success"
+    },
+    {
+      "id": "mono-review",
+      "run": 2,
+      "fired": true,
+      "skills": [
+        "laravel-idioms:laravel-idioms"
+      ],
+      "available": true,
+      "error": null,
+      "cost": 0.00844903,
+      "turns": 7,
+      "stop": "success"
+    },
+    {
+      "id": "mono-review",
+      "run": 3,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.00607866,
+      "turns": 5,
+      "stop": "success"
+    },
+    {
+      "id": "mono-perf",
+      "run": 1,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.00667707,
+      "turns": 9,
+      "stop": "success"
+    },
+    {
+      "id": "mono-perf",
+      "run": 2,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.006451000000000002,
+      "turns": 7,
+      "stop": "success"
+    },
+    {
+      "id": "mono-perf",
+      "run": 3,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.006209,
+      "turns": 8,
+      "stop": "success"
+    },
+    {
+      "id": "mono-build",
+      "run": 1,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.01017798,
+      "turns": 13,
+      "stop": "success"
+    },
+    {
+      "id": "mono-build",
+      "run": 2,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.006863750000000001,
+      "turns": 11,
+      "stop": "success"
+    },
+    {
+      "id": "mono-build",
+      "run": 3,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.00515844,
+      "turns": 7,
+      "stop": "error_max_turns"
+    },
+    {
+      "id": "mono-neg-ts",
+      "run": 1,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.00480628,
+      "turns": 3,
+      "stop": "success"
+    },
+    {
+      "id": "mono-neg-ts",
+      "run": 2,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.0016614199999999998,
+      "turns": 2,
+      "stop": "success"
+    },
+    {
+      "id": "mono-neg-ts",
+      "run": 3,
+      "fired": false,
+      "skills": [],
+      "available": true,
+      "error": null,
+      "cost": 0.00174372,
+      "turns": 2,
+      "stop": "success"
+    }
+  ]
+}
