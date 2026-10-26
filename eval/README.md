@@ -109,12 +109,12 @@ It runs the 12 prompts in `trigger/prompts.json` `--runs` times each: eight that
 | `--model` | Default `sonnet`. |
 | `--runs` | Runs per prompt. Default 3. |
 | `--parallel` | Sessions at once. Default 4. |
-| `--isolated` | Adds `--setting-sources project,local --strict-mcp-config`, so your user-level skills, plugins and MCP servers stay out. |
+| `--isolated` | Adds `--setting-sources project,local`, so your user-level settings and plugins stay out. MCP servers are always left out (`--strict-mcp-config`). |
 | `--app DIR` | A Laravel app for the Laravel prompts. Default: the tiny app in `trigger/fixture/laravel-app`. The prompts name `Ticket`, `TicketResource`, `TicketStatsWidget` and `Customer`, so an app without them still runs, but the agent has less to read. |
 | `--only ID,ID` | Run only these prompt ids. |
 | `--json FILE`, `--logs DIR` | Write per-run results as JSON, or keep each session's raw stream-json. |
 
-Sessions are read-only. Only `Read`, `Grep`, `Glob` and `Skill` are allowed, and each run stops after 6 turns, so a skill loaded later is not counted. The PHP and TypeScript prompts run in `trigger/fixture/php-app` and `trigger/fixture/ts-app`. Every other prompt, including the two general ones, runs in the Laravel app. The script copies the committed fixtures out of the repo first, so the session's project root is the fixture and not this checkout. An `--app` is used in place; the sessions only read it.
+Sessions are read-only. `--tools Read,Grep,Glob,Skill` limits them to those four tools, and each run stops after 6 turns, so a skill loaded later is not counted. The PHP and TypeScript prompts run in `trigger/fixture/php-app` and `trigger/fixture/ts-app`. Every other prompt, including the two general ones, runs in the Laravel app. The script copies the committed fixtures out of the repo first, so the session's project root is the fixture and not this checkout. An `--app` is used in place; the sessions only read it.
 
 A run that crashes, hits an API error or never loads the plugin is listed as an error and left out of the fractions. The script then exits with 1. A wrong `--plugin-dir` shows up as errors, not as a row of zeros.
 

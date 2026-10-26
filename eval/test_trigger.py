@@ -46,6 +46,11 @@ class ParseStream(unittest.TestCase):
     def test_missing_skill_is_reported_instead_of_scored_as_zero(self):
         self.assertIn('not loaded', parse('not-loaded.jsonl')['error'])
 
+    def test_standalone_copy_does_not_stand_in_for_the_plugin(self):
+        run = parse('standalone.jsonl')
+        self.assertTrue(run['fired'])
+        self.assertIn('not loaded', run['error'])
+
     def test_non_object_json_lines_are_ignored(self):
         run = trigger.parse_stream('[1, 2]\n3\n"x"\n' + (HERE / 'trigger' / 'testdata' / 'fired.jsonl').read_text())
         self.assertTrue(run['fired'])
@@ -55,17 +60,18 @@ class Command(unittest.TestCase):
     def test_sessions_are_read_only(self):
         cmd = trigger.build_command('hi', 'haiku', '/plugin')
         self.assertNotIn('--dangerously-skip-permissions', cmd)
+        self.assertEqual(cmd[cmd.index('--tools') + 1], 'Read,Grep,Glob,Skill')
         self.assertEqual(cmd[cmd.index('--allowedTools') + 1], 'Read,Grep,Glob,Skill')
+        self.assertIn('--strict-mcp-config', cmd)
         disallowed = cmd[cmd.index('--disallowedTools') + 1].split(',')
         for tool in ('Edit', 'Write', 'Bash', 'NotebookEdit', 'Agent', 'WebFetch', 'WebSearch'):
             self.assertIn(tool, disallowed)
         self.assertEqual(cmd[cmd.index('--plugin-dir') + 1], '/plugin')
         self.assertNotIn('--setting-sources', cmd)
 
-    def test_isolated_adds_the_two_flags(self):
+    def test_isolated_adds_setting_sources(self):
         cmd = trigger.build_command('hi', 'haiku', '/plugin', isolated=True)
         self.assertEqual(cmd[cmd.index('--setting-sources') + 1], 'project,local')
-        self.assertIn('--strict-mcp-config', cmd)
 
 
 class Summary(unittest.TestCase):

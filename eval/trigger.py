@@ -22,6 +22,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 TRIGGER = REPO / 'eval' / 'trigger'
 SKILL = 'laravel-idioms'
+SKILL_ID = f'{SKILL}:{SKILL}'
 MAX_TURNS = 6
 ALLOWED_TOOLS = 'Read,Grep,Glob,Skill'
 DISALLOWED_TOOLS = 'Edit,Write,Bash,NotebookEdit,Agent,WebFetch,WebSearch'
@@ -40,10 +41,10 @@ def load_prompts(only=None):
 
 def build_command(prompt, model, plugin_dir, isolated=False):
     cmd = ['claude', '-p', prompt, '--model', model, '--max-turns', str(MAX_TURNS), '--plugin-dir', str(plugin_dir),
-           '--allowedTools', ALLOWED_TOOLS, '--disallowedTools', DISALLOWED_TOOLS, '--no-session-persistence',
-           '--output-format', 'stream-json', '--verbose']
+           '--tools', ALLOWED_TOOLS, '--allowedTools', ALLOWED_TOOLS, '--disallowedTools', DISALLOWED_TOOLS,
+           '--strict-mcp-config', '--no-session-persistence', '--output-format', 'stream-json', '--verbose']
     if isolated:
-        cmd += ['--setting-sources', 'project,local', '--strict-mcp-config']
+        cmd += ['--setting-sources', 'project,local']
     return cmd
 
 
@@ -60,7 +61,7 @@ def parse_stream(text):
             continue
         kind = event.get('type')
         if kind == 'system' and event.get('subtype') == 'init':
-            available = any(SKILL in str(s) for s in event.get('skills') or [])
+            available = SKILL_ID in (event.get('skills') or [])
         elif kind == 'assistant':
             for block in (event.get('message') or {}).get('content') or []:
                 if isinstance(block, dict) and block.get('type') == 'tool_use' and block.get('name') == 'Skill':
@@ -79,7 +80,7 @@ def parse_stream(text):
         else:
             error = f"api error {result['api_error_status']}" if result.get('api_error_status') else str(result.get('subtype') or 'error')
     elif not available:
-        error = f'{SKILL} skill not loaded: check --plugin-dir'
+        error = f'{SKILL_ID} not loaded: check --plugin-dir'
     return {'fired': fired, 'skills': called, 'available': available, 'error': error,
             'cost': float((result or {}).get('total_cost_usd') or 0), 'turns': (result or {}).get('num_turns'),
             'stop': (result or {}).get('subtype')}
@@ -137,7 +138,7 @@ def main():
     parser.add_argument('--runs', type=int, default=3, help='runs per prompt')
     parser.add_argument('--parallel', type=int, default=4)
     parser.add_argument('--isolated', action='store_true',
-                        help='skip user-level settings and MCP servers (--setting-sources project,local --strict-mcp-config)')
+                        help='also skip user-level settings and plugins (--setting-sources project,local)')
     parser.add_argument('--app', help='Laravel app for the Laravel prompts (default: the committed fixture)')
     parser.add_argument('--only', help='comma-separated prompt ids to run')
     parser.add_argument('--json', metavar='FILE', help='also write per-run results and totals as JSON')

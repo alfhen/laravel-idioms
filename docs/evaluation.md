@@ -73,7 +73,7 @@ Audit mode was checked against lists of problems that independent reviewers had 
 
 The build prompts above never mention the skill, so the agent has to decide to load it. This test measures that decision on its own: does a fresh session call the `Skill` tool for `laravel-idioms` without being asked to?
 
-**Method.** 12 prompts, 3 runs each, so 36 fresh `claude -p` sessions per row. 8 prompts should trigger the skill: review a model, review a Filament resource, plan a refactor, refactor a widget, build a feature, a performance question, write tests, assess codebase health. 4 should not: review a plain PHP controller, review a TypeScript file, an HTTP 429 question, a shell one-liner. The Laravel prompts ran in a Laravel 13 / Filament 5 app. Sessions were read-only (`Read`, `Grep`, `Glob` and `Skill`) and capped at 6 turns. A run counts as a hit when the model made a `Skill` call whose skill name contains `laravel-idioms`. The plugin was loaded with `claude --plugin-dir`.
+**Method.** 12 prompts, 3 runs each, so 36 fresh `claude -p` sessions per row. 8 prompts should trigger the skill: review a model, review a Filament resource, plan a refactor, refactor a widget, build a feature, a performance question, write tests, assess codebase health. 4 should not: review a plain PHP controller, review a TypeScript file, an HTTP 429 question, a shell one-liner. The Laravel prompts ran in a larger Laravel 13 / Filament 5 ticketing app (tickets, replies, customers, a Filament resource and a stats widget). That app is not committed, so the table below can't be re-derived from this repo. `eval/trigger/fixture/laravel-app` is a much smaller stand-in with the same file names. Sessions were read-only (`Read`, `Grep`, `Glob` and `Skill`) and capped at 6 turns. A run counts as a hit when the model made a `Skill` call whose skill name contains `laravel-idioms`. The plugin was loaded with `claude --plugin-dir`.
 
 **Results.** Should-trigger runs that loaded the skill, out of 24:
 
@@ -84,17 +84,20 @@ The build prompts above never mention the skill, so the agent has to decide to l
 | v0.2.0 description + SessionStart hook | 22/24 | not run |
 | New description + SessionStart hook | 23/24 | 24/24 |
 
-The new description is trigger-first: it opens with the situations to use the skill in and names the Laravel signals in a project (an `artisan` file, `laravel/framework` in `composer.json`). The hook is the plugin's `SessionStart` hook. In a Laravel app without `boost.json` it adds a short note that points at the skill. See the README.
+The new description is trigger-first: it opens with the situations to use the skill in and names the Laravel signals in a project (an `artisan` file, `laravel/framework` in `composer.json`). The hook is the plugin's `SessionStart` hook. In a Laravel app whose `CLAUDE.md` and `AGENTS.md` don't already mention the skill, it adds a short note that points at the skill. See the README.
 
 In every measured row, the should-not prompts loaded the skill 0 times out of 12.
 
 With the new description and the hook, Sonnet loaded the skill in all 3 runs of every should-trigger prompt.
+
+TODO: a second table goes here with results on the committed fixture (v0.2.0 against this branch, Haiku 5.5, 3 runs each). The per-run JSON files will be under `eval/results/trigger/`.
 
 With the v0.2.0 description on Sonnet, only the explicit review and refactor prompts triggered it. The plan, build, performance, test and assessment prompts did not trigger it in any of their 3 runs.
 
 **Caveats.**
 - The samples are small: 24 runs per cell, and 3 per prompt. A difference of one or two runs is noise.
 - The runs were made in one user environment with about 15 other plugins installed, so the skill list was crowded. Another environment can give other rates. `eval/trigger.py --isolated` measures the isolated case, and its numbers are not comparable with the table.
+- `eval/trigger.py` always passes `--strict-mcp-config` and `--tools Read,Grep,Glob,Skill`. The runs in the table did not pass `--strict-mcp-config`, so their sessions also had the MCP servers of that user environment.
 - Runs stopped after 6 turns. A skill the model would have loaded on turn 7 is counted as a miss.
 - The results are model-specific. Haiku and Sonnet behave differently, and the table says nothing about Opus or later releases.
 - The prompts are short and plain. They were written for this test, and users phrase requests in other ways.
