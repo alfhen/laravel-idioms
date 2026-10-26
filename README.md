@@ -80,7 +80,7 @@ claude plugin marketplace update alfhen
 claude plugin update laravel-idioms@alfhen
 ```
 
-To remove it, run `claude plugin uninstall laravel-idioms@alfhen`.
+To remove it, run `claude plugin uninstall laravel-idioms@alfhen`. For a team install, add `--scope project` and commit the changed `.claude/settings.json`.
 
 Projects that use Boost should keep the Composer route above. The plugin installs the skill but not the guideline in `resources/boost/guidelines/core.md`, and Boost already copies the skill into `.claude/skills/`, so adding the plugin would load it twice.
 
