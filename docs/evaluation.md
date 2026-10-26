@@ -90,7 +90,22 @@ In every measured row, the should-not prompts loaded the skill 0 times out of 12
 
 With the new description and the hook, Sonnet loaded the skill in all 3 runs of every should-trigger prompt.
 
-TODO: a second table goes here with results on the committed fixture (v0.2.0 against this branch, Haiku 5.5, 3 runs each). The per-run JSON files will be under `eval/results/trigger/`.
+On the committed fixture, with `eval/trigger.py` as committed, Haiku 5.5, 3 runs per prompt:
+
+| Prompt | v0.2.0 | v0.2.1 |
+|---|---|---|
+| Review a model | 3/3 | 3/3 |
+| Review a Filament resource | 3/3 | 3/3 |
+| Plan a refactor | 0/3 | 3/3 |
+| Refactor a widget | 2/3 | 3/3 |
+| Build a feature | 0/3 | 3/3 |
+| Performance question | 0/3 | 3/3 |
+| Write tests | 1/3 | 3/3 |
+| Assess codebase health | 1/3 | 3/3 |
+| **Should trigger** | **10/24** | **24/24** |
+| Should not trigger | 0/12 | 0/12 |
+
+The per-run results are in `eval/results/trigger/`. v0.2.0 does better here than in the first table (10/24 against 5/24). These sessions had only four tools and no MCP servers, so less competed with the skill. Both tables show the same gap: the v0.2.0 description triggers on "review" and "refactor" and rarely on anything else.
 
 With the v0.2.0 description on Sonnet, only the explicit review and refactor prompts triggered it. The plan, build, performance, test and assessment prompts did not trigger it in any of their 3 runs.
 
