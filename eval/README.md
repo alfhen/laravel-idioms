@@ -91,6 +91,37 @@ Traps c and e are never applied, so a finding there reads `pass (flagged safely)
 
 Verdicts are regex checks on the findings, so read `scores.json` before trusting a FAIL on e.
 
+## Skill triggering
+
+`trigger.py` checks whether a fresh session loads the skill without being told to. It needs only the Claude Code CLI, not PHP.
+
+```bash
+python3 eval/trigger.py --model haiku --runs 3                    # the repo as the plugin
+python3 eval/trigger.py --model sonnet --plugin-dir /path/to/other/checkout --json trigger.json
+python3 eval/test_trigger.py                                      # checks the parsing and prompt set, no claude
+```
+
+It runs the 12 prompts in `trigger/prompts.json` `--runs` times each: eight that should load the skill (review a model, review a Filament resource, plan a refactor, refactor a widget, build a feature, a performance question, write tests, assess codebase health) and four that must not (a plain PHP controller, a TypeScript file, an HTTP 429 question, a shell one-liner). A run counts as a trigger when the model calls the `Skill` tool with a skill name containing `laravel-idioms`. The table shows, per prompt, how many runs triggered.
+
+| Flag | Meaning |
+|---|---|
+| `--plugin-dir DIR` | The plugin to test. Default: this repo. To compare versions, point it at a checkout of each. To test the description without the SessionStart hook, point it at a copy with `hooks/` deleted. |
+| `--model` | Default `sonnet`. |
+| `--runs` | Runs per prompt. Default 3. |
+| `--parallel` | Sessions at once. Default 4. |
+| `--isolated` | Adds `--setting-sources project,local --strict-mcp-config`, so your user-level skills, plugins and MCP servers stay out. |
+| `--app DIR` | A Laravel app for the Laravel prompts. Default: the tiny app in `trigger/fixture/laravel-app`. The prompts name `Ticket`, `TicketResource`, `TicketStatsWidget` and `Customer`, so an app without them still runs, but the agent has less to read. |
+| `--only ID,ID` | Run only these prompt ids. |
+| `--json FILE`, `--logs DIR` | Write per-run results as JSON, or keep each session's raw stream-json. |
+
+Sessions are read-only. Only `Read`, `Grep`, `Glob` and `Skill` are allowed, and each run stops after 6 turns, so a skill loaded later is not counted. The PHP and TypeScript prompts run in `trigger/fixture/php-app` and `trigger/fixture/ts-app`. Every other prompt, including the two general ones, runs in the Laravel app. The script copies the committed fixtures out of the repo first, so the session's project root is the fixture and not this checkout. An `--app` is used in place; the sessions only read it.
+
+A run that crashes, hits an API error or never loads the plugin is listed as an error and left out of the fractions. The script then exits with 1. A wrong `--plugin-dir` shows up as errors, not as a row of zeros.
+
+**Isolation changes the result.** The numbers in [docs/evaluation.md](../docs/evaluation.md) were measured without `--isolated`, in a full user environment with about 15 other plugins installed. Whether the model picks this skill depends on what else is in the skill list, so a crowded environment and an isolated one give different rates. Compare runs only against others made the same way.
+
+Cost: a 36-run round (12 prompts, 3 runs) cost about $0.50 with Haiku 5.5 and about $5.50 with Sonnet 5.5 in that crowded environment.
+
 ## Cost
 
 At API prices, builds cost about $2–3.30 each with Sonnet. A 4-impl judgement with Opus cost about $1 in a test run. A 6-task, 4-arm comparison with 2 judges per task is 24 builds and 12 judgements, roughly $70–80, and takes about an hour at the default concurrency.
