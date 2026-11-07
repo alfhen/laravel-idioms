@@ -23,6 +23,8 @@ WORK = Path(os.environ.get('WORK', REPO / 'eval' / '.work'))
 JUDGE = Path(os.environ.get('JUDGE', WORK.parent / f'{WORK.name}-judge'))
 TASKS = json.loads((REPO / 'eval' / 'tasks.json').read_text())
 SETTINGS = WORK / 'judge-sandbox.json'
+GENERAL = ['collections_helpers', 'thin_controllers', 'validation_form_requests', 'eloquent_idioms',
+           'architecture_fit', 'modern_laravel']
 DIMENSIONS = ['collections_helpers', 'thin_controllers', 'validation_form_requests', 'eloquent_idioms',
               'architecture_fit', 'modern_laravel', 'focus_area', 'tests', 'correctness', 'simplicity']
 
@@ -99,10 +101,15 @@ def canary():
         raise SystemExit('Sandbox canary inconclusive: no blocked read of the canary file was observed.')
 
 
-def schema(impls):
+def dimensions(task):
+    """The scored dimensions for a task; `skip_dimensions` drops ones that don't apply (e.g. no HTTP layer)."""
+    return [d for d in DIMENSIONS if d not in task.get('skip_dimensions', [])]
+
+
+def schema(impls, dims=DIMENSIONS):
     impl = {'type': 'object', 'properties': {
-        'scores': {'type': 'object', 'properties': {d: {'type': 'number', 'minimum': 1, 'maximum': 10} for d in DIMENSIONS},
-                   'required': DIMENSIONS},
+        'scores': {'type': 'object', 'properties': {d: {'type': 'number', 'minimum': 1, 'maximum': 10} for d in dims},
+                   'required': dims},
         'overall': {'type': 'number', 'minimum': 1, 'maximum': 10},
         'rank': {'type': 'integer', 'minimum': 1, 'maximum': len(impls)},
         'tests_pass': {'type': 'boolean'},
@@ -123,7 +130,7 @@ Task they were given:
 {task['text']}
 
 For each implementation: run `php artisan test`, read every added or changed file, and probe at least two likely edge cases per implementation with a throwaway test (then delete the probe). Be thorough: small bugs and idiom differences decide the ranking. Score 1-10 on:
-- collections_helpers, thin_controllers, validation_form_requests, eloquent_idioms, architecture_fit, modern_laravel (current Laravel 11-13 conventions)
+- {', '.join(d for d in GENERAL if d in dimensions(task))} (modern_laravel: current Laravel 11-13 conventions)
 - focus_area: idiomatic use of the task's focus: {task['focus']}
 - tests: meaningful, idiomatic tests{' in Pest style' if task['pest'] else ''}, covering failure paths and edge cases
 - correctness: meets every requirement; list real bugs you found under "bugs"
@@ -140,7 +147,7 @@ def judge(job, model):
     shift = (n - 1) % len(impls)
     order = impls[shift:] + impls[:shift]
     result = claude(prompt(key, TASKS[key], impls, order), model, JUDGE / 'tasks' / key,
-                    ['--output-format', 'json', '--json-schema', json.dumps(schema(impls))])
+                    ['--output-format', 'json', '--json-schema', json.dumps(schema(impls, dimensions(TASKS[key])))])
     envelope = json.loads(result.stdout)
     verdict = envelope.get('structured_output')
     if verdict is None:

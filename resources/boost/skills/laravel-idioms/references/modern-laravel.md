@@ -10,7 +10,7 @@ The 11+ `app/` ships only `Http/Controllers/Controller.php` (empty abstract clas
 |---|---|
 | `app/Http/Kernel.php` | `->withMiddleware()` in `bootstrap/app.php` |
 | `app/Exceptions/Handler.php` | `->withExceptions()` |
-| `app/Console/Kernel.php` | `Schedule::` in `routes/console.php`; commands auto-discovered from `app/Console/Commands` |
+| `app/Console/Kernel.php` | `Schedule::` in `routes/console.php` (or `->withSchedule()`); commands auto-discovered from `app/Console/Commands`. A leftover `Kernel::schedule()` is dead only once `bootstrap/app.php` uses `Application::configure()`; an upgraded app that still binds `App\Console\Kernel` keeps running it |
 | `RouteServiceProvider` | `->withRouting(web:, api:, commands:, health:, apiPrefix:)` |
 | `AuthServiceProvider` / `$policies` | policy auto-discovery, `#[UsePolicy]`, `Gate::policy()` in `AppServiceProvider` |
 | `EventServiceProvider` / `$listen` | listener discovery from `app/Listeners` |
@@ -57,6 +57,7 @@ use Illuminate\Support\Facades\Schedule;
 Schedule::command(SendEmailsCommand::class, ['Taylor', '--force'])->daily();
 Schedule::job(new Heartbeat)->everyFiveMinutes();
 ```
+Overlap and one-server locks, timezones, monitoring and schedule tests: `scheduling.md`. Commands: `console-commands.md`.
 
 ## AppServiceProvider::boot() is the home for
 
@@ -66,6 +67,7 @@ Password::defaults(fn () => Password::min(8)->uncompromised());
 RateLimiter::for('api', fn (Request $r) => Limit::perMinute(60)->by($r->user()?->id ?: $r->ip()));
 Gate::policy(DatabaseNotification::class, NotificationPolicy::class);   // only non-conventional names
 Queue::route(ProcessPodcast::class, connection: 'redis', queue: 'podcasts');   // 13
+DB::prohibitDestructiveCommands($this->app->isProduction());   // migrate:fresh/refresh/reset/rollback, db:wipe
 ```
 
 ## Attribute-first configuration (13)

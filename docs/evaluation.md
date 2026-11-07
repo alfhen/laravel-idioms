@@ -24,6 +24,13 @@ All evaluations used fresh Laravel 13.33 apps: PHPUnit, Pest 5.2 and Filament 5.
 | filament-admin | Filament 5 resource, filters, actions, relation manager, widget |
 | caching | Per-team cache with invalidation and a stale window, stampede lock, stale fallback |
 | webhook-worker | Signed webhooks, idempotency, rate-limited retries, pruning, worker config |
+| shipment-sync | Queued API call after payment: idempotency, retries, 429s, failure state |
+| statement-batch | Batch fan-out with failures allowed, completion summary |
+| scheduled-reports | Schedules on three servers: timezone, overlap, one-server locks, memory-safe prune |
+| export-purge-command | Destructive Artisan command: dry run, production confirmation, partial failure, nightly run |
+| stock-sync-dispatcher (holdout) | Scheduled dispatcher with claims, rate limits and retries |
+| queue-bugfix (holdout) | Fix a seeded app whose job swallows failures and double-sends |
+| inactive-count (probe) | A small scheduled count that tests for over-engineering |
 
 ## Skill vs no skill
 
@@ -61,6 +68,48 @@ With Boost installed, the skill activated in only 1 of 6 sessions. Boost's gener
 | **Boost + this package** | **7.27** | **6** | 3.25 | $3.27 |
 
 With the guideline, the skill activated in 6 of 6 sessions. Head to head, the package with Boost and the skill alone tied 6–6. Loading both skills does not weaken this one, but it costs about 35% more tokens.
+
+## Queues, scheduler and commands
+
+This round added jobs, workers, the scheduler and Artisan commands to the skill (`SKILL.md` §7, §7b and §7c, and the `queues-and-workers`, `scheduling` and `console-commands` references). It compares the skill with `main` (the version before the change) and with no skill.
+
+**Method.** Builds ran on Sonnet, one fresh headless session each: three builds per arm for the target and holdout tasks, and at least two for the probe and the earlier tasks. Each target and holdout task has a hidden behavioural test file that the builder never sees, and its pass rate is the primary measure. Blind Opus judges scored two replicates, with two judges per task. The skill was revised only from the five target tasks. The two holdout tasks were never used to revise it, and the probe checks that a small task stays small. The regression rows below cover seven earlier tasks: the two marked `regression` in `eval/tasks.json` (sales-report, blade-catalogue) and five marked `archive` (blog-crud, csv-import, cart-discounts, filament-admin, caching). They check that the new text doesn't make the rest of the skill worse. None of them is about queues, though csv-import queues its import and caching uses a lock.
+
+**Hidden tests** (3 builds per arm and task, 120 tests per arm):
+
+| | No skill | `main` | This version |
+|---|---|---|---|
+| Passed | 40/40 (1 build per task) | 116/120 | 119/120 |
+
+The hidden tests are near the ceiling for every arm, so they mainly catch broken builds. The one failure left is in queue-bugfix: one build in three, with either skill version, leaves a lock that a killed process holds too long.
+
+**Judges** (mean overall score, round 3, replicates 1 and 2):
+
+| Task set | `main` | Round 2 | This version |
+|---|---|---|---|
+| Target (5 tasks) | 7.50 / 6.97 | 6.68 / 7.54 | **7.88 / 8.05** |
+| Holdout (2 tasks) | 6.45 / 6.42 | 7.72 / 7.70 | **8.22 / 8.25** |
+| Probe (1 task) | 6.75 / 8.00 | 8.00 / 7.25 | 8.25 / 7.00 |
+| Regression (7 tasks) | 7.41 / 6.93 | 7.89 / 7.98 | 7.52 / 7.58 |
+| All 15 | 7.27 / 6.95 | 7.47 / 7.75 | **7.78 / 7.79** |
+
+The final version ranked first on 13 and 15 of 30 judgements, against 6 and 4 for `main`. On the regression set it scores at or above `main` in both replicates. It scores about 0.4 below the round-2 builds there, and most of that gap is one task: both blog-crud builds put the `web` middleware group on the API routes. Neither skill version mentions that, and four fresh blog-crud builds didn't repeat it (they scored 8.15 and 8.30, level with round 2).
+
+**What the rounds changed.** The judges' notes, checked against every build with grep, drove each revision:
+- The first draft told builders to `Schedule::useCache('redis')`, and they hardcoded Redis, which breaks tests and local runs. The skill now says to choose the lock store by environment.
+- Builders added `--force` and `--dry-run` to a cleanup that only the scheduler runs. The skill now keeps those guards for commands people run by hand.
+- Builders scheduled nightly prunes at 01:00–02:00 UTC to stay out of the DST change window, which also moved them off the business timezone. The skill and `scheduling.md` now agree: when the task names a business timezone, use it, and run at 03:00 or later. Nightly prunes now run in that timezone at 03:00–03:30 in 3 of 3 builds, and no build invents a timezone the task didn't give.
+- Rewriting the jobs section dropped two habits `main` had (`#[DeleteWhenMissingModels]`, `Retry-After` on 429s), and no version had covered a dispatcher whose state change is safe to repeat. With those three added back, `Retry-After` handling went from 0 to 3 of 3 shipment-sync builds, and all 3 claim the `markAsPaid()` transition with a conditional update.
+- `Isolatable` takes its lock before `handle()`, so a support engineer's `--dry-run` was refused during the nightly run. All 3 export-purge builds now lock only around the deleting part.
+- `#[UniqueFor]` equal to the schedule interval let an orphaned lock skip the next run. The skill now states the window (longer than the worst run, shorter than the interval), and 3 of 3 builds pick 3300 seconds for an hourly job.
+
+**Non-regression checks.** Besides the regression tasks above:
+- **Triggering:** on 22 prompts with Haiku (3 runs each, full user environment), this version loaded the skill on 42 of 42 should-trigger runs and 0 of 24 should-skip runs (`main`: 40/42 and 1/24). The six new prompts include a Symfony console command, a Node cron job and Celery, which should not trigger it.
+- **Static checks** (`eval/static.py`, no LLM): over the regression tasks, every check is flat or lower than `main`, and Pint finds the same number of files to fix. Raw foreign-key arrays in tests are the one count that rose, and every hit was a legitimate test input.
+- **Audit traps:** the audit-mode trap fixture scored the same as `main`. Both versions sometimes over-rewrite traps b and d. This change doesn't touch them, and they are tracked separately.
+- **Cost:** builds cost the same with this version as with `main` ($0.38 vs $0.37 on average) and take about as long. The skill grew from 250 to 308 lines.
+
+Raw judgements, mappings, per-build stats and hidden-test results are in [`eval/results/queues-round/`](../eval/results/queues-round). CI checks that the round 3 and round 4 tables still re-derive from them.
 
 ## Audit mode
 

@@ -159,7 +159,7 @@ public function handle(): int
     return self::SUCCESS;
 }
 ```
-Return an int exit code and tell the user what happened.
+Return an int exit code and tell the user what happened. Error paths return `self::FAILURE` (or call `$this->fail()`), never a bare `return;`. Signatures, prompts, destructive-command guards and command tests: `console-commands.md`.
 
 ## Whitespace
 

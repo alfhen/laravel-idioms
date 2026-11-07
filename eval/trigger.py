@@ -144,9 +144,9 @@ def summarise(prompts, results):
 
 
 def format_table(rows, totals):
-    lines = [f"{'prompt':<18}{'expect':<9}{'fired':<8}{'errors':<8}cost"]
+    lines = [f"{'prompt':<22}{'expect':<9}{'fired':<8}{'errors':<8}cost"]
     for r in rows:
-        lines.append(f"{r['id']:<18}{r['expect']:<9}{r['fired']}/{r['runs']:<6}{r['errors']:<8}${r['cost']:.3f}")
+        lines.append(f"{r['id']:<22}{r['expect']:<9}{r['fired']}/{r['runs']:<6}{r['errors']:<8}${r['cost']:.3f}")
     t, s = totals['trigger'], totals['skip']
     lines.append('')
     lines.append(f"should trigger: {t['fired']}/{t['runs']} fired    should not: {s['fired']}/{s['runs']} fired    "

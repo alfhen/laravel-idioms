@@ -1,19 +1,19 @@
 ---
 name: laravel-idioms
-description: Use for any work in a Laravel codebase, whether reviewing, planning, building, refactoring, debugging, speeding up or testing PHP code in a project with an artisan file or laravel/framework in composer.json, even when the user never says "Laravel". Load it before planning a change or answering a question about the code, not only before editing. Also use it to audit a Laravel codebase, judge its health, find code smells or write a refactor report (a self-contained HTML report). Gives concrete rules for Laravel 11-13 covering thin controllers, Form Requests, policies, collections over loops, Eloquent casts/scopes/attributes, N+1 and slow queries, jobs and queues, caching and locks, Blade components, Filament 5, Pest and PHPUnit tests and the current skeleton structure, plus a mandatory "Before you finish" checklist. Not for PHP projects that aren't Laravel. Complements Laravel Boost's laravel-best-practices skill, so load both when both are installed.
+description: Use for any work in a Laravel codebase, whether reviewing, planning, building, refactoring, debugging, speeding up or testing PHP code in a project with an artisan file or laravel/framework in composer.json, even when the user never says "Laravel". Load it before planning a change or answering a question about the code, not only before editing. Also use it to audit a Laravel codebase, judge its health, find code smells or write a refactor report (a self-contained HTML report). Gives concrete rules for Laravel 11-13 covering thin controllers, Form Requests, policies, collections over loops, Eloquent casts/scopes/attributes, N+1 and slow queries, jobs, queues and workers, scheduled tasks, Artisan commands, caching and locks, Blade components, Filament 5, Pest and PHPUnit tests and the current skeleton structure, plus a mandatory "Before you finish" checklist. Not for PHP projects that aren't Laravel. Complements Laravel Boost's laravel-best-practices skill, so load both when both are installed.
 ---
 
 # Laravel idioms
 
 Write code the way the Laravel framework, its docs and well-maintained packages (laravel.io, Spatie) write it. Match the project's existing conventions and Laravel version first; these rules decide everything the project hasn't already decided.
 
-**With Laravel Boost:** load this skill *and* `laravel-best-practices`. Boost's rule files cover security, migrations, the HTTP client, error handling, mail and scheduling. This skill adds the concrete rules below, the Laravel 13 / Filament 5 / Pest 5 API specifics, and the mandatory "Before you finish" checklist. Where the two differ on a specific API or pattern, follow this skill; verify version-sensitive APIs with Boost's `search-docs` when it is available.
+**With Laravel Boost:** load this skill *and* `laravel-best-practices`. Boost's rule files cover security, migrations, the HTTP client, error handling and mail. This skill adds the concrete rules below, the Laravel 13 / Filament 5 / Pest 5 API specifics, and the mandatory "Before you finish" checklist. Where the two differ on a specific API or pattern, follow this skill; verify version-sensitive APIs with Boost's `search-docs` when it is available.
 
 **Audit or refactor-report request?** ("evaluate this codebase", "suggest refactors", "audit this app") → follow `references/audit-mode.md`. It ends in a self-contained HTML report built from `assets/audit-report-template.html`.
 
 ## 0. Check the version, then commit to its style
 
-Read `laravel/framework` in `composer.lock`. The 11+ skeleton has no `Http/Kernel.php`, `Console/Kernel.php`, `Exceptions/Handler.php`, `RouteServiceProvider`, `AuthServiceProvider` or `EventServiceProvider`, and no `routes/api.php` until `php artisan install:api`. On **Laravel 13**, every new model, job and command uses attributes (`#[Fillable]`, `#[Hidden]`, `#[Scope]`, `#[ObservedBy]`, `#[Tries]`, `#[Signature]`), and you use them in every new file, not only some. On older versions, or where existing code uses properties, keep properties.
+Read `laravel/framework` in `composer.lock`. The 11+ skeleton has no `Http/Kernel.php`, `Console/Kernel.php`, `Exceptions/Handler.php`, `RouteServiceProvider`, `AuthServiceProvider` or `EventServiceProvider`, and no `routes/api.php` until `php artisan install:api`. On **Laravel 13**, every new model, job and command uses attributes (`#[Fillable]`, `#[Hidden]`, `#[Scope]`, `#[ObservedBy]`, `#[Tries]`, `#[Signature]` + `#[Description]`), and you use them in every new file, not only some. On older versions, or where existing code uses properties, keep properties. An upgraded app may still keep schedules in `app/Console/Kernel.php` or a provider: add new entries where the existing ones live.
 
 ## 1. Controllers orchestrate; they don't compute
 
@@ -128,18 +128,74 @@ The framework types `->all()` as `array<TKey, TValue>` and `->keys()->all()`/`->
 
 A strict `in_array(..., true)` dedupe becomes `->uniqueStrict()`, never `->unique()`, which compares loosely (`'0'`/`'00'` collapse). Leave `array_unique()` on strings as it is.
 
-## 7. Queues, workers and external input
+## 7. Queued jobs
 
-- `implements ShouldQueue` + one `use Queueable;` (`Illuminate\Foundation\Queue\Queueable`). Options as attributes on 13 (`#[Tries(5), Backoff([10, 60, 300]), Timeout(120)]`), never both attribute and property. Pass models to the constructor (`#[WithoutRelations]`, `#[DeleteWhenMissingModels]` if it may be deleted), services on `handle()`.
-- `handle()` is idempotent: a job can run twice (timeout, crash, `queue:retry`). Check state before side effects; pass idempotency keys.
-- Default is one attempt, and every `release()` (including `RateLimited`/`WithoutOverlapping` middleware) uses one: such jobs need more `#[Tries]` or `retryUntil()`, plus `#[MaxExceptions]`. Permanent errors: `$this->fail()` / `FailOnException`.
-- `#[Timeout]` < `retry_after` (default 90) < Supervisor `stopwaitsecs`, or the job runs twice concurrently. Set HTTP client timeouts too.
-- Dispatch inside a transaction with `->afterCommit()` (listeners: `ShouldQueueAfterCommit`). `ShouldBeUnique` always has `uniqueId()` and `#[UniqueFor]`. Use built-in job middleware (`RateLimited`, `WithoutOverlapping(...)->expireAfter()`, `ThrottlesExceptions`, `Skip`/`Release`), not hand-rolled throttles in `handle()`.
-- A job that tracks status on a model must define `failed(?Throwable $e)` that sets the failed status (it runs on a fresh instance). Otherwise a crash leaves the record stuck at "processing".
-- Workers: `queue:work` under Supervisor with `--max-time`/`--tries`, `queue:restart` (or `horizon:terminate`) on every deploy, and scheduled `queue:prune-failed`/`queue:prune-batches`.
-- Treat files and payloads as hostile. Check the shape before you use it: skip blank rows, and pad or reject rows whose column count differs from the header (`array_combine` throws `ValueError` on a mismatch, so `?: []` does nothing). Report positions the user can find, such as file line numbers.
-- Read files with `Storage::readStream()`, not `Storage::path()`. Mailables use `envelope()`/`content()`.
-- Validate row data with `Validator::make($row, $rules)`, not hand-written `if` chains, when you need more than two rules.
+- `implements ShouldQueue` + one `use Queueable;` (`Illuminate\Foundation\Queue\Queueable`). Options as attributes on 13 (`#[Tries(5), Backoff([10, 60, 300]), Timeout(120)]`), never both attribute and property. Pass models to the constructor (`#[WithoutRelations]`, and `#[DeleteWhenMissingModels]` when the row can be deleted before the job runs), services to `handle()`. `dispatch(...)->afterResponse()` is not queueing: it runs in the web process with no retries.
+- `handle()` is idempotent: a job can run twice (timeout, crash, `queue:retry`). Guard on persisted state, key writes on a natural key (`updateOrCreate`, unique index, idempotency key upstream), and do the externally visible effect last. The code that dispatches it is idempotent too: a state change that queues work (`markAsPaid()`) claims the transition with a conditional update (`where('status', 'pending')->update(...)` returns 1) and dispatches only when it won. `SerializesModels` re-fetches by id *without global scopes*, so a soft-deleted model comes back: check `trashed()`/status.
+- Nothing to do or already done → `return`. Something failed → let it throw (`Http::timeout(10)->throw()`), or `$this->fail($e)` when retrying can't help. Never catch, log and return, or store "failed" and return: no retry, no `failed_jobs`, no alert.
+```php
+// bad
+try { $client->createShipment($this->order); } catch (RequestException $e) { Log::error($e->getMessage()); return; }
+// good: already done → return; failure → throws → backoff → retry → failed()
+if ($this->order->shipment()->exists()) { return; }
+$this->order->shipment()->create(['reference' => $client->createShipment($this->order)]);
+```
+- Default is one attempt, and every `release()` (including the `RateLimited`/`WithoutOverlapping` middleware) uses one. Size `#[Tries]` or `retryUntil()` above the releases, add `#[MaxExceptions]`, and always set `#[Backoff]` (default 0 retries in a tight loop).
+- Built-in job middleware, not hand-rolled throttles in `handle()`: `RateLimited` + a named `RateLimiter::for()`, `(new WithoutOverlapping($id))->releaseAfter(30)->expireAfter(180)` (defaults: release at once, lock never expires), `(new ThrottlesExceptions(10, 300))->report()` (it swallows the exception otherwise). An upstream 429 → `$this->release()` for its `Retry-After` (capped), not a throw that spends `MaxExceptions`.
+- A job that tracks status on a row sets `processing` with a timestamp and defines `failed(?Throwable $e)` (it runs on a fresh instance) that marks the row failed. A killed worker never calls `failed()`, so schedule a recovery for rows stuck past N minutes.
+- Timeouts nest: HTTP client timeout < `#[Timeout]` < `retry_after` (default 90; on SQS the queue's visibility timeout) < Supervisor `stopwaitsecs` / container stop grace. Restart workers on every deploy (`queue:restart` / `horizon:terminate`); process config, drivers, containers and monitoring are in `references/queues-and-workers.md`.
+- Inside a transaction: `->afterCommit()` on the dispatch; queued listeners and notifications implement `ShouldQueueAfterCommit` (`ShouldHandleEventsAfterCommit` only affects *sync* listeners and observers). Chains and batches have no `afterCommit()`: dispatch them after the transaction returns.
+- `ShouldBeUnique` always has `uniqueId()` and a `#[UniqueFor]` between the job's worst total run (every try plus backoff) and its schedule interval: an hourly job whose runs take up to 45 minutes gets `#[UniqueFor(3300)]`, because a lock as long as the interval, orphaned by a killed worker, silently skips the next run. Raise `retry_after` on a dedicated connection for long jobs, not the shared one. Retries must end before any claim or lock around the job expires (`retryUntil()` inside a 15-minute claim), and a long job that times out shouldn't be retried behind the next scheduled copy (`#[FailOnTimeout]`). A batch runs on one queue (set it on the batch); `then()` runs only if every job succeeded, so with `allowFailures()` do completion work in `finally()` and check `hasFailures()`. Only a failure stops a chain: `delete()` and `Skip` let the next job run.
+- Rows from files and payloads are hostile: check the column count before `array_combine`, validate with `Validator::make($row, $rules)`, report file line numbers, read with `Storage::readStream()`.
+
+## 7b. Scheduler
+
+```php
+// bad: lock outlives a killed run by 24 h, runs on every server, and only guards the dispatch
+Schedule::call(fn () => Report::sendDaily())->dailyAt('02:30')->withoutOverlapping();
+Schedule::job(new SyncStock)->everyFiveMinutes()->withoutOverlapping();
+// good (routes/console.php)
+Schedule::command(SendDailyReport::class)->dailyAt('07:00')->timezone('Europe/Copenhagen')
+    ->onOneServer()->withoutOverlapping(30)->pingOnFailure(config('services.alerts.url'));
+Schedule::job(new SyncStock)->everyFiveMinutes()->onOneServer();   // SyncStock: ShouldQueue, ShouldBeUnique, uniqueId(), #[UniqueFor]
+```
+- Three different overlap guards: the scheduler's `withoutOverlapping($minutes)` (default 1440, so always pass an expiry just above the worst run), the job middleware's `expireAfter($seconds)` (default never), and `Cache::lock()`. On `Schedule::job()` the scheduler's guard covers only the dispatch.
+- Several servers or containers run the scheduler → `onOneServer()`, with the lock store chosen by environment (`SCHEDULE_CACHE_STORE=redis` or `CACHE_STORE=redis` in production). Never hardcode `redis` in code or as an `env()` default: tests and local runs have no Redis, and the `array` store tests the same locks. Closures need `->name()` before `withoutOverlapping()`/`onOneServer()`. One server → neither.
+- When the task or app names a business timezone other than the app's (never invent one), every time-of-day entry (`dailyAt`, `weeklyOn`, nightly cleanups) runs in it: `->timezone()` on each, or `'schedule_timezone'` in `config/app.php`, at a local hour outside the DST change (03:00 or later in EU zones), never a UTC time picked to dodge it. Scheduled output is discarded unless you send it somewhere (`->appendOutputTo(storage_path('logs/x.log'))`) or the command logs it. Alert with `onFailure()`/`pingOnFailure()`, not `thenPing()`/`after()` (they fire on any exit). On `Schedule::job()` hooks mean "dispatched", so completion handling lives in the job.
+- A dispatcher selects work by persisted state (`whereNull('synced_at')`), never by a time window (missed ticks are never replayed), and claims rows (stamp a column) or dispatches unique jobs, so the next tick doesn't re-dispatch rows still in flight. Long work is a queued job or a command, never a long closure.
+
+## 7c. Console commands
+
+```php
+// bad: work in the constructor, `return;` on an error exits 0, chunk() skips rows it deletes
+// good
+#[Signature('carts:prune {--days=30} {--dry-run} {--force}')]
+#[Description('Delete abandoned carts older than --days')]
+class PruneAbandonedCarts extends Command
+{
+    use ConfirmableTrait;
+
+    public function handle(): int
+    {
+        if (! $this->confirmToProceed()) {   // asks only in production; --force skips; no TTY → cancelled
+            return self::FAILURE;
+        }
+
+        $deleted = 0;
+        foreach (Cart::query()->abandonedFor((int) $this->option('days'))->lazyById() as $cart) {
+            $cart->delete();
+            $deleted++;
+        }
+
+        $this->info("Deleted {$deleted} carts.");
+
+        return self::SUCCESS;
+    }
+}
+```
+- Any failure exits non-zero: `return self::FAILURE` or `$this->fail('...')`, including "some rows failed" (`report($e)` each, count, then FAILURE). Never a bare `return;` or a bool on an error path: cron, ECS and `onFailure()` only see the exit code. No work in the constructor (every `artisan` call builds every command); inject services into `handle()`.
+- Only commands that people run by hand against production data get `ConfirmableTrait` + `{--force}` and a `--dry-run` that reports and changes nothing. A cleanup only the scheduler runs needs neither (scheduling it with `--force` is the smell), and read-only commands never do. Every prompted value is also an argument or option (cron has no TTY). Laravel Prompts' `confirm()` defaults to **true**, so pass `default: false` before anything destructive.
+- Loops that update or delete the rows they filter on use `lazyById()`/`chunkById()`, never `chunk()` (offset pages skip rows). A command that must never run twice at once implements `Isolatable` or gets `withoutOverlapping()` in the schedule. `Isolatable` locks before `handle()`, so the lock also covers a `--dry-run` and an open confirmation prompt: a command people preview by hand takes a `Cache::lock()` around the deleting part instead.
 
 ## 8. Caching
 
@@ -222,12 +278,12 @@ Run `php artisan test` and `vendor/bin/pint --dirty` if present. Then go through
 - [ ] **Queries:** each filter rule exists once, as a scope. No `DB::table()` duplicates a model query, no joins the query doesn't read, no N+1.
 - [ ] **Models:** enums (not constants) with casts, `casts()` method, L13 attributes in every new model, writes go through relationships, and the inverse relations exist.
 - [ ] **Collections:** no accumulate-foreach, no `&$` in collection closures, no temp + `@var` to fit a pipeline to `list<…>`, and strict `in_array` checks stay strict (`uniqueStrict`, `containsStrict`). Money uses `Number::currency`.
-- [ ] **Jobs:** `Queueable`, `failed()` resets status, input shape is checked before use, `readStream`.
-- [ ] **Queues/workers:** idempotent `handle()`, tries/`retryUntil` fit every release path, backoff set, timeout < `retry_after`, `afterCommit` inside transactions, unique jobs have `uniqueId()` + `#[UniqueFor]`, workers restarted on deploy.
+- [ ] **Jobs:** failures throw or `fail()` (no catch-log-return), `handle()` is idempotent (persisted guard, natural keys, `trashed()`), tries/`retryUntil` fit every release path with backoff, `WithoutOverlapping` has `expireAfter()`, status rows get `failed()` plus a stuck-row recovery, timeout < `retry_after`/visibility timeout, `afterCommit`/`ShouldQueueAfterCommit` inside transactions, batch completion in `finally()` under `allowFailures()`, unique jobs have `uniqueId()` + `#[UniqueFor]`, file rows checked before use.
+- [ ] **Scheduler and commands:** `grep -n "withoutOverlapping()" routes/console.php` finds nothing; multi-server tasks use `onOneServer()` on a shared lock store; `Schedule::job()` jobs are `ShouldQueue` and unique; dispatchers claim rows; every command failure path returns non-zero; no constructor work; `--force`/`--dry-run` only on destructive commands; `lazyById`/`chunkById` when mutating the filtered rows.
 - [ ] **Caching:** every write has a TTL, keys are namespaced and tenant-scoped, no cached models, no `flush()`, no `has()`+`put()` race, locks have seconds and release in `finally`, no tags on a non-tag store.
 - [ ] **Blade:** no queries or lazy loads in views, `@props` + root `$attributes`, `@csrf`/`@method`/`old()`/`@error` on forms, redirect after POST, no `{!! !!}` on user data.
 - [ ] **Filament:** no v3 namespaces or deprecated methods, enums carry label/colour/icon, custom actions and inline-edit columns authorized, data scoped in `getEloquentQuery()`, `FilamentUser` on User.
-- [ ] **Tests:** each requirement, each 401/403/422 with the message asserted, limits, empty and edge cases, fakes for queue/mail/storage, factories with `->for()`/states.
+- [ ] **Tests:** each requirement, each 401/403/422 with the message asserted, limits, empty and edge cases, fakes for queue/mail/storage, factories with `->for()`/states. Jobs: `handle()` run twice, `failed()` called. Schedules asserted via `app(Schedule::class)->events()`. Every command path through `$this->artisan(...)->assertExitCode()`, plus its side effect.
 - [ ] **Pest:** the suite's framework is matched; in Pest, no `static` closures, no repeated `uses()`, DB-dependent dataset values are closures, `expect()` chains, `->throws()` over try/catch, no committed `->only()`.
 - [ ] **Ceremony:** no layer, DTO or interface the code doesn't need, and no controller doing a class's job.
 - [ ] Every API you used exists in the version in `composer.lock`.
@@ -240,11 +296,13 @@ Run `php artisan test` and `vendor/bin/pint --dirty` if present. Then go through
 | Controllers, routes, FormRequests, policies, API resources | `references/http-layer.md` |
 | Models, casts, relations, scopes, queries, factories | `references/eloquent.md` |
 | Where logic goes, DTOs, enums, container, test coverage | `references/architecture-and-testing.md` |
-| Jobs, retries, job middleware, uniqueness, chains/batches, events, notifications, workers, Horizon | `references/queues-and-workers.md` |
+| Jobs, retries, job middleware, uniqueness, chains/batches, events, notifications, workers, drivers, containers, Horizon | `references/queues-and-workers.md` |
+| `routes/console.php` schedules, overlap/one-server locks, timezones, cron/`schedule:work`, schedule tests | `references/scheduling.md` |
+| Artisan commands: signatures, prompts, exit codes, destructive-command guards, big tables, signals, command tests | `references/console-commands.md` |
 | `Cache::*`, keys and TTLs, invalidation, locks, `memo`/`once`, rate limiters | `references/caching.md` |
 | Blade views, components, layouts, forms, escaping, pagination | `references/blade.md` |
 | Filament resources, schemas, tables, actions, policies, Filament tests | `references/filament.md` |
 | Pest config, expectations, datasets, mocks, arch tests, PHPUnit → Pest | `references/pest.md` |
 | Upgrading, `bootstrap/app.php`, Laravel 11-13 attributes, outdated patterns | `references/modern-laravel.md` |
-| Formatting, naming, control flow, exceptions, commands | `references/style.md` |
+| Formatting, naming, control flow, exceptions | `references/style.md` |
 | Evaluating a codebase / producing a refactor report (HTML) | `references/audit-mode.md` |

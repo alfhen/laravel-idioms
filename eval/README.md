@@ -6,6 +6,7 @@ This harness reproduces the blind comparisons in [docs/evaluation.md](../docs/ev
 |---|---|
 | `plain` | Nothing but the Laravel skeleton |
 | `skill` | This skill in the project's `.claude/skills/` |
+| `prev` | The skill as it was at `$PREV_REF` (default: the latest `v*` tag), to compare a change against a release |
 | `boost` | Laravel Boost: guidelines, its skills and its MCP server |
 | `both` | Boost, plus this skill copied into `.claude/skills/` (no guideline) |
 | `augment` | Boost, plus this package installed through Composer (guideline + skill) |
@@ -29,11 +30,26 @@ python3 eval/judge.py --judges 2
 python3 eval/aggregate.py
 ```
 
-- **`setup.sh`** creates `base` (PHPUnit), `base-pest` (Pest) and `base-filament` (Pest + Filament) from the latest `laravel/laravel` 13.x, then builds every arm on each base. It removes the skeleton's stock `CLAUDE.md`/`AGENTS.md`, because those tell agents to install Boost and would turn every arm into a Boost arm.
-- **`build.py`** runs one headless session per task and arm. `--setting-sources project,local` keeps your user-level skills and settings out. `--strict-mcp-config` keeps your MCP servers out, so only Boost arms get Boost's server. The prompt is the same for every arm and never mentions a skill or Boost. Session logs, including which skills fired, go to `$WORK/runs/_logs/`.
+A change to the skill is compared with the released version, with replicate builds and hidden tests:
+
+```bash
+ARMS="plain skill prev" BASES="base base-pest base-queue-bugfix" PREV_REF=main eval/setup.sh
+python3 eval/build.py --arms skill,prev --runs 3 --tasks shipment-sync,statement-batch,scheduled-reports,export-purge-command,webhook-worker,stock-sync-dispatcher,queue-bugfix
+python3 eval/build.py --arms plain --runs 1 --tasks shipment-sync,statement-batch,scheduled-reports,export-purge-command,webhook-worker,stock-sync-dispatcher,queue-bugfix
+python3 eval/hidden.py
+python3 eval/static.py
+python3 eval/anonymise.py --arms plain,prev,skill --replicate 1 --tasks shipment-sync,statement-batch
+python3 eval/judge.py --judges 2
+python3 eval/aggregate.py
+```
+
+- **`setup.sh`** creates `base` (PHPUnit), `base-pest` (Pest), `base-filament` (Pest + Filament) and `base-queue-bugfix` (Pest + the seeded app in `fixtures/queue-bugfix/`) from the latest `laravel/laravel` 13.x, then builds every arm on each base. `ARMS` and `BASES` (space-separated) limit what it builds; `PREV_REF` picks the git ref for the `prev` arm. It removes the skeleton's stock `CLAUDE.md`/`AGENTS.md`, because those tell agents to install Boost and would turn every arm into a Boost arm.
+- **`build.py`** runs one headless session per task and arm. `--setting-sources project,local` keeps your user-level skills and settings out. `--strict-mcp-config` keeps your MCP servers out, so only Boost arms get Boost's server. The prompt is the same for every arm and never mentions a skill or Boost. Session logs go to `$WORK/runs/_logs/`; each build's `.done` file records which skills fired and which skill files the session read. `--runs N` builds each (task, arm) N times, as `<task>-<arm>-<n>`.
 - **`anonymise.py`** stages the judges' tree at `$JUDGE`, which defaults to a sibling of `$WORK`:
   - `tasks/<task>/impl-N` holds each build with every file that would reveal the arm stripped, and Boost and this package uninstalled;
   - `bases/<base>` holds the plain base apps to diff against.
+
+  `--replicate N` stages build `<task>-<arm>-<N>` of each arm. `tests/Hidden` is stripped, and staging fails if a build still mentions the skill by name (for example in a comment or README).
 
   Nothing under `$JUDGE` points back to the arm-named builds, the session logs or the impl-to-arm mapping. Those stay in `$WORK`, and the mapping is written to `$WORK/judge-mapping.json`.
 - **`judge.py`** runs one Opus session per task and judge. Each judge reviews every impl in a rotated order, then scores and ranks them against a fixed JSON schema. Tasks run in parallel. Judges of one task run one after another, because their probe tests share the impl directories.
@@ -48,9 +64,19 @@ python3 eval/aggregate.py
   - If PHP lives somewhere the script doesn't detect, add its directory to `JUDGE_ALLOW_READ` (colon-separated).
   - Don't put `$JUDGE` under `~/.claude`: the sandbox write-protects it, so tests can't run there.
   - On Linux, install `bubblewrap` and `socat` first.
-- **`aggregate.py`** prints the per-arm and per-task tables.
+- **`hidden.py`** runs each task's hidden tests (`hidden/<Name>HiddenTest.php`, a PHPUnit class that Pest also runs) against a copy of every build of that task, and writes `$WORK/hidden-results.json`. The tests check behaviour through the interface the brief pins (class, command and table names), not which APIs a build used, so any correct design passes. A build where the file can't run at all (a missing class, a fatal error) fails every hidden test. `test_hidden.py` checks the parsing without PHP.
+- **`aggregate.py`** prints the per-arm and per-task tables, the hidden-test pass rates when `hidden-results.json` exists, and how many builds read a skill reference.
+- **`static.py`** counts checklist violations in every build with regexes and Pint, without an LLM (`request->all()` persisted, `DB::` in controllers, `{!! !!}`, Filament v3 namespaces, a bare `withoutOverlapping()`, a hardcoded `redis` store, `chunk()` instead of `chunkById()`, and more). It prints the mean count per build for each arm and writes `$WORK/static-results.json`. A rise in a row is something to look at, not a verdict, because some hits are legitimate: a test that posts a forged `user_id` to prove it is ignored matches the raw-FK check.
 
-`tasks.json` holds the eight task briefs. The Boost comparisons used `blade-catalogue`, `filament-admin`, `caching`, `webhook-worker`, `sales-report` and `blog-crud`.
+`tasks.json` holds the task briefs. Besides `base`, `pest`, `focus` and `text`, a task can have:
+
+| Field | Meaning |
+|---|---|
+| `set` | `target` (measures the change), `holdout` (never read while revising the skill), `probe` (where the right answer is small; judged on simplicity), `regression`, or `archive` (earlier rounds) |
+| `hidden` | the hidden test file for `hidden.py` |
+| `skip_dimensions` | judge dimensions that don't apply, such as `thin_controllers` for a task with no HTTP layer |
+
+Write `focus` as the behaviour you want ("no duplicate processing"), not as API names, because it reaches the judges verbatim. The Boost comparisons used `blade-catalogue`, `filament-admin`, `caching`, `webhook-worker`, `sales-report` and `blog-crud`. The queue round used the `target`, `holdout`, `probe` and `regression` sets.
 
 ## Audit mode
 
@@ -101,7 +127,7 @@ python3 eval/trigger.py --model sonnet --plugin-dir /path/to/other/checkout --js
 python3 eval/test_trigger.py                                      # checks the parsing and prompt set, no claude
 ```
 
-It runs the 16 prompts in `trigger/prompts.json` `--runs` times each. Eleven should load the skill: review a model, review a Filament resource, plan a refactor, refactor a widget, build a feature, a performance question, write tests, assess codebase health, and three of those again in a monorepo. Five must not: a plain PHP controller, a TypeScript file (on its own and in the monorepo), an HTTP 429 question, a shell one-liner. A run counts as a trigger when the model calls the `Skill` tool for `laravel-idioms` or `laravel-idioms:laravel-idioms`. The table shows, per prompt, how many runs triggered.
+It runs the 22 prompts in `trigger/prompts.json` `--runs` times each. Fourteen should load the skill: review a model, review a Filament resource, plan a refactor, refactor a widget, build a feature, a performance question, write tests, assess codebase health, set up a scheduled task, write an Artisan command, a queue worker question, and three of those again in a monorepo. Eight must not: a plain PHP controller, a Symfony Console command, a TypeScript file (on its own and in the monorepo), cron for a Node app, a Celery question, an HTTP 429 question, a shell one-liner. A run counts as a trigger when the model calls the `Skill` tool for `laravel-idioms` or `laravel-idioms:laravel-idioms`. The table shows, per prompt, how many runs triggered.
 
 | Flag | Meaning |
 |---|---|
@@ -114,7 +140,7 @@ It runs the 16 prompts in `trigger/prompts.json` `--runs` times each. Eleven sho
 | `--only ID,ID` | Run only these prompt ids. |
 | `--json FILE`, `--logs DIR` | Write per-run results as JSON, or keep each session's raw stream-json. |
 
-Sessions are read-only. `--tools Read,Grep,Glob,Skill` limits them to those four tools, and each run stops after 6 turns, so a skill loaded later is not counted. The PHP and TypeScript prompts run in `trigger/fixture/php-app` and `trigger/fixture/ts-app`. The `mono-*` prompts run in a repository whose root holds the Laravel app as `backend/` and the TypeScript app as `frontend/`; an `--app` is linked in as `backend/`. Every other prompt, including the two general ones, runs in the Laravel app. The script copies the committed fixtures out of the repo first, so the session's project root is the fixture and not this checkout. An `--app` is used in place; the sessions only read it.
+Sessions are read-only. `--tools Read,Grep,Glob,Skill` limits them to those four tools, and each run stops after 6 turns, so a skill loaded later is not counted. The PHP and TypeScript prompts run in `trigger/fixture/php-app` and `trigger/fixture/ts-app`. The `mono-*` prompts run in a repository whose root holds the Laravel app as `backend/` and the TypeScript app as `frontend/`; an `--app` is linked in as `backend/`. Every other prompt, including the three general ones (HTTP 429, the shell one-liner, Celery), runs in the Laravel app. The script copies the committed fixtures out of the repo first, so the session's project root is the fixture and not this checkout. An `--app` is used in place; the sessions only read it.
 
 A run that crashes, hits an API error or never loads the plugin is listed as an error and left out of the fractions. The script then exits with 1. A wrong `--plugin-dir` shows up as errors, not as a row of zeros.
 
@@ -124,11 +150,11 @@ Cost: a 36-run round (12 prompts, 3 runs) cost about $0.50 with Haiku 5.5 and $6
 
 ## Cost
 
-At API prices, builds cost about $2–3.30 each with Sonnet. A 4-impl judgement with Opus cost about $1 in a test run. A 6-task, 4-arm comparison with 2 judges per task is 24 builds and 12 judgements, roughly $70–80, and takes about an hour at the default concurrency.
+At API prices, builds cost about $2–3.30 each with Sonnet. A 4-impl judgement with Opus cost about $1 in a test run. A 6-task, 4-arm comparison with 2 judges per task is 24 builds and 12 judgements, roughly $70–80, and takes about an hour at the default concurrency. The queue tasks are smaller: about $0.40 and 2 minutes per build, and about $0.70 per 3-impl Opus judgement, so judging one replicate of all 15 tasks with 2 judges costs about $22.
 
 ## Published results
 
-`results/boost-comparison/` and `results/augment-comparison/` hold the judgements, impl-to-arm mappings and per-build stats (cost, time, skills fired, MCP tools used) behind the published tables. `tables.md` in each is the expected `aggregate.py` output; CI fails if the committed data no longer produces it. To re-derive a table:
+`results/boost-comparison/`, `results/augment-comparison/` and `results/queues-round/` (see its README for which arm is which build) hold the judgements, impl-to-arm mappings and per-build stats (cost, time, skills fired, MCP tools used) behind the published tables. `tables.md` in each is the expected `aggregate.py` output; CI fails if the committed data no longer produces it. To re-derive a table:
 
 ```bash
 python3 eval/aggregate.py \
