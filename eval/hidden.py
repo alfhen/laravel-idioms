@@ -22,6 +22,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 WORK = Path(os.environ.get('WORK', REPO / 'eval' / '.work'))
 TASKS = json.loads((REPO / 'eval' / 'tasks.json').read_text())
+TIMEOUT = 900  # seconds per build's hidden test run
 BUILD = re.compile(r'^(?P<task>.+)-(?P<arm>[a-z]+)(?:-(?P<run>\d+))?$')
 
 
@@ -71,16 +72,21 @@ def run_hidden(build_dir, task_key):
         shutil.copy(hidden, target / hidden.name)
         runner = 'vendor/bin/pest' if (copy / 'vendor/bin/pest').exists() else 'vendor/bin/phpunit'
         report = Path(tmp) / 'junit.xml'
-        proc = subprocess.run([runner, f'tests/Hidden/{hidden.name}', '--log-junit', str(report)], cwd=copy,
-                              capture_output=True, text=True, timeout=900)
+        try:
+            proc = subprocess.run([runner, f'tests/Hidden/{hidden.name}', '--log-junit', str(report)], cwd=copy,
+                                  capture_output=True, text=True, timeout=TIMEOUT)
+            exit_code, output = proc.returncode, proc.stdout + proc.stderr
+        except subprocess.TimeoutExpired as e:
+            partial = ''.join(x.decode(errors='replace') if isinstance(x, bytes) else x for x in (e.stdout, e.stderr) if x)
+            exit_code, output = None, f'timed out after {e.timeout}s\n{partial}'
         if report.exists() and report.stat().st_size:
             tests = parse_junit(report.read_text())
         else:
             tests = {}
         if not tests:
             tests = {name: False for name in expected_tests(hidden)}
-        return {'tests': tests, 'exit_code': proc.returncode,
-                'output_tail': (proc.stdout + proc.stderr)[-2000:] if not all(tests.values()) else ''}
+        return {'tests': tests, 'exit_code': exit_code,
+                'output_tail': output[-2000:] if not all(tests.values()) else ''}
 
 
 def main():

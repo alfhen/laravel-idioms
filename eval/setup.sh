@@ -12,7 +12,6 @@ LARAVEL="${LARAVEL:-laravel/laravel:^13.0}"
 SKILL="$REPO/resources/boost/skills/laravel-idioms"
 read -r -a BASES <<< "${BASES:-base base-pest base-filament base-queue-bugfix}"
 read -r -a ARMS <<< "${ARMS:-plain skill boost both augment}"
-PREV_REF="${PREV_REF:-$(git -C "$REPO" describe --tags --abbrev=0 --match 'v*')}"
 
 wants() { [[ " ${ARMS[*]} " == *" $1 "* ]]; }
 wants_base() { [[ " ${BASES[*]} " == *" $1 "* ]]; }
@@ -57,6 +56,7 @@ install_boost() {
 }
 
 if wants prev; then
+    PREV_REF="${PREV_REF:-$(git -C "$REPO" describe --tags --abbrev=0 --match 'v*')}"
     rm -rf "$WORK/prev-skill"
     mkdir -p "$WORK/prev-skill"
     git -C "$REPO" archive "$PREV_REF" resources/boost/skills/laravel-idioms | tar -x -C "$WORK/prev-skill" --strip-components=3
@@ -64,7 +64,10 @@ fi
 
 cd arms
 for b in "${BASES[@]}"; do
-    for arm in plain skill prev boost both augment; do rm -rf "$arm-$b"; done
+    rm -rf "plain-$b"
+    for arm in skill prev boost both augment; do
+        if wants "$arm" || { [ "$arm" = boost ] && wants both; }; then rm -rf "$arm-$b"; fi
+    done
 
     # The stock skeleton's CLAUDE.md/AGENTS.md tell agents to install Boost, which would turn every arm into a Boost arm.
     cp -R "../$b" "plain-$b"
