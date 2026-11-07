@@ -44,6 +44,17 @@ def parse_junit(xml_text):
     return results
 
 
+def reconcile(tests, expected):
+    """Adds every declared test that a partial report left out, as failed. Pest reports
+    `test_some_name` as "Some name", and data-provider cases add a " with ..." suffix."""
+    reported = [name.lower().replace('_', ' ') for name in tests]
+    for method in expected:
+        plain = method.removeprefix('test_').replace('_', ' ')
+        if not any(r in (plain, f'test {plain}') or r.startswith((f'{plain} with ', f'test {plain} with ')) for r in reported):
+            tests[method] = False
+    return tests
+
+
 def expected_tests(hidden_file):
     """Test method names declared in a hidden PHPUnit class (data-provider cases count once each here)."""
     return re.findall(r'public function (test_\w+)\(', Path(hidden_file).read_text())
@@ -86,8 +97,7 @@ def run_hidden(build_dir, task_key):
                 tests = parse_junit(report.read_text())
             except ET.ParseError:
                 tests = {}
-        if not tests:
-            tests = {name: False for name in expected_tests(hidden)}
+        tests = reconcile(tests, expected_tests(hidden))
         return {'tests': tests, 'exit_code': exit_code,
                 'output_tail': output[-2000:] if not all(tests.values()) else ''}
 

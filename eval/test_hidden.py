@@ -30,6 +30,17 @@ class HiddenTest(unittest.TestCase):
         self.assertEqual(hidden.parse_junit(JUNIT), {
             'test_ok': True, 'test_bad': False, 'test_err': False, 'test_skip': False, 'test_ds with data set "a"': True})
 
+    def test_reconcile_scores_declared_tests_missing_from_a_partial_report_as_failed(self):
+        expected = ['test_marks_it_paid', 'test_retries_transient_errors', 'test_sends_one_email', 'test_runs_at_0730']
+        pest = {'Marks it paid': True, 'Retries transient errors with data set "502"': True,
+                'Retries transient errors with data set "503"': False}
+        self.assertEqual(hidden.reconcile(dict(pest), expected), {
+            **pest, 'test_sends_one_email': False, 'test_runs_at_0730': False})
+        phpunit = {'test_marks_it_paid': True, 'test_retries_transient_errors with data set "502"': True}
+        self.assertEqual(hidden.reconcile(dict(phpunit), expected), {
+            **phpunit, 'test_sends_one_email': False, 'test_runs_at_0730': False})
+        self.assertEqual(hidden.reconcile({}, expected), {name: False for name in expected})
+
     def test_summarise_pools_replicates(self):
         rows = {'a-skill-1': {'task': 'a', 'arm': 'skill', 'tests': {'x': True, 'y': False}},
                 'a-skill-2': {'task': 'a', 'arm': 'skill', 'tests': {'x': True, 'y': True}}}
