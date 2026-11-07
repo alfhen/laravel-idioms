@@ -133,7 +133,7 @@ return new ProcessResult(tap($process)->run($output));   // returns $process, no
 
 $attributes = array_merge($attributes, value($values));  // value-or-closure
 
-abort_unless(Storage::disk($disk)->exists($path), 404);  // HTTP code
+abort_unless(Storage::disk($disk)->exists($path), 404);  // HTTP code; $path comes from a DB row, never request input (`../` throws PathTraversalDetected, and any id is an IDOR)
 throw_unless($model instanceof Model, CouldNotLogActivity::couldNotDetermineUser($subject));
 
 return retry(2, fn () => $this->migrator->repositoryExists(), 0, fn ($e) => $e instanceof QueryException);
@@ -145,7 +145,7 @@ public function frames(): array
     return once(fn () => $this->computeFrames());      // per instance, per request
 }
 ```
-- `retry()`'s third argument is milliseconds; always pass the `when` callback, or it retries programmer errors too.
+- The global `retry($times, $callback, $sleepMilliseconds, $when)`: sleep is the third argument, `when` the fourth; always pass `when`, or it retries programmer errors too. `Http::retry($times, $sleepMilliseconds, $when, $throw)` takes `when` third, and without it retries every failed response, 4xx included.
 - `blank()` / `filled()`: whitespace, `null`, `[]` and empty collections are blank; `0`, `'0'` and `false` are filled. `empty()` treats `'0'` as empty — don't swap them blindly.
 - Prefer `?->` over `optional()` for method/property access.
 

@@ -45,7 +45,7 @@ public function handle(PaymentGateway $gateway): void
     $this->order->update(['charged_at' => now()]);
 }
 ```
-- Key writes on a natural key (`firstOrCreate`/`updateOrCreate`, unique index), not a blind `create()`.
+- Key writes on a natural key (`firstOrCreate`/`updateOrCreate` over a unique index that must exist), not a blind `create()`. That makes the row idempotent for absolute values only: the update branch is a plain `fill()->save()`, so a redelivered "add points" job still adds twice. Accumulators use `incrementOrCreate()` or a conditional update on a claimed row.
 - The externally visible effect (mail, payment, coupon) goes last, behind a persisted marker.
 
 ## Failures: throw, don't log-and-return
@@ -59,7 +59,7 @@ $this->order->shipment()->create(['reference' => $client->createShipment($this->
 ```
 - Nothing to do or already done → `return`. Something failed → let it throw (`Http::timeout(10)->throw()`), or `$this->fail($e); return;` when retrying can't help.
 - A `handle()` that returns normally is deleted as a success, also after catching and storing "failed" on a row. Catch only to add context and rethrow, or to call `fail()`.
-- Remote reads use `Http::timeout(30)->retry(2, 200)->get($url)->throw()`, never `file_get_contents()` on a URL.
+- Remote reads use the Http client with a `when` on `retry()`, never `file_get_contents()` on a URL: `Http::connectTimeout(5)->timeout(20)->retry(2, 200, fn (?Throwable $e) => $e instanceof ConnectionException || ($e instanceof RequestException && $e->response->serverError()))->get($url)->throw()`. Timeout is per attempt and `retry(2)` is two attempts in total, so the worst case is about 40 s and must stay under `#[Timeout]` (and the default worker `--timeout` of 60). Without `when`, `retry()` also retries 404 and 422.
 
 ## Retries and failure
 
@@ -195,7 +195,7 @@ final class NotifyUsersMentionedInReply implements ShouldQueueAfterCommit
 }
 ```
 - Past-tense event names carrying models as promoted properties.
-- No `EventServiceProvider` / `$listen` array: registering a discovered listener again runs it twice. Discovery registers every public `handle*` method, so helpers stay private.
+- On an `Application::configure()` bootstrap there is no `EventServiceProvider` / `$listen` array: registering a discovered listener again runs it twice. In an old-bootstrap app (an `EventServiceProvider` subclass) nothing is discovered, so `$listen` or `Event::listen()` is required and removing it unwires the listener. Discovery registers public methods named `handle*` or `__invoke` whose first parameter has a non-builtin class type, so helpers stay private. A `handle(object $event)`, untyped or `mixed` first parameter is skipped silently (the plain `make:listener` stub); `ShouldBeDiscovered::shouldBeDiscovered()` returning false opts a class out.
 - Queue the listener, notification or mailable itself (`implements ShouldQueue`), not a job that wraps it. Don't queue an observer (its model is serialized by value): dispatch an event from it and queue a listener.
 - Dispatched inside a transaction → the queued listener implements `ShouldQueueAfterCommit`; `ShouldHandleEventsAfterCommit` only delays *sync* listeners and observers. To hold every listener, put `ShouldDispatchAfterCommit` on the event.
 - Listeners, mailables and notifications take the same queue attributes as jobs (`#[Tries]`, `#[Backoff]`, `#[Timeout]`, `#[DeleteWhenMissingModels]`, `#[Queue]`, `#[Connection]`, `#[Delay]`) plus `failed()` and `middleware()`. Set tries/backoff on the ones that make network calls; leave the rest bare. Listener options can't depend on constructor state.

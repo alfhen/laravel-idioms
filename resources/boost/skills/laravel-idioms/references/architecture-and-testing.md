@@ -102,10 +102,10 @@ it('stores an article', function () {
 | Area | Tests |
 |---|---|
 | Happy path | one per requirement in the brief, asserting the exact response shape (`assertJsonPath`, `assertExactJson`) and the DB state |
-| Auth | guest → `assertUnauthorized()`, other user → `assertForbidden()` |
+| Auth | guest → `assertUnauthorized()` (on API route groups, once with `getJson()` and once with a plain `get()` that sends no `Accept` header: `getJson()` passes even where a plain request returns a 500 from a `route('login')` redirect), other user → `assertForbidden()` |
 | Validation | one per rule (or a dataset), asserting the error key **and** message, including query-string filters |
 | Limits | caps (top N, `per_page`), ordering ties, empty result, zero/rounding edges |
-| Side effects | `Queue::fake()` → `assertPushed`; `Mail::fake()` → `assertQueued` for `ShouldQueue` mailables (however they were sent), `assertSent` for sync ones; `Storage::fake()` → `assertExists`; unchanged state after a failure |
+| Side effects | `Queue::fake()` → `assertPushed`; `Mail::fake()` → `assertQueued` for `ShouldQueue` mailables (however they were sent), `assertSent` for sync ones; `Storage::fake('<the disk the code writes to>')` → `assertExists` on the persisted path (the `hashName()`, not the client name); unchanged state after a failure |
 | Jobs | `handle()` called twice leaves one record and one external call; `failed()` called directly sets the failed status; release/fail paths via `withFakeQueueInteractions()` |
 | Schedules and commands | entries asserted through `app(Schedule::class)->events()`; every command path via `$this->artisan(...)->assertExitCode()` plus its side effect (`console-commands.md`) |
 | Robustness | malformed input (blank/ragged rows, wrong types), and the job `failed()` path |
@@ -126,18 +126,20 @@ Build related records with `->for($parent)`, `->has(Child::factory()->count(3))`
 Fakes:
 ```php
 $user = User::factory()->create();
-Event::fake();   // after factories, or model events (UUIDs, slugs) are suppressed
+Event::fake([EmailAddressWasChanged::class]);   // partial fake: a bare Event::fake() also stops observers and booted hooks for every later write, in the test and in the code under test (see also fakeExcept(), fakeFor())
 
 Event::assertDispatched(EmailAddressWasChanged::class, fn ($e) => $e->user->is($user));
 Notification::assertSentTo([$userOne, $userTwo], NewReplyNotification::class);
 Queue::assertPushed(ShipOrder::class, fn ($job) => $job->order->is($order));   // more in queues-and-workers.md
 
-Http::preventStrayRequests();
+Http::preventStrayRequests();   // suite-wide in Pest.php / TestCase::setUp(), not per test
 Http::fake(['api.github.com/*' => Http::response(['avatar' => '...'])]);
 $this->mock(GithubUserApi::class, fn (MockInterface $m) => $m->expects('hasIdenticon')->andReturnTrue());
 ```
 - Assert with `assertJson(fn (AssertableJson $json) => ...)`, `assertJsonPath`, `assertDatabaseHas`, not `DB::table()->count()`.
-- `Sanctum::actingAs($user)` for API tests.
+- `Sanctum::actingAs($user, ['*'])` (or the exact abilities) for API tests. With no abilities argument the token answers false to every `can()`, so `tokenCan()`, `abilities:` middleware and ability-aware policies return 403.
+- Fake uploads derive their MIME type from the file name, so a content rule (`mimes`, `mimetypes`) needs a real temp `UploadedFile`, not `UploadedFile::fake()->createWithContent()`.
+- `StrayRequestException` is a `RuntimeException`: a `catch (Throwable)` in the code under test swallows it. The first matching `Http::fake()` stub wins, and `Http::assertNothingSent()` proves nothing without `fake()` or `record()`.
 - `#[Seed]` on the TestCase (13) instead of `protected $seed = true`.
 - Cache behaviour: test against the array store with `travel()`, not a mocked `Cache::remember` (`caching.md`).
 - Pest arch tests (`arch()->preset()->laravel()`, custom rules): `pest.md`.

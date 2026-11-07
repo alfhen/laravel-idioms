@@ -148,9 +148,11 @@ if ($flight->wasRecentlyCreated) { /* ... */ }
 
 Flight::upsert($rows, uniqueBy: ['departure', 'destination'], update: ['price']);   // bulk; no model events
 Stat::incrementOrCreate(['day' => $day], 'count');
-Stat::createOrFirst(['day' => $day]);   // unique index + likely races
+Stat::createOrFirst(['day' => $day]);   // race-safe only with a unique index on exactly these columns
 ```
-MySQL/MariaDB ignore `uniqueBy` and use the table's unique indexes; an empty `uniqueBy` throws on them in 13.
+MySQL/MariaDB ignore `uniqueBy` and use the table's unique indexes. An empty `uniqueBy` throws `InvalidArgumentException` on every driver in 13, before any grammar runs.
+
+`createOrFirst()` is the race-safe form: it inserts first and, on a unique violation, re-reads by the attributes you passed. That needs a unique index, and the attributes must be the unique-key columns; a conflict on another unique index, or a wider attributes array, rethrows. `firstOrCreate()` delegates to it after a `first()`, so it is only as safe as the index. `updateOrCreate()` makes the row idempotent for absolute values, but its update branch is a plain `fill()->save()`: concurrent callers are last-write-wins, and an accumulating write needs `incrementOrCreate()` or a conditional `UPDATE`.
 
 ## Large datasets
 
@@ -177,7 +179,7 @@ $user->saveQuietly();
 $user->posts()->createQuietly([...]);
 User::withoutEvents(fn () => User::findOrFail(1)->delete());
 ```
-Observers over `User::observe()` in a provider; closures in `booted()` only for one-liners. `upsert()` and `MassPrunable` fire no model events.
+Observers over `User::observe()` in a provider; closures in `booted()` only for one-liners. Model events fire only for instance `save()`/`delete()`. `upsert()`, `insert()`/`insertOrIgnore()`, builder `update()`/`delete()`/`increment()`, `DB::table()`, `MassPrunable`, pivot `attach()`/`detach()` without a pivot model, `saveQuietly()` and `withoutEvents()` fire none. For a field that must be right on every path, use an `Attribute` mutator or cast, or a database constraint or generated column.
 
 ## Lifecycle traits
 

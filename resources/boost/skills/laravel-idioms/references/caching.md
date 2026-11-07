@@ -16,7 +16,7 @@ $count = Cache::remember('stats:users:total', now()->addMinutes(5), fn () => Use
 ```
 - **Always pass a TTL.** `put()` / `cache(['k' => $v])` with `$ttl === null` calls `forever()`. A zero or negative TTL deletes the key. `rememberForever` only when an explicit invalidation path exists.
 - `remember()` treats `null` as a miss (`is_null` check), so a closure that returns null re-runs every call. Cache a sentinel: `fn () => User::where('email', $email)->value('id') ?? false`, then `$id ?: null`.
-- Hot, expensive values that may be slightly stale → `Cache::flexible('dashboard:revenue', [300, 3600], fn () => ...)`: fresh for 5 min, then served stale up to 1 h while a deferred function recomputes under a lock (one worker refreshes). The TTL is an array, not an int. Use `remember()` when data must never be stale.
+- Hot, expensive values that may be slightly stale → `Cache::flexible('dashboard:revenue', [300, 3600], fn () => ...)`: fresh for 5 min, then served stale up to 1 h while a deferred function recomputes under a lock (one worker refreshes). The TTL is an array, not an int. Use `remember()` when data must never be stale. The refresh lock's seconds default to 0 unless you pass the `$lock` array (`['seconds' => 30]`); on Redis a 0-second lock has no expiry, so a killed process can leave it held. `flexible()` does not make `forget()` safe either: a recompute that started before the invalidation can still write the stale value back.
 - Known type → typed getters `Cache::integer('plan:limit', 10)`, `string`, `boolean`, `array`, `float`. They throw `InvalidArgumentException` on mismatch instead of passing a surprise value on.
 - `cache('key')` gets, `cache([k => v], $ttl)` puts, `cache()` returns the manager.
 
@@ -44,7 +44,7 @@ class PlanObserver implements ShouldHandleEventsAfterCommit
     }
 }
 ```
-- `forget()` the specific keys from model events (observer or `static::saved/deleted` in a booted trait). `ShouldHandleEventsAfterCommit` so a concurrent reader can't re-cache pre-commit data.
+- `forget()` the specific keys from model events (observer or `static::saved/deleted` in a booted trait). `ShouldHandleEventsAfterCommit` so nobody forgets the key before the commit lands. It does not close the race: a reader that queried before the commit can still `put()` the old value after your `forget()` (`remember()` is get, callback, put, with no version or lock check). Where stale data matters, also use a short TTL or a version segment in the key. Observers miss every mass write (builder `update()`/`delete()`, `insert`, `upsert`, `increment`, `DB::table()`, pivot `attach()`/`detach()` without a pivot model), so forget the key in that code path too. Inside a transaction an after-commit observer sees post-`syncOriginal()` state: use `wasChanged()`, not `isDirty()`/`getOriginal()`.
 - **Never `Cache::flush()` in app code.** It ignores the prefix and wipes the whole store: sessions, locks, other apps' keys.
 - Aggregates many writes touch (counts, leaderboards) → a short TTL per value (60 s for "awaiting", 300 s for totals) instead of forgetting in six observers.
 
@@ -65,7 +65,7 @@ New skeletons set `cache.serializable_classes => false`: cached objects come bac
 ## Atomic operations
 
 ```php
-// once-per-window guard: add() is atomic and returns false if the key exists
+// once-per-window guard: add() is atomic and returns false if the key exists (only when a TTL is passed)
 if (! Cache::add('alerts:slow-query', true, now()->addMinutes(5))) {
     return;
 }
@@ -74,7 +74,7 @@ if (! Cache::add('alerts:slow-query', true, now()->addMinutes(5))) {
 Cache::add($key, 0, now()->addHours(4));
 $n = Cache::increment($key);   // returns the new value
 ```
-Never `has()` then `put()`, or `get() + 1` then `put()`; both race.
+Never `has()` then `put()`, or `get() + 1` then `put()`; both race. `add()` without a TTL skips the store's own `add` and falls back to `get()` then `put()`, so it is not atomic: always pass the TTL.
 
 ## Locks
 
@@ -119,7 +119,7 @@ return Cache::get('catalog:tree:v1') ?? Cache::lock('catalog:tree:v1:rebuild', 3
 try {
     $rates = Cache::remember('fx:rates:v1', 300, fn () => Http::timeout(3)
         ->connectTimeout(2)
-        ->retry(3, 100, fn (Throwable $e) => $e instanceof ConnectionException)
+        ->retry(3, 100, fn (?Throwable $e) => $e instanceof ConnectionException)
         ->get($url)
         ->throw()
         ->json());
@@ -130,7 +130,7 @@ try {
 }
 ```
 - The HTTP client doesn't throw on 4xx/5xx without `->throw()`, so without it an error body gets cached as data. Default timeout is 30 s; set `timeout`/`connectTimeout` on request-path calls.
-- `retry()` throws `RequestException` after the last failed attempt; with `throw: false` it returns the last response but a `ConnectionException` still throws. `remember()` caches nothing when the closure throws.
+- `retry()` throws `RequestException` after the last failed attempt; with `throw: false` it returns the last response but a `ConnectionException` still throws. The `when` closure takes `?Throwable` (the exception is null for a non-success response that is not a failure, such as a 3xx). With more than one attempt and `throw: true`, a failed response throws `RequestException` even if `when` returned false on the first failure. `remember()` caches nothing when the closure throws.
 
 ## Rate limiting
 
@@ -150,7 +150,8 @@ RateLimiter::for('resource-not-found', fn (Request $request) => Limit::perMinute
 
 Route::middleware('throttle:api')->group(...);   // not throttle:60,1
 ```
-In code (sending messages, partner API): `RateLimiter::attempt($key, $max, fn () => ..., $decaySeconds)`, or compare the value returned by `RateLimiter::increment($key)` rather than separate `tooManyAttempts()` + `hit()` (check-then-act race). `availableIn($key)` for the retry-after message, `clear($key)` on reset.
+The `api` limiter must be defined: neither the skeleton nor the framework registers it, and `throttle:api` without it is a `MissingRateLimiterException` (500). `$middleware->throttleApi()` in `bootstrap/app.php` adds `throttle:api` to the whole `api` group and still needs the `RateLimiter::for('api', ...)` above.
+In code (sending messages, partner API): `RateLimiter::attempt($key, $max, fn () => ..., $decaySeconds)` is convenient but is itself `tooManyAttempts()` + callback + `hit()`, so concurrent callers can all pass. For a hard cap compare the value returned by `RateLimiter::increment($key)` (atomic on a store with atomic increment). `availableIn($key)` for the retry-after message, `clear($key)` on reset.
 
 ## Deploy
 
