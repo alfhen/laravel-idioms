@@ -1,0 +1,112 @@
+{
+ "key": "cart-discounts",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 7.8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Empty cart + uncategorised percentage/fixed code returns 422 'This discount code only applies to the  category, which is not in the cart.' \u2014 matchesNoLine is true for an empty items collection and interpolates a null category (app/Http/Requests/ApplyDiscountRequest.php:52,57-61)",
+    "Re-applying the code this cart already holds after it consumed the last use returns 422 'maximum number of uses': the FormRequest isExhausted() check runs before ApplyDiscountToCart's same-code early return, making that idempotency branch unreachable once exhausted (ApplyDiscountRequest.php:50 vs Actions/ApplyDiscountToCart.php:18)"
+   ],
+   "antipatterns": [
+    "Http::preventStrayRequests() in setUp of a test that makes no HTTP calls \u2014 noise (tests/Feature/ApplyDiscountTest.php:20)",
+    "Mutates cart and code usage on what the spec describes as a validate-and-price endpoint; extra scope (discount_code_id, claim/release) beyond the task (app/Actions/ApplyDiscountToCart.php:17-28)",
+    "FormRequest eagerly calls $cart->load('items') as a side effect inside validation (ApplyDiscountRequest.php:45)",
+    "Collection mutated via ArrayAccess in a foreach loop rather than a functional pipeline (app/Actions/CalculateCartPricing.php:86-90)"
+   ],
+   "strengths": [
+    "Thin invokable controller; validation fully in FormRequest after() hook with one clear message per failure reason via match(true)",
+    "Atomic conditional increment for max_uses (claim()) plus a transaction \u2014 race-safe usage tracking",
+    "Fixed-discount spreading never exceeds a line and sums exactly",
+    "Explicit 422 when a category-restricted code matches no lines",
+    "Modern Laravel 13: #[Fillable] attribute, casts() method, enum cast, once(), backed enum",
+    "Tests cover all failure paths, boundaries (min subtotal equality, 50000 threshold), concurrency of last use, code switching"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 9,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 7,
+    "simplicity": 9
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Code normalisation is one-sided: prepareForValidation uppercases input but lookup is exact, so any code stored with lowercase letters (e.g. 'summer10') can never be applied \u2014 returns 422 'does not exist' (app/Http/Requests/ApplyDiscountRequest.php:22,43)",
+    "Category-restricted code with no matching lines returns 200 with zero discount instead of a clear 422 (debatable vs spec's 'clear 422 errors for each failure reason') (app/Pricing/PriceCart.php:59-65)"
+   ],
+   "antipatterns": [
+    "Http::preventStrayRequests() in setUp with no HTTP usage (tests/Feature/ApplyDiscountTest.php:22)",
+    "Unrelated edit to tests/Feature/ExampleTest.php outside task scope",
+    "Subtotal computed twice in different places (request subtotal() and PriceCart) rather than a single Cart::subtotal() model method (ApplyDiscountRequest.php:59-65, PriceCart.php:20)",
+    "Redundant integer casts for columns already returned as ints (app/Models/CartItem.php:17-23)"
+   ],
+   "strengths": [
+    "Cleanest pure-collection pricing: $none->replace(...), mapWithKeys, keys()->take()->flip() for remainder cents; no mutable loops",
+    "Fixed spreading is provably bounded per line and sums exactly",
+    "Stateless pricing endpoint, minimal footprint; thin invokable controller in Api namespace",
+    "Most thorough tests: data provider for invalid input, single-message-per-failure, empty cart, rounding, threshold boundaries, whitespace/case",
+    "priced() factory state makes tests concise"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 5,
+    "simplicity": 8
+   },
+   "overall": 6,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "Fixed discount remainder is dumped entirely on the last eligible line without capping, producing negative per-line prices: lines 100/100/1 with fixed 200 yields discounts 99/99/2 and discounted_total -1 on the last line (app/Pricing/CalculateCartPricing.php:80-90)",
+    "Empty cart + uncategorised code returns 'The cart has no items in the  category.' (null interpolated); the test even locks in this broken message (app/Http/Requests/ApplyDiscountRequest.php:59-60, tests/Feature/ApplyDiscountTest.php:159-165)"
+   ],
+   "antipatterns": [
+    "Imperative foreach with accumulator and lastId special case instead of a collection pipeline (CalculateCartPricing.php:80-92)",
+    "Lookup uses $this->input('code') rather than validated data; no max length rule on code (ApplyDiscountRequest.php:17,45)",
+    "Unsorted imports (App\\Enums after App\\Models) (ApplyDiscountRequest.php:5-8)",
+    "Http::preventStrayRequests() called in only one test, inconsistent and unnecessary (tests/Feature/ApplyDiscountTest.php:36)",
+    "Long boolean condition crammed into a match(true) arm hurts readability (ApplyDiscountRequest.php:59-60)"
+   ],
+   "strengths": [
+    "Thin invokable controller, FormRequest after() hook with match(true) failure messages",
+    "Caps percentage >100 per line with min()",
+    "Clear 422 for category code with no matching lines; free_shipping codes exempted",
+    "Good tests including time travel for expiry, threshold boundaries, whitespace trimming",
+    "Cart::subtotal() on the model reused by request and pricing"
+   ]
+  },
+  "rationale": "All three share a near-identical shape (invokable controller, FormRequest after() hook with match(true), pricing class, DiscountType enum, #[Fillable]). Differences come down to edge-case correctness. impl-1 is the most complete: race-safe usage claiming, explicit 422 for no-matching-category, bounded fixed spreading; its bugs are minor (bad message on empty cart, re-applying own last-use code 422s). impl-2 is the cleanest and simplest with the best collection idioms and tests, but its one-sided uppercase normalisation makes any lowercase-stored code unusable, and it silently returns 0 discount for category mismatch. impl-3 has a genuine pricing bug \u2014 the fixed-discount remainder can push a line's discounted price negative \u2014 plus the same empty-cart message bug, which its own test enshrines, so it ranks last."
+ },
+ "cost_usd": 0.6407006000000001
+}

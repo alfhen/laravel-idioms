@@ -1,0 +1,122 @@
+{
+ "key": "csv-import",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "POST /api/imports 202 response returns null for total_rows/created/updated/failed: the model isn't refreshed after create, and $attributes only defaults status (ImportController.php:17-24, Import.php:19-21). Confirmed by probe.",
+    "A guest request without Accept: application/json returns 500, because the auth middleware redirects to a 'login' route that doesn't exist. impl-3 has the same problem. Confirmed by probe.",
+    "If a retry follows a partial run, rows created by the first attempt are counted as 'updated' (no transaction; markProcessing resets the counts but not the products)."
+   ],
+   "antipatterns": [
+    "app/Exceptions/InvalidImportFile.php: a custom exception class used only to choose the failure message is extra ceremony",
+    "app/Jobs/ProcessImport.php:42: throw_unless for an unreadable stream sits outside the try, so the stream isn't closed when the header is invalid (line 47 returns without fclose)",
+    "config/queue.php:43: retry_after is changed globally to fit one job's timeout"
+   ],
+   "strengths": [
+    "Authorisation is declared on the route with ->can('view','import') and backed by a policy, so the controllers stay very thin",
+    "Intent-revealing model methods: markProcessing, markCompleted and markFailed",
+    "Header parsing handles a BOM, mixed case, reordered columns and extra columns; blank lines are skipped while row numbers still match the file",
+    "Row validation uses one Validator with a max stock that fits the DB column; all error messages are joined",
+    "failure_reason is stored, with a generic message for unexpected exceptions so internals aren't leaked",
+    "Modern queue attributes (#[Tries], #[Backoff], #[Timeout], #[DeleteWhenMissingModels]); the Mailable is queued",
+    "Very thorough tests, split by concern: idempotency, retry, BOM, the 5MB boundary, failed hook, mail content"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 7,
+    "validation_form_requests": 6,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 5,
+    "simplicity": 7
+   },
+   "overall": 6.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "Uploads whose header has a UTF-8 BOM (Excel 'CSV UTF-8' export) or capitalised column names (SKU,Name,...) are rejected with 422. Neither the FormRequest nor the job strips the BOM or lowercases the header (StoreImportRequest.php:26-28, ProcessImport.php:80). Confirmed by probe.",
+    "The stock rule has no max (ProcessImport.php:143), so 99999999999 passes validation. On MySQL that value would overflow the unsignedInteger column and throw, crashing the whole import instead of rejecting the row (the probe on SQLite stored it).",
+    "StoreImportRequest.php:26 opens the uploaded file with fopen and never closes it.",
+    "A missing-column header that reaches the job throws a RuntimeException, which is retried 3 times before failing, and no failure reason is stored for the user.",
+    "Retries after a partial run count previously created products as 'updated'."
+   ],
+   "antipatterns": [
+    "ImportController.php:29-31: Gate::authorize in the controller plus an unused Request $request parameter, where route ->can() would be simpler",
+    "ImportController.php:33: row ordering is done in an eager-load closure in the controller instead of on the relationship",
+    "ProcessImport.php:28,103-105: the ERROR_FLUSH_SIZE 'batching' with createMany still runs one INSERT per row, so it's ceremony with no benefit",
+    "fgetcsv is called without escape: '' (default escape is deprecated-adjacent behaviour on PHP 8.4)",
+    "StoreImportRequest depends on ProcessImport::COLUMNS, coupling the HTTP layer to the job"
+   ],
+   "strengths": [
+    "Only implementation that fixes guest handling for non-JSON API requests with redirectGuestsTo, which returns 401 instead of 500",
+    "The 202 response refreshes the model, so counts come back as 0",
+    "Validates header columns up front in the FormRequest after() hook",
+    "updateOrCreate + wasRecentlyCreated is an idiomatic upsert-and-count",
+    "The stream is closed in a finally block; the job is idempotent when already completed",
+    "Good test coverage: retry, duplicate mail, reordered/quoted columns, 5MB boundary"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "A guest request without Accept: application/json returns 500 (missing 'login' route redirect). impl-1 has the same problem. Confirmed by probe.",
+    "A row of only empty fields such as ',,,' is skipped silently instead of being recorded as a failed row (missing sku), because the all-blank filter runs after trimming (ProcessImport.php:102-106). The rows still count toward the line number.",
+    "No failure reason is stored or exposed when an import fails (an unreadable file or a bad header only sets the status)."
+   ],
+   "antipatterns": [
+    "app/Jobs/ProcessImport.php:6,48: the job depends on App\\Http\\Requests\\StoreImportRequest::COLUMNS, so the domain/queue layer reaches into the HTTP layer",
+    "Header normalisation is duplicated between StoreImportRequest::csvHeader and ProcessImport::readHeader",
+    "ProcessImport.php:133: upsert(array $row, array &$counts) mutates a by-reference parameter, mixing validation, persistence and counting",
+    "ProcessImport.php:117: the batch-size check runs even when no error was added on that iteration",
+    "#[Tries(1)] means a transient DB or storage failure fails the import permanently with no retry",
+    "Product model doesn't cast stock to integer"
+   ],
+   "strengths": [
+    "Header is validated up front in the FormRequest after() hook, with BOM, case and extra-column handling and a clear missing-column message; the handle is closed",
+    "ProcessImport::dispatch(...)->afterCommit() and #[WithoutRelations] on the constructor parameter are modern queue idioms",
+    "Model $attributes default the counts, so the 202 response shows zeros",
+    "Row errors are saved with a real bulk insert (ImportRowError::insert); a composite index on (import_id,row_number) and ordering on the relationship",
+    "Uses route ->can() and a policy; very thin controller",
+    "Uses $this->fail('message') for graceful failures; the stock max matches the unsigned int column",
+    "Tests are mostly end-to-end over HTTP and cover malformed rows, BOM/case/reordered headers, the 5MB boundary and re-processing"
+   ]
+  },
+  "rationale": "Rankings: impl-1 first, impl-3 second, impl-2 third.\n\nAll three test suites pass (impl-1: 29 tests, impl-2: 23, impl-3: 22). I ran six throwaway probe tests against each one and then deleted them. The probes covered a BOM header, an uppercase header, the 202 response body, a guest request without JSON headers, odd values (an all-blank sku, 1e2, a value with a leading zero, a huge stock, a quoted \"1,5\", a \",,,\" row), and a semicolon-separated file.\n\n**impl-1 (rank 1)** is the most idiomatic and the most robust:\n- Authorisation sits on the route with a policy, so the controller stays very thin.\n- The model has clear status methods (markProcessing, markCompleted, markFailed).\n- Header handling copes with a BOM, mixed case and reordered columns.\n- It stores a failure_reason and doesn't leak internal error text.\n- It has the strongest tests.\n\nIts real bugs are small. The 202 response shows null counts because the model isn't refreshed after create. A guest request without JSON headers returns 500, and impl-3 does the same.\n\n**impl-3 (rank 2)** is close behind:\n- It checks the header columns in the form request before the upload is accepted.\n- It uses afterCommit dispatch and #[WithoutRelations], and saves row errors with a true bulk insert.\n- Its 202 response is correct.\n\nIt loses on design:\n- The job depends on a constant in the HTTP form request class.\n- Header parsing is written twice.\n- Counting is done through a by-reference parameter.\n- It never retries a failed job (Tries(1)).\n- It stores no failure reason.\n- It silently skips \",,,\" rows instead of recording them as failed.\n\n**impl-2 (rank 3)** is the only one that turns a guest's non-JSON request into a 401, but it has the most serious bugs:\n- It rejects UTF-8 BOM headers, which Excel produces, and capitalised headers with a 422.\n- Stock has no upper limit, so on MySQL an oversized value would crash the whole import instead of skipping the row.\n- The form request opens the uploaded file and never closes it.\n- Its error \"batching\" with createMany saves nothing, because each row is still a separate insert.\n- The controller authorises with Gate::authorize and takes a Request parameter it never uses."
+ },
+ "cost_usd": 0.8253442
+}

@@ -1,0 +1,109 @@
+{
+ "key": "stock-sync-dispatcher",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "PushStockAllocations.php:64-66 \u2014 json('missing', []) returns null when the key is present but null; in_array(..., null) throws TypeError, the job retries and fails, failed() clears the claim, and the next run sends the rows again \u2014 an endless resend loop (probe confirmed)",
+    "PushStockAllocations.php:45 \u2014 no check that the rows are still claimed, so a duplicate SQS delivery after success posts the same rows again (probe: 2 requests)",
+    "PushStockAllocations.php:43,71 \u2014 synced_at is the job start time at second precision; an edit after the read but in the same second gives updated_at == synced_at and the change is never pushed (probe confirmed)"
+   ],
+   "antipatterns": [
+    "tests/Feature/Stock/PushStockAllocationsTest.php:41 \u2014 test 'does nothing the second time it runs' asserts two requests were sent; the name contradicts the behaviour",
+    "tests/Feature/Stock/PushStockAllocationsTest.php:10 \u2014 global const STOCK_URL declared in a Pest file (global namespace pollution)",
+    "PushStockAllocations.php:73-76 \u2014 two separate updates not wrapped in a transaction"
+   ],
+   "strengths": [
+    "Proactive RateLimited('storefront') middleware with RateLimiter::for, shared across servers through Redis, plus Retry-After handling on 429",
+    "URL and rate limit in config/services.php",
+    "retryUntil tied to CLAIM_TTL_MINUTES so retries end before the claim is treated as abandoned; failed() hands rows back",
+    "Claim in a transaction with lockForUpdate and toBase()->update, so updated_at is not bumped; chunkById is safe while filter columns change",
+    "Schedule uses onOneServer and withoutOverlapping",
+    "Tests use withFakeQueueInteractions()->assertReleased, cover the scope boundaries at 14 and 16 minutes, include an end-to-end test, and enable preventStrayRequests globally"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 7,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "routes/console.php:11 \u2014 no withoutOverlapping(); a run longer than a minute can overlap the next one, and the claim re-read by exact second-precision timestamp (DispatchStockSync.php:26-28) can dispatch rows another run claimed in the same second",
+    "PushStockAllocations.php:38,66 \u2014 synced_at is the read time at second precision; an edit in the same second after the read is lost (probe confirmed)",
+    "Rate limits are handled only by reacting to 429s; with 50 jobs running across workers it keeps hitting the limit and has no shared throttle"
+   ],
+   "antipatterns": [
+    "PushStockAllocations.php:21 \u2014 endpoint hardcoded as a class constant instead of in config/services.php",
+    "DispatchStockSync.php:26 \u2014 inline assignment $now = now() inside the update array hurts readability",
+    "tests/Feature/PushStockAllocationsTest.php:99-101 \u2014 hand-built Mockery Job mock instead of withFakeQueueInteractions()/assertReleased",
+    "tests/Feature/DispatchStockSyncTest.php:96-97 \u2014 confusing assertion (equalTo is false, then diff > 59 minutes) caused by time not being frozen",
+    "tests/Feature/PushStockAllocationsTest.php:17 \u2014 global helper function runJob declared in a test file"
+   ],
+   "strengths": [
+    "Job sends only rows that are still claimed, so a duplicate delivery sends nothing (probe confirmed); closest to 'exactly once'",
+    "(array) cast on missing makes a null response safe",
+    "Caps the Retry-After wait; retryUntil tied to the claim TTL; failed() clears claims",
+    "Test proving a row edited during the request stays ready; failure-path test runs through to a new dispatch",
+    "Conditional claim update without a transaction or lock is simple"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 6,
+    "simplicity": 7
+   },
+   "overall": 6,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "PushStockAllocations.php:70 \u2014 synced_at = DB::raw('sync_started_at') with no check that the row is still claimed: a duplicate SQS delivery after success sends again and sets synced_at to NULL, so the row is sent a third time on the next run (probe: 2 sends, synced_at null, ready=1)",
+    "PushStockAllocations.php:70 \u2014 using claim time as synced_at means any edit between claim and read (including during 429 release waits) causes a redundant second push; not exactly once per change",
+    "Rate limits are handled only by reacting to 429s; no shared throttle across workers or containers"
+   ],
+   "antipatterns": [
+    "PushStockAllocations.php:50 \u2014 no acceptJson(); 4xx/5xx bodies may not be JSON",
+    "PushStockAllocations.php:65 \u2014 array_values(array_filter(..., is_string(...))) is ceremony for the missing list",
+    "tests/Feature/PushStockAllocationsTest.php:68 \u2014 partial Mockery mock of the job class instead of withFakeQueueInteractions()->assertReleased",
+    "tests/Feature/PushStockAllocationsTest.php:110-111 \u2014 asserts trivial facts (instanceof ShouldQueue, constructor property)",
+    "DispatchStockSync.php:46 \u2014 comment restates the framework behaviour of toBase()"
+   ],
+   "strengths": [
+    "Simple claim loop: a transaction with lockForUpdate and limit(100) per batch",
+    "Schedule uses onOneServer and withoutOverlapping; URL in config/services.php",
+    "No lost edits during the request, because synced_at is the claim time",
+    "Job updates wrapped in a transaction; Retry-After capped, with a fallback covered by a Pest dataset",
+    "Separate scope tests in StockAllocationTest, including the 14- and 16-minute boundaries"
+   ]
+  },
+  "rationale": "All three pass their own tests and use the same modern patterns (#[Scope], #[Fillable], queue attributes, retryUntil tied to the claim TTL, failed() clearing the claim). Edge-case probes separated them. impl-1 has the best design for the stated constraints: a shared RateLimited middleware backed by Redis, config-driven settings, onOneServer plus withoutOverlapping, and the most idiomatic tests (withFakeQueueInteractions). Its bugs are a TypeError when the storefront returns missing:null (outside the API contract, but it causes a resend loop), resending on duplicate delivery, and losing an edit made in the same second. impl-2 has the best delivery guard (no resend on duplicate delivery) and is null-safe, but it lacks withoutOverlapping, its claim re-read by timestamp is fragile when runs overlap, it only reacts to 429s, it hardcodes the URL, and its tests use hand-built mocks. impl-3 avoids the same-second lost edit but has a real duplicate-delivery bug that sets synced_at to NULL and over-sends rows edited after the claim. That most directly breaks the task's focus on sending each change exactly once, so it ranks last."
+ },
+ "cost_usd": 0.5543758000000001
+}

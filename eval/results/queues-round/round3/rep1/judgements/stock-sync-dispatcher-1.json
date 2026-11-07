@@ -1,0 +1,108 @@
+{
+ "key": "stock-sync-dispatcher",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "failed() clears sync_started_at for every id unconditionally. If a job outlives the 15-minute claim (for example it sits in the SQS backlog) and the rows have been re-claimed, the old job's failure wipes the new claim and the rows get dispatched a second time. Probe confirmed 2 jobs pushed (app/Jobs/PushStockAllocations.php:85)",
+    "Timestamps are second-precision and synced_at is set to the claim time, so an edit made in the same second as the claim while the push is running is never re-synced. Probe confirmed. The same weakness exists in all three implementations"
+   ],
+   "antipatterns": [
+    "The timestamp is interpolated into raw SQL: DB::raw(\"coalesce(sync_started_at, '{$fallback}')\") (app/Jobs/PushStockAllocations.php:75). A binding or a plain column reference would be cleaner",
+    "The rate-limiter test only checks that the middleware count is 1 and that the limiter exists. The config it sets is never used (tests/Feature/StockSyncTest.php:239-245)",
+    "A global const STOCK_URL in the test file collides if another test file defines the same name (tests/Feature/StockSyncTest.php:12)",
+    "Fully qualified \\DateTimeInterface instead of an import (app/Jobs/PushStockAllocations.php:30)"
+   ],
+   "strengths": [
+    "The only implementation that throttles proactively: RateLimited('storefront') middleware with a RateLimiter::for limit in AppServiceProvider, shared through Redis. A probe showed the second job is released (63s), not failed. It also reacts to 429 with a capped Retry-After (30-300s)",
+    "The claim runs in a transaction with lockForUpdate, toBase() leaves updated_at untouched, and the schedule uses onOneServer plus withoutOverlapping(5). This is the right setup for three schedulers on Redis",
+    "synced_at is set to the claim time, so edits made after the claim stay ready, and a test covers it",
+    "retryUntil of 10 minutes stays well inside the 15-minute claim window. Timeout, MaxExceptions and Backoff are set with Laravel 13 attributes, and the job uses tooManyRequests() and acceptJson()",
+    "Mark-synced and disable run in one transaction. The idiomatic $allocations->whereIn('sku',$missing)->modelKeys()",
+    "Full Pest suite (24 tests): scope cases, chunking of 250 rows into [100,100,50], idempotency, 429 asserted with withFakeQueueInteractions, 500, failed() leading to re-dispatch, schedule assertions"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 9,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Nothing throttles requests before they are sent; the job only reacts to 429. At peak about 50 jobs hit an API that is slow and rate-limited all at once, and each 429 release uses up the 10-minute retryUntil budget. Rows are not lost (failed() frees them), but sustained 429s cause churn and delays",
+    "The schedule has onOneServer but no withoutOverlapping (routes/console.php). The claim is an optimistic UPDATE followed by a re-select WHERE sync_started_at = $claimedAt at second precision. Two overlapping runs in the same second would re-select each other's rows and dispatch them twice (app/Console/Commands/DispatchStockSync.php:25-29)",
+    "failed() unconditionally clears claims that may belong to a newer job. Probe confirmed a duplicate dispatch (app/Jobs/PushStockAllocations.php:84)",
+    "An edit in the same second as the claim during the push is lost, because of second-precision timestamps (shared by all three)"
+   ],
+   "antipatterns": [
+    "$response->status() === 429 instead of $response->tooManyRequests() (app/Jobs/PushStockAllocations.php:55)",
+    "Claiming without a lock relies on timestamp equality to decide who owns the rows. This is fragile compared with lockForUpdate in a transaction (app/Console/Commands/DispatchStockSync.php:21-29)",
+    "The disable and mark-synced updates are not wrapped in a transaction (app/Jobs/PushStockAllocations.php:65-79)",
+    "The job uses the full get() instead of selecting only the needed columns, and the request has no acceptJson()",
+    "A global const STOCK_URL in the test file (tests/Feature/StockSyncTest.php:11)"
+   ],
+   "strengths": [
+    "synced_at => DB::raw('sync_started_at') is a clean way to set the sync time to the claim time. The job also re-checks whereNotNull('sync_started_at'), so stale or duplicate runs do nothing",
+    "FailOnTimeout, MaxExceptions, Backoff and Timeout are set as attributes. retryUntil stays within the claim window. The Retry-After delay is capped at 300 with a default of 60",
+    "The best test suite (27 tests): a dataset for the Retry-After cap and default, edit-during-push, idempotency asserting the HTTP request was sent once, skipping unclaimed or disabled rows, and an end-to-end run on the sync queue"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 7,
+    "focus_area": 6,
+    "tests": 6,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "The 429 release delay is uncapped: Retry-After 3600 gives release(3600) (probe confirmed), well past the 14-minute retryUntil. The job then expires and goes to failed() rather than retrying in a controlled way (app/Jobs/PushStockAllocations.php:47)",
+    "retryUntil is now()+14 minutes, measured from dispatch, and Timeout is 60s. An attempt that starts near the deadline can run to the 15-minute mark, so the dispatcher may re-claim rows that are still in flight. The margin is too thin (app/Jobs/PushStockAllocations.php:25)",
+    "Nothing throttles requests before they are sent; it only reacts to 429. About 50 concurrent jobs at peak will hammer a rate-limited API",
+    "failed() unconditionally clears claims that may belong to a newer job. Probe confirmed a duplicate dispatch (app/Jobs/PushStockAllocations.php:66)",
+    "synced_at is the job start time, so an in-flight edit in the same second as the start is lost (a shared weakness, and the window is a little wider here than with the claim time)"
+   ],
+   "antipatterns": [
+    "$response->status() === 429 instead of tooManyRequests() (app/Jobs/PushStockAllocations.php:46)",
+    "partition() with in_array, where $allocations->whereIn('sku', $missing) would do (app/Jobs/PushStockAllocations.php:55)",
+    "The 429 test hand-mocks the Job contract with Mockery instead of using the built-in withFakeQueueInteractions()/assertReleased() (tests/Feature/StockSyncTest.php:151-153)",
+    "The two final updates are not in a transaction",
+    "The ExampleTest scaffolding is left in place, and a global const STOCK_URL sits in the test file"
+   ],
+   "strengths": [
+    "The dispatcher matches impl-1's: a locked transactional claim, toBase() keeps updated_at untouched, and the schedule uses onOneServer plus withoutOverlapping",
+    "Http::baseUrl from config with acceptJson and a timeout, and selected columns only",
+    "Compact code with a concise scope and factory states"
+   ]
+  },
+  "rationale": "I rank impl-1 first, impl-2 second and impl-3 third. All three suites pass (24, 27 and 16 tests), and I deleted every probe file afterwards.\n\nAll three share the same core design: a readyToSync scope, a claim made with toBase() so updated_at is not bumped, a failed() that frees the claim, and retryUntil kept inside the 15-minute window. Probes found the same two weaknesses in every one:\n- An edit in the same second as the claim (impl-1, impl-2) or the job start (impl-3) is lost, because timestamps only have second precision.\n- A stale job's failed() can wipe a newer claim, which causes a duplicate dispatch.\n\nWhat separates them:\n\n**impl-1** is the only one that handles the storefront's rate limit before requests go out. It uses RateLimited middleware with a named limiter shared through Redis; a probe showed the second job is released, not failed. On top of that it caps Retry-After handling, claims rows inside a locked transaction, schedules with onOneServer plus withoutOverlapping, and leaves a 5-minute safety margin on retryUntil. Its flaws are small: raw SQL built with string interpolation, and one weak limiter test.\n\n**impl-2** has the strongest tests and some neat touches: synced_at is copied from sync_started_at in SQL, the job re-checks that its rows are still claimed, and it uses FailOnTimeout. It only reacts to 429s rather than throttling, though. It also claims rows without a lock and has no withoutOverlapping, so two overlapping runs in the same second could dispatch the same rows twice.\n\n**impl-3** has a dispatcher as sound as impl-1's. But it only reacts to 429s, does not cap the Retry-After delay (a probe gave release(3600), far past its own retryUntil), and leaves too thin a margin between its 14-minute retryUntil plus 60s timeout and the 15-minute claim expiry. Its tests are the thinnest: no edit-during-push case, and a hand-written Mockery mock where the built-in withFakeQueueInteractions() would do."
+ },
+ "cost_usd": 0.7659378
+}

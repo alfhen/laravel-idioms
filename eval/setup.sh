@@ -1,14 +1,21 @@
 #!/usr/bin/env bash
 # Builds the base apps and one copy per setup ("arm") under $WORK:
-#   bases:  base (PHPUnit), base-pest, base-filament
+#   bases:  base (PHPUnit), base-pest, base-filament, base-queue-bugfix (base-pest + fixtures/queue-bugfix)
 #   arms:   plain, skill, boost, both, augment  ×  each base
+# ARMS and BASES (space-separated) limit what is built. The arm "prev" holds the skill as it was at the git ref
+# $PREV_REF (default: the latest v* tag), for comparing a change against the released skill.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="${WORK:-$REPO/eval/.work}"
 LARAVEL="${LARAVEL:-laravel/laravel:^13.0}"
 SKILL="$REPO/resources/boost/skills/laravel-idioms"
-BASES=(base base-pest base-filament)
+read -r -a BASES <<< "${BASES:-base base-pest base-filament base-queue-bugfix}"
+read -r -a ARMS <<< "${ARMS:-plain skill boost both augment}"
+PREV_REF="${PREV_REF:-$(git -C "$REPO" describe --tags --abbrev=0 --match 'v*')}"
+
+wants() { [[ " ${ARMS[*]} " == *" $1 "* ]]; }
+wants_base() { [[ " ${BASES[*]} " == *" $1 "* ]]; }
 
 mkdir -p "$WORK/arms"
 cd "$WORK"
@@ -29,7 +36,7 @@ if [ ! -d base-pest ]; then
     )
 fi
 
-if [ ! -d base-filament ]; then
+if wants_base base-filament && [ ! -d base-filament ]; then
     cp -R base-pest base-filament
     (
         cd base-filament
@@ -38,49 +45,75 @@ if [ ! -d base-filament ]; then
     )
 fi
 
+if wants_base base-queue-bugfix && [ ! -d base-queue-bugfix ]; then
+    cp -R base-pest base-queue-bugfix
+    rsync -a "$REPO/eval/fixtures/queue-bugfix/" base-queue-bugfix/
+    (cd base-queue-bugfix && composer dump-autoload -q && php artisan test >/dev/null)
+fi
+
 install_boost() {
     composer require laravel/boost --dev -W --no-interaction -q
     php artisan boost:install --guidelines --skills --mcp --no-interaction >/dev/null 2>&1
 }
 
+if wants prev; then
+    rm -rf "$WORK/prev-skill"
+    mkdir -p "$WORK/prev-skill"
+    git -C "$REPO" archive "$PREV_REF" resources/boost/skills/laravel-idioms | tar -x -C "$WORK/prev-skill" --strip-components=3
+fi
+
 cd arms
 for b in "${BASES[@]}"; do
-    rm -rf "plain-$b" "skill-$b" "boost-$b" "both-$b" "augment-$b"
+    for arm in plain skill prev boost both augment; do rm -rf "$arm-$b"; done
 
     # The stock skeleton's CLAUDE.md/AGENTS.md tell agents to install Boost, which would turn every arm into a Boost arm.
     cp -R "../$b" "plain-$b"
     rm -f "plain-$b/CLAUDE.md" "plain-$b/AGENTS.md"
 
-    cp -R "plain-$b" "skill-$b"
-    mkdir -p "skill-$b/.claude/skills"
-    cp -R "$SKILL" "skill-$b/.claude/skills/"
+    if wants skill; then
+        cp -R "plain-$b" "skill-$b"
+        mkdir -p "skill-$b/.claude/skills"
+        cp -R "$SKILL" "skill-$b/.claude/skills/"
+    fi
 
-    cp -R "plain-$b" "boost-$b"
-    (cd "boost-$b" && install_boost)
+    if wants prev; then
+        cp -R "plain-$b" "prev-$b"
+        mkdir -p "prev-$b/.claude/skills"
+        cp -R "$WORK/prev-skill/laravel-idioms" "prev-$b/.claude/skills/"
+    fi
 
-    cp -R "boost-$b" "both-$b"
-    cp -R "$SKILL" "both-$b/.claude/skills/"
+    if wants boost || wants both; then
+        cp -R "plain-$b" "boost-$b"
+        (cd "boost-$b" && install_boost)
+    fi
 
-    cp -R "plain-$b" "augment-$b"
-    (
-        cd "augment-$b"
-        composer config repositories.laravel-idioms "{\"type\":\"path\",\"url\":\"$REPO\",\"options\":{\"symlink\":false}}"
-        composer require alfhen/laravel-idioms:@dev --dev -W --no-interaction -q
-        install_boost
-        # Boost third-party packages are opt-in; non-interactive installs only include what boost.json lists.
-        python3 - <<'PY'
+    if wants both; then
+        cp -R "boost-$b" "both-$b"
+        cp -R "$SKILL" "both-$b/.claude/skills/"
+    fi
+
+    if wants augment; then
+        cp -R "plain-$b" "augment-$b"
+        (
+            cd "augment-$b"
+            composer config repositories.laravel-idioms "{\"type\":\"path\",\"url\":\"$REPO\",\"options\":{\"symlink\":false}}"
+            composer require alfhen/laravel-idioms:@dev --dev -W --no-interaction -q
+            install_boost
+            # Boost third-party packages are opt-in; non-interactive installs only include what boost.json lists.
+            python3 - <<'PY'
 import json
 config = json.load(open('boost.json'))
 config['packages'] = ['alfhen/laravel-idioms']
 config['skills'] = sorted(set(config.get('skills', [])) | {'laravel-idioms'})
 json.dump(config, open('boost.json', 'w'), indent=4)
 PY
-        php artisan boost:install --guidelines --skills --mcp --no-interaction >/dev/null 2>&1
-        test -f .claude/skills/laravel-idioms/SKILL.md
-        grep -q 'Activate the `laravel-idioms` skill' CLAUDE.md
-    )
+            php artisan boost:install --guidelines --skills --mcp --no-interaction >/dev/null 2>&1
+            test -f .claude/skills/laravel-idioms/SKILL.md
+            grep -q 'Activate the `laravel-idioms` skill' CLAUDE.md
+        )
+    fi
 
-    for arm in plain skill boost both augment; do
+    for arm in "${ARMS[@]}"; do
         printf '%-24s %s\n' "$arm-$b" "$(cd "$arm-$b" && php artisan test 2>&1 | tail -1)"
     done
 done

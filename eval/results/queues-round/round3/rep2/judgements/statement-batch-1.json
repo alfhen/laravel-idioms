@@ -1,0 +1,112 @@
+{
+ "key": "statement-batch",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 6,
+    "correctness": 7,
+    "simplicity": 6
+   },
+   "overall": 6.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "DispatchStatementBatch builds all ~40k jobs in memory and pushes them in one Bus::batch()->dispatch() inside a single job (app/Jobs/DispatchStatementBatch.php:24-39). On SQS each push is a separate API call, so the job can easily run longer than the 600s timeout or the SQS visibility timeout. With Tries(1), a redelivered copy fails with MaxAttemptsExceeded and failed() marks the run completed_with_errors while the batch is still running.",
+    "DispatchStatementBatch::failed() (app/Jobs/DispatchStatementBatch.php:42-48) sets completed_with_errors but leaves failed_accounts at 0 and never sends StatementRunSummary, so finance is not told and the count is wrong.",
+    "FinalizeStatementRun has no guard on status === running (app/Actions/FinalizeStatementRun.php:14), so a repeated finally callback or the failed() path can overwrite the run or send the summary twice.",
+    "Accounts deleted mid-run return early and count as successes (GenerateAccountStatement.php:35-37). total_accounts is counted in the action and recounted in the job, so the two figures can drift."
+   ],
+   "antipatterns": [
+    "app/Jobs/GenerateAccountStatement.php:39-48: try/catch Throwable \u2192 $this->fail($e) is ceremony. With Tries(1), letting the exception bubble does the same thing.",
+    "app/Jobs/GenerateAccountStatement.php:19: Tries(1) turns every transient generator or mail error into a permanent failure for that account. There is no backoff.",
+    "app/Jobs/GenerateAccountStatement.php:45: calls StatementRun::findOrFail once per job only to pass the run to the mailable.",
+    "app/Jobs/FinalizeStatementRunCallback.php lives in Jobs/ but is not a job; app() service location is used inside the callback.",
+    "tests/Feature/StatementRunTest.php: the end-to-end tests run on the sync driver, so the real batch and worker failure path is never tested; line 45 calls handle() by hand with an FQCN inline.",
+    "No queue:prune-batches / queue:prune-failed is scheduled, so job_batches and failed_jobs grow without limit."
+   ],
+   "strengths": [
+    "Uses Bus::batch with allowFailures and finally plus a dedicated configurable queue, which matches the task's fan-out shape.",
+    "Jobs carry only scalar IDs, so payloads stay small.",
+    "Handles an empty run without creating a batch.",
+    "Modern attributes: #[Fillable], #[Scope], #[Tries], #[Timeout], backed-enum cast.",
+    "The dispatcher job has a failed() fallback, so the run does not stay in running forever."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 6,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "DispatchStatementRun has no failed() handler and sits outside the batch (app/Jobs/DispatchStatementRun.php:14-41). If it throws (DB or SQS error), the run stays in running forever and finance never gets a summary.",
+    "lazyById()->map()->all() (app/Jobs/DispatchStatementRun.php:25-27) loads all ~40k BillingAccount models into memory and pushes every job in one batch dispatch inside a Tries(1) job with no Timeout. On SQS this risks the worker timeout or visibility timeout and duplicate dispatch. The lazy cursor is pointless because .all() loads everything anyway.",
+    "Tries(1) on GenerateStatement means a transient mail or generator hiccup counts as a permanent failed account."
+   ],
+   "antipatterns": [
+    "app/Jobs/GenerateStatement.php:25: onQueue() in the constructor duplicates the batch's onQueue() in DispatchStatementRun.php:37.",
+    "app/Jobs/DispatchStatementRun.php:39: the finally arrow function captures $this, so the whole dispatcher job is serialized into the batch options. A static fn would avoid that.",
+    "app/Jobs/DispatchStatementRun.php:39: app() service location inside the callback.",
+    "config/billing.php:4: finance_email has no default, so if the env var is missing Mail::to(null) fails in production.",
+    "No pruning of job_batches or failed_jobs is scheduled.",
+    "tests/Feature/StatementRunTest.php:18: uses(RefreshDatabase) is repeated per file even though it is not set globally (acceptable, but noisy)."
+   ],
+   "strengths": [
+    "CompleteStatementRun uses a conditional update guarded on status = running, so finalisation is idempotent and the summary email goes out once.",
+    "dispatch()->afterCommit() on the request side.",
+    "The idempotent exists() check skips regeneration if the PDF is already stored.",
+    "Tests run a real database queue worker over both queues and cover failure, the empty run, the dedicated queue and the skip-existing path.",
+    "Escapes the account name in mail HTML with e()."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.3,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "The DispatchStatementJobs seeder job is itself a member of the batch, so if it fails, $batch->failedJobs counts it as a failed account. In a probe that broke the accounts table, the run ended completed_with_errors with failed_accounts=1 although no account was ever attempted.",
+    "DeleteWhenMissingModels quietly records an account deleted mid-run as a success, so it is not reflected in failed_accounts (debatable)."
+   ],
+   "antipatterns": [
+    "app/Actions/StartStatementRun.php:24: the batch is dispatched without afterCommit, so if the caller wraps the action in a transaction the worker can run before the row is committed.",
+    "app/Actions/StartStatementRun.php:27: app() service location inside the finally callback.",
+    "No pruning of job_batches or failed_jobs is scheduled.",
+    "tests/Feature/StatementRunTest.php:25-31: the drain loop uses time travel and a fixed number of iterations to step through the backoff, which is a bit opaque. The migrations keep the default stub docblocks."
+   ],
+   "strengths": [
+    "The canonical Laravel pattern for large fan-out: a single seeder job inside the batch, and lazyById(500)->chunk(500)->each($this->batch()->add(...)). Memory stays bounded, the request only pushes one job, and the batch cannot finish before every account has been added.",
+    "Everything, including the seeder, goes to the dedicated statements queue, and a test checks that the default queue is never used.",
+    "Tries(3) with Backoff([30,120]) and Timeout(120) handles transient errors, and failedJobs still counts each account once (confirmed with probes: a flaky generator completes with 0 failures and one email).",
+    "CompleteStatementRun uses an atomic conditional update guarded on running, so the summary email is idempotent.",
+    "Uses a static closure capturing only runId, and attaches the PDF via Attachment::fromStorageDisk.",
+    "Tests use a real database worker, cover two failing accounts, the empty run, the queue assertion and the email arriving after the file exists."
+   ]
+  },
+  "rationale": "All three pass their own tests (impl-1 9/9, impl-2 9/9, impl-3 8/8) and use Bus::batch with allowFailures and finally on a dedicated queue. None schedules pruning for job_batches or failed_jobs. They differ in how the 40k-account fan-out is seeded and how robust finalisation is. impl-3 uses the canonical pattern: a seeder job inside the batch, adding jobs in chunks of 500 through lazyById. Memory stays bounded and the run always reaches a final status. Retries with backoff still count each failed account once, and finalisation is idempotent. Its main flaw: a failed seeder job is counted as a failed account (confirmed by probe). impl-2 has idempotent finalisation, afterCommit and the best real-worker tests. But it loads all 40k models into memory, pushes every job from one job with no timeout, and leaves the run stuck in running if the dispatcher fails. impl-1 builds the jobs from IDs, which is lighter. But it pushes all 40k jobs at once, has a pointless try/catch around fail(), and a non-idempotent finaliser. Its failed() fallback leaves failed_accounts at 0 and sends no summary, and its end-to-end tests only run on the sync driver."
+ },
+ "cost_usd": 0.622638
+}

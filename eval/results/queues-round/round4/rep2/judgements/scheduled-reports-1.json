@@ -1,0 +1,112 @@
+{
+ "key": "scheduled-reports",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Jobs/SyncSupplierStock.php:13 UniqueFor(3600) equals the hourly cadence: if a worker is killed mid-run, the orphaned unique lock is still held at the next top-of-hour dispatch, so that hour's sync is silently dropped (probe confirmed: dispatch at 10:00:20 then 11:00:05 pushes only once)",
+    "config/queue.php:71 raises the global redis retry_after to 3700s, so every other redis job orphaned by a crash waits over an hour to be retried; a dedicated connection/queue would scope this"
+   ],
+   "antipatterns": [
+    "tests/Feature/ScheduleTest.php:84-91 'runs the job handler without touching the network' ends in expect(true)->toBeTrue() \u2014 asserts nothing",
+    "tests/Feature/ScheduleTest.php:73-82 reflects on job attributes to assert config numbers \u2014 brittle ceremony instead of behaviour",
+    "tests/Feature/ScheduleTest.php:84-91 Http::preventStrayRequests without any assertion",
+    "routes/console.php:12 weekly()->mondays()->at() where weeklyOn(1, '07:30') is the direct form",
+    "Leaves .env.example CACHE_STORE/QUEUE_CONNECTION on database although the brief says Redis is the shared cache/queue that onOneServer depends on"
+   ],
+   "strengths": [
+    "onOneServer on all three events plus withoutOverlapping with short explicit expiries (10/120 min) so a killed run cannot block for 24h",
+    "Prune at 03:30 Copenhagen sidesteps DST gap/repeat",
+    "Memory-safe batched delete via pluck ids + whereKey delete with index on updated_at",
+    "ShouldBeUnique + Tries(1) + Timeout(3000) + FailOnTimeout; timeout < retry_after",
+    "Modern attributes: #[Signature], #[Scope], #[Fillable], queue attributes",
+    "Schedule tests check expression, timezone, isDue in Copenhagen vs UTC, and a real schedule:run dispatch; database-queue test proves uniqueness",
+    "Command fails cleanly when warehouse.email missing; pluralised plain-text mail"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "app/Jobs/SyncSupplierStock.php:15 UniqueFor(3600) equals the hourly cadence: a worker killed mid-run leaves the unique lock until exactly the next dispatch, so the next hour's sync is dropped (probe confirmed only 1 push)",
+    "config/queue.php:71 bumps the global redis retry_after to 3600 for all jobs to accommodate one long job"
+   ],
+   "antipatterns": [
+    "app/Models/Cart.php:17 scope has default $days = 30 yet the command passes 30 explicitly \u2014 redundant parameterisation",
+    "app/Jobs/SyncSupplierStock.php:12 long rationale comment restating config arithmetic",
+    "tests/Feature/ScheduleTest.php:14 helper declared to return Event but uses first(), can return null; sole() would fail loudly",
+    "tests/Feature/ScheduleTest.php:20 Carbon::setTestNow instead of $this->travelTo",
+    "tests/Feature/ScheduleTest.php:55-57 asserts withoutOverlapping is false, enshrining the absence of an overlap guard rather than testing bounded expiry",
+    "tests/Feature/ScheduleTest.php:59-68 reflection on attribute values",
+    "No schedule:run integration test; uniqueness only tested via Queue::fake",
+    "Edits committed .env (not just .env.example)"
+   ],
+   "strengths": [
+    "Switches CACHE_STORE and QUEUE_CONNECTION to redis, matching the shared-lock requirement for onOneServer",
+    "Excellent DST tests: datasets expressed in UTC for winter/summer prove 07:30 Copenhagen is honoured and UTC/off-by-hour is not",
+    "Simplest memory-safe prune: single DELETE ... LIMIT loop, no model hydration",
+    "onOneServer on all three events; avoids the 24h default withoutOverlapping trap",
+    "Mail carries hours, pluralised body; missing-email failure path tested with output assertion"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.3,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "config/queue.php:71 bumps the global redis retry_after to 3600, affecting crash-recovery latency for all redis jobs (shared with the others)",
+    "app/Mail/UnshippedOrdersReport.php:20 body is not pluralised ('1 orders are still unshipped')"
+   ],
+   "antipatterns": [
+    "routes/console.php:6 aliases Illuminate\\Console\\Scheduling\\Schedule as SchedulerSchedule only for the MONDAY constant \u2014 import ceremony",
+    "app/Console/Commands/PruneAbandonedCarts.php:18-22 chunkById hydrates 1000 Cart models per batch only to read ids; pluck/lazy ids or DELETE ... LIMIT is lighter",
+    "tests/Feature/SyncSupplierStockTest.php:11-12 inline FQCN attribute classes and reflection on attribute values; imports unsorted (Http before DB)",
+    "app/Mail/UnshippedOrdersReport.php:20 HTML built by string interpolation in htmlString instead of a view"
+   ],
+   "strengths": [
+    "UniqueFor(3300) deliberately shorter than the hourly cadence so a crashed run's lock frees before the next dispatch (probe confirmed); Timeout(3000) < retry_after with FailOnTimeout and Tries(1)",
+    "onOneServer + withoutOverlapping with bounded expiries (10/180 min) on commands; 03:30 avoids DST edges",
+    "Configures redis cache/queue and documents SCHEDULE_CACHE_STORE, which the framework actually reads",
+    "Schedule::command(Command::class) references, $this->fail() for the missing-config path",
+    "chunkById is safe while deleting, memory-bounded",
+    "Best schedule tests: summer/winter datasets, bounded lock expiry asserted, real schedule:run dispatch and a two-tick 'two servers' test proving a single push; database-queue uniqueness test"
+   ]
+  },
+  "rationale": "All three pass their suites and share a sound design (Redis-backed onOneServer, ShouldBeUnique hourly job, Copenhagen timezone, batched cart deletes). The differences come from crash recovery. When I killed a sync job mid-run (lock left behind), impl-1 and impl-2 (UniqueFor 3600) dropped the next hourly dispatch. impl-3 (UniqueFor 3300) let it through. impl-1 and impl-3 also give their commands overlap locks with short expiries; I confirmed both locks can be taken again once expiry passes. impl-2 has no overlap lock, so nothing can get stuck. That is defensible, but its tests forbid overlap locks outright. impl-3 also has the strongest scheduler tests, including two schedule:run ticks in the same minute, and the most current conventions. It is ranked first. impl-1 is second: it has bounded overlap locks and a schedule:run test, but it has the dropped-hour bug, leaves the cache and queue on database instead of Redis in .env.example, and has a test that asserts nothing. impl-2 is third: it has the same dropped-hour bug and no end-to-end scheduler test, though its daylight-saving datasets and single-query batched delete are good. All three raise the shared Redis retry_after to suit one job."
+ },
+ "cost_usd": 0.7291586
+}

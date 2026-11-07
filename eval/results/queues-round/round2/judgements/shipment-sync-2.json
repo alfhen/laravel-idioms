@@ -1,0 +1,133 @@
+{
+ "key": "shipment-sync",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 9
+   },
+   "overall": 8.2,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "failed() uses $this->order->refresh(), which ignores the soft-delete scope, so a cancelled order whose job failed gets shipment_status=failed. Ops would see a false alarm (confirmed with a probe). app/Jobs/SendOrderToWarehouse.php:62",
+    "Retry-After on a 429 has no upper bound, so a partner that sends a large value can park the job until retryUntil (1h) runs out. app/Jobs/SendOrderToWarehouse.php:141"
+   ],
+   "antipatterns": [
+    "No WithoutOverlapping lock. The Idempotency-Key header and the markAsPaid guard are the only protection against two copies of the job running at once. app/Jobs/SendOrderToWarehouse.php:35",
+    "markAsPaid checks the paid status on the in-memory model, so a stale instance can dispatch the job twice. app/Models/Order.php:43",
+    "The nested if could be combined into one condition. app/Jobs/SendOrderToWarehouse.php:51-55"
+   ],
+   "strengths": [
+    "Uses Laravel 13 job attributes on one line (Timeout, Backoff, MaxExceptions, DeleteWhenMissingModels) and keeps one useful why-comment about retryUntil",
+    "Treats 429 differently from other errors: release() honours Retry-After instead of counting as an exception",
+    "Claims the notification atomically (conditional update on shipment_notified_at) and rolls the claim back if sending fails, so the email goes out exactly once",
+    "Returns early on a 422 and records the reason without failing or retrying the job",
+    "Thorough Pest tests: withFakeQueueInteractions assertReleased/NotFailed, a real mail failure via the MessageSending event, the order serialized while queued then cancelled, Http::fakeSequence recovery, and the idempotency key"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.9,
+   "rank": 4,
+   "tests_pass": true,
+   "bugs": [
+    "markAsPaid is not idempotent. Calling it on an order that is already paid or shipped dispatches the job again and resets shipment_status from sent to pending. The job then skips (the reference exists) and the status stays wrong (confirmed with a probe). app/Models/Order.php:39-49",
+    "failed() uses fresh(), which includes trashed rows, so a cancelled order can be marked failed. app/Jobs/SendOrderToWarehouse.php:64"
+   ],
+   "antipatterns": [
+    "A 429 is thrown like a 5xx, so it uses the generic backoff and ignores Retry-After. app/Jobs/SendOrderToWarehouse.php:97,116",
+    "Sends the email first and saves shipment_notified_at afterwards, with no atomic claim. If the save fails or two workers race, the email can go out twice. app/Jobs/SendOrderToWarehouse.php:121-127",
+    "Tests call app()->call([$job,'handle']) directly instead of using withFakeQueueInteractions, so they never check release or fail. tests/Feature/SendOrderToWarehouseTest.php:22-25"
+   ],
+   "strengths": [
+    "Modern Laravel 13 style: Backoff/MaxExceptions/Timeout attributes, the Foundation Queueable trait, the #[Fillable] attribute and enum casts",
+    "Treats every 4xx except 408 and 429 as permanent and calls $this->fail() with a reason that includes the HTTP status",
+    "Checks both trashed() and paid status before shipping; WithoutOverlapping and an account-wide RateLimited limiter",
+    "Sets preventStrayRequests globally in Pest.php; tests cover rollback (no dispatch), cancelled orders through real serialization, and a missing id"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.4,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "The job never checks that the order is paid, so dispatching it for a pending order ships it (confirmed with a probe). markAsPaid is the only dispatch path, so the risk is latent. app/Jobs/SendOrderToWarehouse.php:50-66",
+    "Only 422 counts as permanent. A 400 or 401 is retried for up to 8 exceptions over 2 hours before ops see it. app/Jobs/SendOrderToWarehouse.php:97"
+   ],
+   "antipatterns": [
+    "A 429 is thrown like a 5xx and Retry-After is ignored. app/Jobs/SendOrderToWarehouse.php:105",
+    "The base tests/Feature/ExampleTest.php was deleted, an unrelated change",
+    "A test mixes Mail::shouldReceive with Mail::fake and resets container internals by hand (forgetInstance/clearResolvedInstance). tests/Feature/SendOrderToWarehouseTest.php:193-203",
+    "Handles the 422 by calling fail() on an exception it builds itself, while a missing id throws RuntimeException; two styles for similar outcomes. app/Jobs/SendOrderToWarehouse.php:98,110"
+   ],
+   "strengths": [
+    "Uses the variadic Backoff attribute plus DeleteWhenMissingModels, MaxExceptions and Timeout, with a short why-comment on retryUntil",
+    "refresh() at the start of handle and failed() using withTrashed()->find, so a cancelled order is left untouched",
+    "Atomic claim-then-send for the email, rolled back if sending fails",
+    "markAsPaid is guarded against redispatch; Http::baseUrl is used for the configured URL, and there is a test that the URL is configurable",
+    "Tests cover the sync-driver outage leading to failed, sequence recovery, and retrying only the email"
+   ]
+  },
+  "impl-4": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 6,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 6
+   },
+   "overall": 7.8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "markAsPaid queries withTrashed(), so a cancelled (soft-deleted) order can be marked paid and get a job dispatched. Nothing ships, but the order data is wrong (confirmed with a probe). app/Models/Order.php:54"
+   ],
+   "antipatterns": [
+    "Uses string class constants (STATUS_PAID, SHIPMENT_SENT) instead of backed enums with casts. app/Models/Order.php:19-27",
+    "Uses the four separate pre-Laravel-11 job traits instead of Illuminate\\Foundation\\Queue\\Queueable, and properties ($maxExceptions, $timeout, $deleteWhenMissingModels) and backoff() instead of queue attributes. app/Jobs/SendOrderToWarehouse.php:22-34,48",
+    "#[UseFactory] is redundant with conventional factory discovery. app/Models/Order.php:13",
+    "Comments add bulk and some just restate the code. app/Jobs/SendOrderToWarehouse.php:26,60; app/Providers/AppServiceProvider.php:25",
+    "markAsPaid does a raw update and then forceFill()->syncOriginal() to fake the in-memory state; ceremony. app/Models/Order.php:54-69",
+    "Uses the old-style protected $fillable array instead of the #[Fillable] attribute"
+   ],
+   "strengths": [
+    "The strongest handling of the partner's failure modes: 429 releases with a capped Retry-After, 5xx and 408 are thrown, every other 4xx is recorded as failed with the status and reason, and a 201 with no id is marked failed instead of retried (which avoids a possible duplicate shipment)",
+    "markAsPaid claims the order atomically with a conditional update, so it is idempotent even from a stale instance",
+    "recordFailure uses the scoped query whereNull('shipment_reference'), so it never overwrites a sent shipment or touches a cancelled order",
+    "The best tests: a real database-queue afterCommit rollback test, an end-to-end rate-limit test with freezeTime/travel, assertReleased(delay: 7), and describe() blocks"
+   ]
+  },
+  "rationale": "All four test suites pass: impl-2 22 tests, impl-3 20, impl-4 24, impl-1 25. I probed at least two edge cases in each and deleted the probes afterwards. Every implementation uses afterCommit dispatch, an account-wide perSecond(5) limiter, connect and request timeouts, an Idempotency-Key header, retryUntil plus MaxExceptions, and a failed() hook that records the reason.\n\nThe ranking comes down to these differences:\n\n1. impl-1 combines modern Laravel 13 idioms (attributes, enums, #[Fillable]) with the best 429 handling (release honouring Retry-After) and an atomic exactly-once email claim. Its tests are the most idiomatic. It lacks a WithoutOverlapping lock, and its failed() can flag a cancelled order as failed; both are minor.\n2. impl-4 is the most robust against the partner: an atomic idempotent markAsPaid, Retry-After capped, all 4xx errors surfaced to ops, a missing id treated as failed to avoid duplicates, and the best tests (real database-queue afterCommit, rate limiting under frozen time). It loses points for dated idioms (string constants instead of enums, legacy job traits, properties instead of attributes, redundant #[UseFactory], heavy comments). Its withTrashed markAsPaid can mark a cancelled order paid.\n3. impl-3 is clean and modern, refreshes the order and uses withTrashed in failed(), and claims the email atomically. It ignores Retry-After on 429, treats only 422 as permanent, and its job doesn't check that the order is paid. One test mixes mocks with fakes awkwardly, and it deleted ExampleTest.\n4. impl-2 is modern and tidy but has the clearest bug: markAsPaid is not idempotent. Re-calling it redispatches the job and resets a sent shipment to pending, and the status stays wrong (confirmed with a probe). It also sends the email before saving the notified flag, with no atomic claim."
+ },
+ "cost_usd": 0.7938578
+}

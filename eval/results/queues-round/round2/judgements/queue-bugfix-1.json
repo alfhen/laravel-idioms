@@ -1,0 +1,132 @@
+{
+ "key": "queue-bugfix",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 7,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Jobs/SyncSubscriberToCrm.php:16 raises $tries to 5 'to survive overlap releases', but line 29 uses dontRelease(), so overlaps never release. The two choices contradict each other.",
+    "app/Jobs/SyncSubscriberToCrm.php:16-18 uses untyped public $tries/$timeout properties where Laravel 13 offers #[Tries]/#[Timeout] attributes",
+    "tests/Feature/CrmSyncReliabilityTest.php:39-44 only checks config values (tries > 3, backoff non-empty), not behaviour",
+    "app/Jobs/SyncSubscriberToCrm.php:29 dontRelease() deletes an overlapping job without a trace (my probe confirmed: 0 jobs, 0 failed, no HTTP call). Recovery depends on the 60-minute stale-claim requeue."
+   ],
+   "strengths": [
+    "Finds all four root causes: the swallowed exception, re-dispatch every minute with no in-flight check, the default 24h schedule mutex, and chunk() paginating over a column it mutates",
+    "Atomic conditional-UPDATE claim (whereNull/orWhere stale) in DispatchCrmSync, iterated with lazyById, so it is safe under concurrency and passed the 2500-row probe",
+    "failed() hook records crm_last_error once retries are exhausted. Backoff added. WithoutOverlapping now has expireAfter, so a killed worker cannot hold the lock forever.",
+    "End-to-end test runs queue:work on the database driver and asserts the failed_jobs row plus crm_last_error",
+    "Idempotency guard via fresh() prevents a second CRM call for an already synced subscriber",
+    "Tests cover a stale claim being requeued and a 250-row normalize run across chunk boundaries"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 6,
+    "correctness": 8,
+    "simplicity": 6
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "DispatchCrmSync::CLAIM_TTL_MINUTES (30) is shorter than the job's worst-case retry window (Tries 10, backoff up to 600s). The stale claim gets refreshed while the job is still in flight, and only the ShouldBeUnique lock stops a duplicate. The two dedup windows are not coordinated."
+   ],
+   "antipatterns": [
+    "Triple deduplication (DB claim in DispatchCrmSync.php:35-44, ShouldBeUnique+UniqueFor in SyncSubscriberToCrm.php:18-28, WithoutOverlapping at :32) is more machinery than the symptoms need",
+    "tests/Feature/CrmSyncTest.php:76-82 uses reflection to assert attribute names exist. This is a ceremony test that proves no behaviour.",
+    "tests/Feature/CrmSyncTest.php:68-74 calls failed() directly. No test proves a row actually reaches failed_jobs, which was the reported symptom.",
+    "app/Jobs/SyncSubscriberToCrm.php:37 idempotency check uses the in-memory model without refreshing. Fine on a real queue thanks to SerializesModels, but inconsistent with direct handle() calls."
+   ],
+   "strengths": [
+    "Uses modern Laravel 13 job attributes #[Tries, MaxExceptions, Backoff, Timeout, UniqueFor]. MaxExceptions(3) with Tries(10) correctly separates overlap releases from real failures.",
+    "WithoutOverlapping uses releaseAfter(30) and expireAfter(180), a well-reasoned middleware configuration",
+    "Atomic claim is extracted into a small, well-named private claim() method using lazyById",
+    "Schedule mutex expiry is fixed, and chunkById fixes the normalize command",
+    "Test proves the job is released for retry (jobs.attempts = 1) instead of deleted"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 6,
+    "eloquent_idioms": 5,
+    "architecture_fit": 6,
+    "modern_laravel": 5,
+    "focus_area": 5,
+    "tests": 7,
+    "correctness": 5,
+    "simplicity": 7
+   },
+   "overall": 5,
+   "rank": 4,
+   "tests_pass": true,
+   "bugs": [
+    "app/Console/Commands/DispatchCrmSync.php:21-30 introduces the same bug that symptom 4 describes: each() pages with offsets while the loop updates crm_sync_queued_at, a column in the WHERE filter. My probe with 2500 unsynced subscribers queued only 1500 in one run.",
+    "app/Jobs/SyncSubscriberToCrm.php:25 WithoutOverlapping keeps the default releaseAfter(0) with only $tries = 3. An overlapping duplicate is re-released immediately, burns its attempts, and can land in failed_jobs spuriously."
+   ],
+   "antipatterns": [
+    "app/Jobs/SyncSubscriberToCrm.php:34-48 keeps a try/catch with Log::error plus rethrow instead of letting the worker handle the failure and using a failed() hook",
+    "app/Jobs/SyncSubscriberToCrm.php:17-19 uses untyped public $tries/$backoff properties rather than modern attributes",
+    "tests/Feature/CrmSyncTest.php:45,95 uses inline FQCNs (Illuminate\\Http\\Client\\RequestException, Illuminate\\Console\\Scheduling\\Schedule) instead of imports",
+    "Dispatch is not atomic: SELECT then dispatch then update, so two concurrent dispatchers can both queue the same subscriber",
+    "DispatchCrmSync.php:26-30 closure body is mis-indented after the query rewrite"
+   ],
+   "strengths": [
+    "Smallest diff. Rethrowing correctly restores retries and the failed_jobs entry. Backoff added.",
+    "Test drives queue:work three times on the database driver and asserts a failed_jobs row",
+    "Stale-requeue window and schedule mutex expiry are tested",
+    "chunkById fixes the nightly normalize command"
+   ]
+  },
+  "impl-4": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 7,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "DispatchCrmSync is left unchanged. It still overwrites crm_sync_queued_at on every unsynced row every minute even when the unique lock drops the dispatch, so the column no longer means 'queued at'.",
+    "failed() nulls crm_sync_queued_at and the unique lock is released, so during a long outage every failed subscriber is re-queued the very next minute. failed_jobs gets a new row per subscriber roughly every 12 minutes, with no back-off at the dispatcher level."
+   ],
+   "antipatterns": [
+    "app/Jobs/SyncSubscriberToCrm.php:41-52 has a try/catch only to write crm_last_error and rethrow on every attempt, which duplicates what failed() at :57-63 already does",
+    "app/Jobs/SyncSubscriberToCrm.php:32 WithoutOverlapping on top of ShouldBeUnique is largely redundant",
+    "tests/Feature/CrmSyncTest.php:100-105 asserts the mutex expiry but no longer checks that withoutOverlapping is still enabled",
+    "Fix for symptom 2 relies only on a cache-based unique lock (UniqueFor 3600). The root cause, a dispatcher that re-pushes everything every minute, is left in place."
+   ],
+   "strengths": [
+    "Modern job attributes with MaxExceptions/Tries split and a ShouldBeUnique keyed by uniqueId(). This is an idiomatic framework-level dedup.",
+    "Best end-to-end test: outage, retries via queue:work with time travel, a failed_jobs row, then recovery and successful sync after the CRM comes back",
+    "Normalize test uses sequence() with distinct emails and checks every row across chunk boundaries",
+    "Small, focused diff. chunkById and the schedule mutex expiry are both fixed."
+   ]
+  },
+  "rationale": "All four pass their own suites (impl-1 14, impl-2 14, impl-3 12, impl-4 11 tests). All four fix symptom 4 (chunkById), symptom 3 (withoutOverlapping with a short expiry) and symptom 1 (exceptions now propagate, so retries and failed_jobs work). They differ on symptom 2 and on side effects. impl-1 adds an atomic DB claim with lazyById, a failed() hook, backoff and a lock expiry, plus a real failed_jobs test; its only flaws are an inconsistent tries/dontRelease rationale and one config-only test. impl-2 is the most modern (Laravel 13 job attributes, MaxExceptions, releaseAfter) but stacks three dedup mechanisms whose windows don't line up, and never proves a row reaches failed_jobs. impl-4 is idiomatic (ShouldBeUnique plus attributes) and has the best end-to-end outage-then-recovery test, but leaves the dispatcher untouched: crm_sync_queued_at loses its meaning, and failed subscribers are re-queued every minute during an outage. impl-3 keeps the log-and-rethrow pattern, has no failed() hook, and leaves overlap releases at 0 delay with only 3 tries. Worse, it introduces the same offset-pagination bug that symptom 4 describes into DispatchCrmSync: my probe queued only 1500 of 2500 subscribers. My probes also covered dispatching twice on the real database queue (one job in all four), a held overlap lock (impl-1 drops the job, the others release it), and a full outage followed by recovery (all four recover)."
+ },
+ "cost_usd": 0.6266884
+}

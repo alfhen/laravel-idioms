@@ -1,0 +1,78 @@
+{
+ "key": "filament-admin",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 8,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Only the Resolve row action sets resolved_at. Setting status to Resolved in the edit form leaves resolved_at null (probe confirmed), and that ticket is then silently left out of the 30-day average resolution stat",
+    "Reopening a resolved ticket through the form keeps the old resolved_at (probe confirmed), so status and resolved_at disagree",
+    "resolved_at is a free, editable DateTimePicker (app/Filament/Resources/Tickets/Schemas/TicketForm.php:24), so users can enter a resolved date before created_at or on an open ticket",
+    "Any non-admin can delete customers, both one at a time and in bulk (CustomersTable.php:24, EditCustomer.php:15). Deleting a customer cascades to its tickets (probe confirmed), which gets around the rule that only admins delete tickets"
+   ],
+   "antipatterns": [
+    "app/Filament/Widgets/TicketStats.php:13-16 - the resolution-time calculation lives in the widget and is not a reusable model method or scope",
+    "app/Filament/Resources/Tickets/Schemas/TicketForm.php:24 - resolved_at is exposed as user input when it should be derived from status",
+    "tests/Feature/TicketAdminTest.php:21 - `uses(RefreshDatabase::class)` in each file instead of the Pest.php `pest()->extend()->use()` setup",
+    "tests/Feature/TicketAdminTest.php:124-131 - validation tests are thin: no dataset and no status/priority/max-length cases",
+    "All tests are in one file (tests/Feature/TicketAdminTest.php); widget tests cover only the stats, with no customer edit or unique-ignore test"
+   ],
+   "strengths": [
+    "Follows the Filament 5 resource layout: Schemas/Tables classes, enums implementing HasLabel/HasColor, the Heroicon enum",
+    "Domain method Ticket::resolve() keeps the row action thin",
+    "Scopes use the #[Scope] attribute; models use the #[Fillable] attribute and the casts() method",
+    "Correct TestAction usage for row, bulk and relation-manager actions; policy checks are tested in both directions",
+    "The widget shows a dash when there is no data, rather than a misleading 0"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "EditCustomer's DeleteAction is open to non-admins (app/Filament/Resources/Customers/Pages/EditCustomer.php:15). With customer_id cascadeOnDelete, a non-admin can delete all of a customer's tickets (probe confirmed), which gets around the admin-only ticket delete rule"
+   ],
+   "antipatterns": [
+    "app/Filament/Resources/Tickets/Tables/TicketsTable.php:27 and RepliesRelationManager.php:31 - modifyQueryUsing(->with(...)) is redundant because Filament already eager-loads relationships used by dotted columns",
+    "app/Models/Ticket.php:74-80 - the average is computed in PHP over a collection; a DB aggregate would scale better (acceptable for a 30-day window)",
+    "app/Filament/Resources/Tickets/Tables/TicketsTable.php:65-67 - an `@var User` docblock and temp variable just to get auth()->id()"
+   ],
+   "strengths": [
+    "A TicketObserver registered with #[ObservedBy] keeps resolved_at consistent on every save path: the row action, the form, and reopening (stamps or clears it, keeps an existing value). Probes confirmed this",
+    "resolved_at is disabled in the form, so it is derived from status and not entered by hand",
+    "Ticket::averageResolutionHours() plus scopes (open, urgent, unassigned, resolvedSince) keep the widget a three-liner",
+    "Tests are thorough and idiomatic Pest: split per resource, datasets for validation, failure paths for both admin and non-admin delete (page and bulk), and a test that resolved_at is stamped and cleared through the form",
+    "Expressive factory states (status(), priority(), resolvedAfterHours()); RefreshDatabase is configured once in Pest.php",
+    "Full Filament 5 layout: Schemas/Tables classes, HasLabel/HasColor enums, and a relation manager that sets the author via mutateDataUsing"
+   ]
+  },
+  "rationale": "I reviewed impl-2 first, then impl-1. Both test suites pass: impl-2 has 40 tests and impl-1 has 25. The two implementations are structurally almost the same Filament 5 build: Schemas/Tables classes, HasLabel/HasColor enums, #[Scope] scopes, the same policy, relation manager and widget layout. The ranking comes down to how each handles resolved_at, plus test depth. impl-2 uses an #[ObservedBy] observer, so resolved_at is set when a ticket becomes resolved through any path and cleared when it is reopened. It also disables the field in the form. impl-1 sets resolved_at only in the Resolve row action and leaves the field editable. My probes confirmed that resolving through the form leaves resolved_at null, which quietly skews the average-resolution stat, and that reopening keeps a stale resolved_at. Both have the same gap: a non-admin can delete a customer, and the cascade deletes that customer's tickets. impl-1 also has a customer bulk delete. impl-2's tests are broader: validation datasets, delete-permission tests on both the page and the bulk action, a form test for stamping and clearing resolved_at, and a customer edit test. impl-2's extra eager loading is redundant but harmless."
+ },
+ "cost_usd": 0.6021816
+}

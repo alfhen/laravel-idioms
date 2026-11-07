@@ -1,0 +1,79 @@
+{
+ "key": "sales-report",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.4,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Orders that have no items still count toward order_count, which lowers average_order_value (BuildSalesReport.php:31). impl-2 does the same, and it is defensible."
+   ],
+   "antipatterns": [
+    "app/Reports/BuildSalesReport.php:14 \u2013 the constant LINE_TOTAL actually holds the aggregate 'sum(...)', so the name is misleading",
+    "app/Reports/BuildSalesReport.php:28 \u2013 `whereHas('order', fn => $q->mergeConstraintsFrom($orders()))` is a roundabout way to reuse scopes; passing a scope closure would be simpler",
+    "app/Reports/BuildSalesReport.php:20 \u2013 the action takes an untyped array shape (described only in a docblock) instead of typed parameters",
+    "tests/Feature/SalesReportTest.php:20 \u2013 the test helper calls a factory state through a dynamic method name (`->$state()`)",
+    "tests/Feature/SalesReportTest.php:271 \u2013 the 'no network calls' test adds nothing for this feature"
+   ],
+   "strengths": [
+    "Thin invokable controller that hands off to a single-purpose report action",
+    "The FormRequest uppercases country in prepareForValidation, validates status with Rule::enum, uses date_format plus after_or_equal, and filters() returns typed Carbon/enum values",
+    "Uses `nullable`, so blank optional params (`?status=`) fall back to the defaults instead of returning 422",
+    "Modern #[Scope] and #[Fillable] attributes, enum cast, and column names qualified with the table so the joins are not ambiguous",
+    "Factories have expressive states (fromCountry, placedAt, priced, paid/refunded), and integer casts are set on the money columns",
+    "Aggregation happens in SQL with stable tie-breakers, and money is formatted with Number::currency",
+    "Tests cover thousands-separator formatting, other statuses leaking into rankings, inclusive date bounds, and a data provider of invalid params"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "The rules use `sometimes` rather than `nullable`, so blank optional params (`?status=`, `?from=`, `?country=`) return 422 instead of using the defaults (probe confirmed: blank from/to/country/status gave 422 with 7 errors) \u2013 SalesReportRequest.php:25-28",
+    "Orders that have no items still count toward order_count, which lowers average_order_value (BuildSalesReport.php:29). impl-1 does the same."
+   ],
+   "antipatterns": [
+    "app/Reports/BuildSalesReport.php:29 \u2013 repeats the scope chain from line 24 instead of reusing it for the count",
+    "database/factories/OrderItemFactory.php:21 \u2013 `unit_price` closure runs Product::findOrFail, an extra query for every item created",
+    "tests/Feature/SalesReportTest.php:249 \u2013 mocks Http\\Client\\Factory with shouldNotReceive to show there are no network calls; this is meaningless noise (Http::preventStrayRequests is the idiom)",
+    "database/factories/CustomerFactory.php:6 / ProductFactory.php:6 \u2013 stray blank lines in the import blocks; imports in OrderFactory/OrderItemFactory are not sorted",
+    "app/Http/Controllers/SalesReportController.php:13 \u2013 spreading the filters array as named args ties the request's array keys to the action's parameter names"
+   ],
+   "strengths": [
+    "Thin invokable controller and a single-purpose report action with typed parameters",
+    "Item queries start from OrderItem with whereHas('order', $scopes), which avoids ambiguous columns and the need for table-qualified scopes",
+    "Modern #[Scope] and #[Fillable] attributes, enum cast, Rule::enum, and Number::currency",
+    "Aggregation happens in SQL with deterministic tie-breakers, and the top customers include an id",
+    "Thorough tests: inclusive date bounds, case-insensitive country, multi-item orders, unit_price vs product price, caps and ordering, a data provider of invalid params (including an array status), and AssertableJson usage"
+   ]
+  },
+  "rationale": "The two implementations are almost identical in structure: invokable controller, FormRequest with filters(), a BuildSalesReport action, #[Scope] scopes, and SQL aggregation. Both pass their suites (impl-2: 24 tests, impl-1: 25). In my probes both returned the same correct results for country filtering across all breakdowns, for very large money values, for orders without items, and for malformed params. The real behavioural difference is validation. impl-2's `sometimes` rules reject blank optional params with 422, while impl-1's `nullable` falls back to the defaults, which is what you want for optional query params. impl-1 also has more expressive factory states and uses the Http::preventStrayRequests idiom. impl-2 repeats the scope chain for the count, makes an extra query per item in its factory, and its HTTP 'no network' test mocks the client factory, which is odd. impl-2 does use typed action parameters and avoids qualifying columns by starting from OrderItem, both of which are nice. On balance impl-1 is slightly better."
+ },
+ "cost_usd": 0.5324404
+}

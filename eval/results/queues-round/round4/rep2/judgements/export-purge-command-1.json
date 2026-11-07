@@ -1,0 +1,98 @@
+{
+ "key": "export-purge-command",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 8.6,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "The lock lasts a fixed 3600s (PurgeExports.php:43). A first manual purge over millions of rows could take longer, so the lock would expire while that run is still going and a scheduled run could start alongside it. This is minor."
+   ],
+   "antipatterns": [
+    "routes/console.php:12 hardcodes ->timezone('Europe/Copenhagen'), which the task did not ask for. The app timezone is UTC, so this quietly changes what '03:00' means.",
+    "tests/Feature/PurgeExportsTest.php:148 replaces the disk with Storage::shouldReceive('disk') and a duck-typed anonymous class instead of Storage::set(), which is fragile.",
+    "No test covers an operator answering yes at the production prompt. test_production_refuses_without_confirmation only works because Prompts is non-interactive in tests."
+   ],
+   "strengths": [
+    "Uses ConfirmableTrait::confirmToProceed with --force, the framework's standard tool for production confirmation, and returns FAILURE when the operator refuses.",
+    "Iterates with select(['id','path'])->lazyById(500), which keeps memory low and stays safe while rows are deleted mid-iteration.",
+    "Uses the #[Scope] attribute scope, #[Signature]/#[Description] attributes and the #[Fillable] attribute, all current Laravel 13 conventions.",
+    "Takes a Cache::lock inside the command and adds onOneServer to the schedule, so a manual run and the nightly run can't overlap. The lock is released in a finally block, which a probe confirmed after an exception mid-run.",
+    "Validates --days with FILTER_VALIDATE_INT and returns INVALID. Dry-run skips both the confirmation and the lock.",
+    "Probes with a real permission-denied directory showed the row is kept, the rest of the run continues and the exit code is 1."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 8,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "The lock lasts a fixed 3600s (PurgeExports.php:21). A long first purge over millions of rows could outlive it and lose its protection against overlapping runs. This is minor."
+   ],
+   "antipatterns": [
+    "tests/Feature/PurgeExportsTest.php:49 defines an anonymous subclass of the command with a copied #[Signature] and toggles Prompt::interactive just to test the prompt. This is heavy ceremony, and the copied signature can drift from the real one.",
+    "tests/Feature/PurgeExportsTest.php:208 sets up a mock expectation after all assertions have run. It is dead code.",
+    "PurgeExports.php:60 has no @param Builder<Export> generic, and lazyById() loads every column when only id and path are needed (a minor point)."
+   ],
+   "strengths": [
+    "Uses ConfirmableTrait with --force and returns FAILURE when the operator refuses. The loop is a plain foreach over lazyById.",
+    "The tests cover confirmation declined, confirmation accepted, --no-interaction and --force in production.",
+    "A single Mockery Filesystem test covers a delete that returns false, a delete that throws and a successful delete.",
+    "Uses a Cache::lock released in a finally block together with onOneServer. Validates --days and returns INVALID.",
+    "Behaved correctly in every probe: malformed --days values, a non-interactive production run, a real permission-denied failure, and the lock being released after an exception."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.2,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "PurgeExports.php:68-75 writes its own operatorApproves() check (isProduction() || force, then confirm) instead of using ConfirmableTrait::confirmToProceed, so it duplicates framework behaviour.",
+    "routes/console.php:14 adds ->withoutOverlapping() on top of the lock already inside the command. The schedule mutex never sees a manual run, so this adds little.",
+    "Fully-qualified classes are written inline: \\RuntimeException at tests/Feature/Console/PurgeExportsTest.php:157 and \\DateTimeInterface at ExportFactory.php:23.",
+    "Invalid --days returns FAILURE instead of INVALID (PurgeExports.php:26). This is minor."
+   ],
+   "strengths": [
+    "The lock lasts 6 hours, which gives realistic headroom for a long purge over millions of rows.",
+    "Mocks with a partial Mockery mock of the real disk passed to Storage::set, a clean way to make a single path fail.",
+    "Tests confirmation yes and no in production directly with expectsConfirmation, without workarounds.",
+    "Small helpers (purge() and deleteFile()) keep handle() readable. The lock is released in a finally block before the summary is printed.",
+    "Uses lazyById(1000), an indexed created_at column and a #[Scope] attribute scope. Probes confirmed a non-interactive production run refuses, and a real permission-denied failure keeps the row and exits 1."
+   ]
+  },
+  "rationale": "All three versions do the job and behave almost the same. Every test suite passes (18, 17 and 17 tests). The probes found no real bugs in any of them. They covered malformed --days values (1.5, empty, -1, 007), a non-interactive production run without --force, dry-run while locked, the lock being released after an exception, and a real permission-denied file deletion. In every case each version kept the row, carried on with the rest and exited 1. Each one has a Cache::lock inside the command plus onOneServer, deletes through lazyById, and indexes created_at. The ranking comes down to idiom and the quality of the tests.\n\nimpl-1 has the most idiomatic code. It uses ConfirmableTrait and select(['id','path'])->lazyById, and its code is the leanest. Its weak points are a hardcoded Europe/Copenhagen timezone nobody asked for, a 1-hour lock, and no test for an operator confirming. \n\nimpl-3 has the cleanest tests for the confirmation path and a more realistic 6-hour lock. But it writes its own confirmation logic instead of using ConfirmableTrait and adds a redundant withoutOverlapping. \n\nimpl-2 is nearly identical to impl-1 in code. Its tests rely on a heavy subclass-and-copied-signature workaround to test the prompt, and leave a dead mock expectation behind, so it ranks last."
+ },
+ "cost_usd": 0.5016558
+}

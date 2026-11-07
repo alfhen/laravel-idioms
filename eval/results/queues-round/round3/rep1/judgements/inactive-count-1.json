@@ -1,0 +1,101 @@
+{
+ "key": "inactive-count",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "routes/console.php:12 withoutOverlapping(10) adds a cache lock to a sub-second, read-only count on a single server. It's ceremony the task didn't need.",
+    "routes/console.php:13 appendOutputTo a separate inactive-users.log file with no timestamp in the output line, so the daily entries can't be told apart by date",
+    "tests/Feature/CountInactiveUsersTest.php:58 the column test reads mostly as a check on the cast, not on the migration (minor)"
+   ],
+   "strengths": [
+    "Uses a #[Scope] attribute for inactiveFor with grouped whereNull/orWhere, so the OR can't leak into other where clauses",
+    "Command uses #[Signature]/#[Description] attributes and returns self::FAILURE/SUCCESS",
+    "filter_var validation rejects null, '', '1.5', 'abc', '-1' and '007'. Probes confirmed this.",
+    "Output line carries context ('Users inactive for 90 days: N'), which helps in a log",
+    "Indexed nullable timestamp column, with a clean down()",
+    "Tests freeze time and cover the exact N-days boundary, never-logged-in users, --days, an empty table, a dataset of invalid inputs and the cron expression",
+    "Pest.php cleanly enables RefreshDatabase; Pint passes"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Console/Commands/CountInactiveUsers.php:24 prints only a bare number with no label or timestamp into a dedicated log file. It meets the letter of 'shows up in our logs', but each log entry can't be read on its own."
+   ],
+   "antipatterns": [
+    "tests/Pest.php:18 leaves the commented `// ->use(RefreshDatabase::class)` line in place and adds a duplicate live line beneath it",
+    "tests/Feature/InactiveUsersCountTest.php:11 Http::preventStrayRequests() is unrelated noise for a DB-only command",
+    "tests/Feature/InactiveUsersCountTest.php:72 asserting onOneServer is false tests something that isn't there",
+    "database/factories/UserFactory.php:47 adds a lastLoginAt factory state that's barely more than create(['last_login_at' => ...])",
+    "tests use assertExitCode(0/1) where assertSuccessful()/assertFailed() would be more idiomatic"
+   ],
+   "strengths": [
+    "filter_var with the min_range option is a neat way to validate",
+    "Same well-grouped #[Scope] and attribute-based command as impl-1; indexed column",
+    "Best boundary test (exactly 90 days vs 90 days + 1 second) and includes the empty-string invalid case",
+    "Schedule entry is proportionate: dailyAt('06:00') with no extra locking"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 7,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "app/Console/Commands/CountInactiveUsers.php:32 output reads '1 users have not logged in\u2026', so it isn't pluralised (Str::plural / trans_choice would fix it)"
+   ],
+   "antipatterns": [
+    "app/Models/User.php:7-8 imports are out of order, so Pint fails (ordered_imports)",
+    "app/Console/Commands/CountInactiveUsers.php:17-28 a full Validator facade, the validated() array and an (int) cast is heavier than needed to check one integer option",
+    "database/migrations/..._add_last_login_at_to_users_table.php:12 no index on a column that is range-filtered every day (minor)",
+    "tests/Feature/CountInactiveUsersTest.php: no freezeTime and no exact-boundary (N days ago) test",
+    "tests/Feature/CountInactiveUsersTest.php:50 the invalid-input assertion only checks that output contains 'days', which is very weak",
+    "tests/Feature/CountInactiveUsersTest.php:56 untyped closure where the others type-hint Event"
+   ],
+   "strengths": [
+    "Same correct grouped #[Scope] query; probes show identical behaviour on null, 0, '007', '+5', ' 5' and very large values",
+    "Validator gives standard Laravel error messages",
+    "Passes options as an array to artisan() in tests, which is clean",
+    "Schedule entry is proportionate"
+   ]
+  },
+  "rationale": "All three implementations work: tests pass (11, 13 and 11), and the probes (bare --days, 0, '007', '+5', ' 5', 99999999, future logins, the exact 90-day boundary) behaved the same in every one. The query scope is effectively identical across all three. So the ranking comes down to output quality, tests and polish.\n\nimpl-1 is the most balanced. Its output line is labelled, its tests are idiomatic with frozen time and an exact-boundary case, Pest.php is edited cleanly and Pint passes. Its only real excess is withoutOverlapping(10) on a single server.\n\nimpl-2 has the strongest boundary tests, but it logs a bare number, leaves a stray duplicate line in Pest.php, and adds noise: Http::preventStrayRequests, an onOneServer assertion and an unneeded factory state.\n\nimpl-3 fails Pint because of import order, prints '1 users', uses a full Validator for one option, has no index, and has weaker tests: no frozen time, no boundary case, and the error assertion only matches the word 'days'."
+ },
+ "cost_usd": 0.2778542
+}

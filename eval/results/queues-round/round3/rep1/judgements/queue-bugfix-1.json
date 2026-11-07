@@ -1,0 +1,104 @@
+{
+ "key": "queue-bugfix",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 9,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Minor: the claim TTL (15 min, app/Models/Subscriber.php:15) is shorter than UniqueFor(3600). After 15 minutes of backlog the dispatcher reclaims the row, but ShouldBeUnique silently rejects the push, so 'Queued N subscribers' overcounts (app/Console/Commands/DispatchCrmSync.php:26-27). No duplicate CRM calls result."
+   ],
+   "antipatterns": [
+    "app/Models/Subscriber.php:17 uses the legacy scopeNeedsCrmSync naming instead of the #[Scope] attribute available in Laravel 12+",
+    "app/Models/Subscriber.php:15 has a public const claim TTL that isn't coordinated with UniqueFor(3600) at app/Jobs/SyncSubscriberToCrm.php:17",
+    "Two dedupe layers (DB claim plus cache unique lock) give some belt-and-braces redundancy"
+   ],
+   "strengths": [
+    "Finds all four root causes: the swallowed exception, a dispatcher that ignores crm_sync_queued_at, the 24h default mutex expiry on withoutOverlapping, and chunk() over a column it mutates (fixed with chunkById)",
+    "Atomic conditional UPDATE claim, combined with lazyById and a reusable needsCrmSync scope",
+    "Uses modern Laravel 13 queue attributes (Tries, Backoff, Timeout, UniqueFor, DeleteWhenMissingModels), all verified in vendor",
+    "Removes WithoutOverlapping, whose default releaseAfter=0 and never-expiring lock were burning tries; ShouldBeUnique covers it",
+    "failed() records crm_last_error; the stale claim re-queues after recovery (probe confirmed end-to-end recovery)",
+    "Strong tests: a real queue:work run that lands in failed_jobs, a stale-claim re-queue test, a database-queue uniqueness test, a schedule expiresAt test, and a 250-row chunk-boundary test",
+    "Deleted subscribers are discarded rather than spamming failed_jobs"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 6,
+    "architecture_fit": 6,
+    "modern_laravel": 9,
+    "focus_area": 6,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 6
+   },
+   "overall": 6.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "Root cause 2 is not fixed at the source. DispatchCrmSync is unchanged (app/Console/Commands/DispatchCrmSync.php:19-21): every minute it still re-dispatches every unsynced subscriber and overwrites crm_sync_queued_at. Duplicates are suppressed only by the cache-based ShouldBeUnique lock, and the probe confirmed it reports 'Queued 2' on every run instead of 0.",
+    "failed() nulls crm_sync_queued_at (app/Jobs/SyncSubscriberToCrm.php:61), but nothing reads that column, so the line is dead logic"
+   ],
+   "antipatterns": [
+    "app/Jobs/SyncSubscriberToCrm.php:32 keeps WithoutOverlapping alongside ShouldBeUnique, which is a redundant second lock",
+    "app/Jobs/SyncSubscriberToCrm.php:48-51 uses catch/update/rethrow on every attempt when failed() already records the error",
+    "Tries(10)/MaxExceptions(3) adds tuning ceremony to work around overlap releases instead of removing the overlap middleware",
+    "Misleading command output and a meaningless crm_sync_queued_at column remain"
+   ],
+   "strengths": [
+    "Correctly rethrows, so jobs retry and land in failed_jobs, and failed() records the error",
+    "Modern attribute configuration (Tries, MaxExceptions, Backoff, Timeout, UniqueFor)",
+    "expireAfter(60) on the job overlap lock plus withoutOverlapping(10) on the schedule fix the stuck-mutex problem",
+    "chunkById fix with a good boundary test",
+    "Its end-to-end test covers retries, failed_jobs and recovery through a real worker with time travel"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 6,
+    "focus_area": 8,
+    "tests": 6,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "WithoutOverlapping->dontRelease() (app/Jobs/SyncSubscriberToCrm.php:29) silently deletes a job that hits a held overlap lock. The probe showed the subscriber left unsynced while crm_sync_queued_at stays claimed, so it is not re-dispatched for 60 minutes. This is mostly harmless because the lock holder is usually syncing the same subscriber, but it can lose a sync if that holder then fails."
+   ],
+   "antipatterns": [
+    "app/Jobs/SyncSubscriberToCrm.php:16-18 uses public $tries/$timeout properties and a backoff() method instead of the Laravel 13 queue attributes",
+    "The test 'retries with backoff and enough attempts to survive overlap releases' contradicts dontRelease() (there are no releases) and only asserts config values",
+    "The test mutates $job->tries = 1 and uses an Http::swap(new Factory) hack where Http::fakeSequence would do",
+    "The claim query is inlined in the command (app/Console/Commands/DispatchCrmSync.php:23-26) rather than a reusable model scope",
+    "Recovery within the 60-minute claim is slow (probe: still unsynced 2 minutes after recovery, synced by 20 minutes)"
+   ],
+   "strengths": [
+    "Fixes all four root causes at the source: rethrow plus failed(), an atomic DB claim with stale TTL and lazyById, withoutOverlapping(10), and chunkById",
+    "CLAIM_MINUTES carries a single constraint comment that is accurate: worst-case retries are about 14 minutes, under 60",
+    "Adds expireAfter(120) on the job overlap lock, so killed workers do not leave permanent locks",
+    "The fresh() synced guard makes duplicates idempotent",
+    "Test suite covers failed_jobs via a real worker, stale re-queue, schedule expiry and the chunk boundary, including leaving already-normalized rows untouched"
+   ]
+  },
+  "rationale": "All three suites pass (impl-1 13, impl-2 11, impl-3 14), and all fix #1 (rethrow plus failed()), #3 (an expiring withoutOverlapping mutex) and #4 (chunkById). They differ on #2 and on how idiomatic the code is. impl-1 fixes the duplicates at the source with an atomic conditional-update claim through a model scope, adds ShouldBeUnique as a backstop, removes the WithoutOverlapping middleware that was burning tries, and uses Laravel 13 queue attributes. Its tests are the strongest, including real-worker failed_jobs and database-queue uniqueness. Probes confirmed recovery after an outage and no duplicate jobs during a backlog. impl-3 also fixes the dispatcher at the source with an atomic claim, but uses older property/method job config, and dontRelease() can silently drop a job (confirmed by a probe). Its tests are weaker: one asserts config values under a name that contradicts the code, and one uses an Http::swap hack. impl-2 never touches the dispatcher. It still re-dispatches every unsynced row every minute, rewrites crm_sync_queued_at and misreports counts (probe confirmed), relying only on a cache unique lock. It also stacks a redundant WithoutOverlapping and a dead crm_sync_queued_at reset, though its attribute usage is modern. Ranking: impl-1 > impl-3 > impl-2."
+ },
+ "cost_usd": 0.6356752000000001
+}

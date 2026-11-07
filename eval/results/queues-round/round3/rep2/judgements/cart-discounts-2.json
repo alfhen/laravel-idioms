@@ -1,0 +1,105 @@
+{
+ "key": "cart-discounts",
+ "judge": 2,
+ "v": {
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 9,
+    "thin_controllers": 10,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 9
+   },
+   "overall": 8.8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "ApplyDiscountRequest.php:22 uppercases the submitted code but nothing normalises stored codes, so a code saved in lowercase (e.g. 'save10') can never be applied: 422 'does not exist'."
+   ],
+   "antipatterns": [
+    "tests/Feature/ExampleTest.php: unrelated rewrite of the base example test (churn outside the task)",
+    "ApplyDiscountRequest.php:64 recomputes the subtotal inline instead of reusing a Cart::subtotal() helper; PriceCart.php:20 duplicates the same sum"
+   ],
+   "strengths": [
+    "Invokable controller in one line; pricing lives in a dedicated PriceCart class",
+    "FormRequest after() hook with a match(true) chain gives exactly one clear 422 per failure reason; once() memoises the code lookup",
+    "Fixed-amount split is built with collections (mapWithKeys/replace/take/flip), guards a zero pool, and the line amounts add up exactly to the discount",
+    "Enum cast, #[Fillable] attribute, casts() method, factory states (percentage/fixed/expired/exhausted)",
+    "Most thorough tests: boundaries at the threshold and at min_subtotal, rounding, one-message-per-failure, a data provider for bad inputs, empty cart, uses not consumed"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 10,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 9
+   },
+   "overall": 7.2,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "CalculateCartPricing.php:87 throws DivisionByZeroError (a 500) for a fixed code when two or more eligible lines all have a 0 line total",
+    "ApplyDiscountRequest.php:60 on an empty cart with an unrestricted code the 422 message reads 'The cart has no items in the  category.' (blank category)"
+   ],
+   "antipatterns": [
+    "CalculateCartPricing.php:80-92 imperative foreach with running totals instead of a collection pipeline",
+    "DiscountCode.php:17 no integer casts for value/min_subtotal/max_uses/times_used",
+    "ApplyDiscountRequest.php:5-8 imports out of order (Enums after Models)",
+    "tests/Feature/ApplyDiscountTest.php:36 Http::preventStrayRequests() in a single test only; apply() helper has no return type"
+   ],
+   "strengths": [
+    "Thin invokable controller with an injected pricing class",
+    "Cart::subtotal() and DiscountCode::appliesTo() put the domain logic on the models",
+    "Adds a sensible 'no eligible items' rejection that exempts free-shipping codes",
+    "Percentage discount clamped per line; time-travel test for expiry"
+   ]
+  },
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 5,
+    "simplicity": 5
+   },
+   "overall": 6.4,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "Re-applying a code the cart already holds fails once the code is at max_uses: the cart's own claim makes isExhausted() true in ApplyDiscountRequest.php:50 before the ApplyDiscountToCart.php:18 shortcut can run (max_uses=1: first call 200, second call 422)",
+    "ApplyDiscountRequest.php:52 on an empty cart with an unrestricted code the message reads 'only applies to the  category, which is not in the cart.'"
+   ],
+   "antipatterns": [
+    "Scope creep: ApplyDiscountToCart claims and releases uses, runs a transaction, and adds carts.discount_code_id, none of which the task asked for",
+    "ApplyDiscountRequest.php:45 calls $cart->load('items') as a side effect inside the FormRequest, and the action loads the items again (ApplyDiscountToCart.php:30)",
+    "CalculateCartPricing.php:86 imperative remainder loop; the line discounts are a plain array merged with + instead of a collection",
+    "Tests do not cover a non-string or too-long code; the reuse test uses max_uses=2, which hides the re-apply bug"
+   ],
+   "strengths": [
+    "Atomic conditional increment in DiscountCode::claim() handles concurrent use of the last remaining use correctly",
+    "Uses doesntContain, whereColumn, whereKey and a nullOnDelete foreign key idiomatically",
+    "The fixed split never makes a line negative and handles zero-priced lines",
+    "Tests cover releasing the old code's use when switching codes and the last-use race"
+   ]
+  },
+  "rationale": "impl-2 is the cleanest: it splits work properly between the form request and the pricing class, builds the fixed split with collections and guards against dividing by zero, and has the broadest tests. Its one weakness is that it assumes stored codes are uppercase. impl-3 has nearly the same design but crashes with a 500 on zero-priced eligible lines and shows a broken message for empty carts. impl-1 adds atomic claiming of uses, which is well built but beyond the task, and that extra behaviour causes a real bug: re-applying a code the cart already holds at max_uses returns 422. It also has the same broken empty-cart message, so it ranks last."
+ },
+ "cost_usd": 0.6893668000000001
+}

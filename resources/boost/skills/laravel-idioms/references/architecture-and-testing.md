@@ -105,7 +105,9 @@ it('stores an article', function () {
 | Auth | guest → `assertUnauthorized()`, other user → `assertForbidden()` |
 | Validation | one per rule (or a dataset), asserting the error key **and** message, including query-string filters |
 | Limits | caps (top N, `per_page`), ordering ties, empty result, zero/rounding edges |
-| Side effects | `Queue::fake()` → `assertPushed`; `Mail::fake()` → `assertSent`/`assertQueued`; `Storage::fake()` → `assertExists`; unchanged state after a failure |
+| Side effects | `Queue::fake()` → `assertPushed`; `Mail::fake()` → `assertQueued` for `ShouldQueue` mailables (however they were sent), `assertSent` for sync ones; `Storage::fake()` → `assertExists`; unchanged state after a failure |
+| Jobs | `handle()` called twice leaves one record and one external call; `failed()` called directly sets the failed status; release/fail paths via `withFakeQueueInteractions()` |
+| Schedules and commands | entries asserted through `app(Schedule::class)->events()`; every command path via `$this->artisan(...)->assertExitCode()` plus its side effect (`console-commands.md`) |
 | Robustness | malformed input (blank/ragged rows, wrong types), and the job `failed()` path |
 
 ```php

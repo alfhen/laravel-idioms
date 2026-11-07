@@ -109,6 +109,31 @@ $this->post('/checkout')->assertRedirect(route('orders.index'));
 ```
 - Livewire and Filament pages: `Livewire::test(Page::class)` or `livewire()`; see `filament.md`.
 
+## Commands and schedules
+
+```php
+it('refuses to purge in production without --force', function () {
+    app()->detectEnvironment(fn () => 'production');
+    $cart = Cart::factory()->abandoned()->create();
+
+    $this->artisan('carts:prune')
+        ->expectsConfirmation('Are you sure you want to run this command?', 'no')
+        ->assertFailed();
+
+    expect($cart->fresh())->not->toBeNull();
+});
+
+it('runs the report daily at 07:00 Copenhagen time on one server', function () {
+    $event = collect(app(Schedule::class)->events())
+        ->first(fn (Event $e) => str_contains((string) $e->command, 'report:daily'));
+
+    expect($event->expression)->toBe('0 7 * * *')
+        ->and($event->timezone)->toBe('Europe/Copenhagen')
+        ->and($event->onOneServer)->toBeTrue();
+});
+```
+- End every `artisan()` chain with `assertSuccessful()`, `assertFailed()` or `assertExitCode()`, then assert the side effect. More in `console-commands.md` and `scheduling.md`.
+
 ## Arch tests
 
 ```php

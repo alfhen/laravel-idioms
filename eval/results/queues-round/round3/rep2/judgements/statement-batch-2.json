@@ -1,0 +1,109 @@
+{
+ "key": "statement-batch",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 6,
+    "modern_laravel": 7,
+    "focus_area": 6,
+    "tests": 5,
+    "correctness": 6,
+    "simplicity": 6
+   },
+   "overall": 5.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "DispatchStatementBatch::failed() (app/Jobs/DispatchStatementBatch.php:42-48) sets completed_with_errors with failed_accounts left at 0 and sends no StatementRunSummary. Probe: a fan-out crash left the status as completed_with_errors, failed_accounts 0 and 0 summary emails sent",
+    "GenerateAccountStatement wraps everything in catch (Throwable) and calls $this->fail($e) (app/Jobs/GenerateAccountStatement.php:46-48). The worker never reports these exceptions, so a broken generator or SMTP outage never reaches the exception handler or log monitoring",
+    "Fan-out builds all ~40k job objects and pushes them in one Bus::batch dispatch inside a single job on the default queue. On SQS each message is sent individually, so with a 600s timeout this sits right at the limit",
+    "FinalizeStatementRun (app/Actions/FinalizeStatementRun.php:14) has no guard on status=running, so a duplicate finally or retry would overwrite the run and email finance twice",
+    "StatementReady interpolates the account name into HTML unescaped (app/Mail/StatementReady.php:22)",
+    "Nothing schedules queue:prune-batches or queue:prune-failed, so the job_batches and failed_jobs tables grow forever"
+   ],
+   "antipatterns": [
+    "app/Jobs/GenerateAccountStatement.php:39-48: try/catch Throwable then $this->fail() is redundant with #[Tries(1)] and hides the exception from reporting",
+    "app/Jobs/FinalizeStatementRunCallback.php: an invokable non-job class placed in App\\Jobs, which is extra ceremony compared with a static closure",
+    "app/Jobs/GenerateAccountStatement.php:45: re-queries StatementRun once per account only to pass it to the mailable",
+    "app/Jobs/GenerateAccountStatement.php:35-37: silently returns when the account is missing instead of using DeleteWhenMissingModels / SerializesModels",
+    "tests/Feature/StatementRunTest.php: all end-to-end tests run on the sync driver, so the tests never exercise queue separation, a real worker or failed_jobs",
+    "tests/Feature/StatementRunTest.php:45: calls handle() manually with a fully qualified class name inline"
+   ],
+   "strengths": [
+    "pluck('id') with scalar job payloads keeps fan-out memory low",
+    "Uses SkipIfBatchCancelled middleware, PHP attributes for Tries/Timeout, and a #[Scope] attribute",
+    "Has a failed() fallback so the run never stays running forever",
+    "Short-circuits when there are no active accounts",
+    "The Bus::assertBatched test checks queue name, allowFailures and job count"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 6,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "If DispatchStatementRun fails (Tries(1), no failed() handler, default 60s timeout), the run stays 'running' forever with no summary email. Probe confirmed status=running, completed_at null, 0 summary emails sent",
+    "DispatchStatementRun (app/Jobs/DispatchStatementRun.php:25-27) materialises all ~40k BillingAccount models into GenerateStatement jobs with ->all() and pushes them in a single batch. On SQS that is 40k sequential sends within the default 60s timeout, which makes the stuck-run case likely in production",
+    "Nothing schedules queue:prune-batches or queue:prune-failed, so the job_batches and failed_jobs tables grow forever"
+   ],
+   "antipatterns": [
+    "app/Jobs/DispatchStatementRun.php:25-27: lazyById()->map()->all() throws away the laziness; it should chunk and use $batch->add()",
+    "app/Jobs/GenerateStatement.php:37: the exists() idempotency check gives little benefit with #[Tries(1)]",
+    "app/Jobs/GenerateStatement.php:25: calls onQueue in the constructor and again on the batch, which duplicates the configuration"
+   ],
+   "strengths": [
+    "CompleteStatementRun guards on status=running and uses an atomic update, so it is idempotent and finance gets exactly one email",
+    "Uses dispatch afterCommit, a static batch finally callback that reloads the run by id, and allowFailures",
+    "Uses current conventions: #[Fillable], #[Scope], #[Tries]/#[Timeout] attributes, a backed enum cast and an htmlString mailable",
+    "Strong tests: a real database queue worker drains default and statements, covering the failure path, no accounts, queue placement, the rule that mail is sent only when the file exists, and idempotency",
+    "Handles the empty-account case directly"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.2,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "DispatchStatementJobs has no #[Timeout] (default 60s) while pushing ~40k jobs. If it dies, the run still finalises, but failed_accounts counts the dispatcher job (1) instead of the accounts that were never attempted. Probe: 2 accounts were never processed and the run reported failed_accounts=1",
+    "Nothing schedules queue:prune-batches or queue:prune-failed, so the job_batches and failed_jobs tables grow forever"
+   ],
+   "antipatterns": [
+    "tests/Feature/StatementRunTest.php:33-48: the failingGeneratorFor anonymous subclass is more ceremony than a Mockery mock",
+    "tests/Feature/StatementRunTest.php:25-31: drainStatementQueue loops four times with time travel, which is a slightly opaque way to get past backoff"
+   ],
+   "strengths": [
+    "The fan-out job sits inside the batch itself, so the request only creates one batch row and one job. A dispatcher crash still triggers finally, and the run always reaches a final status (confirmed by probe)",
+    "lazyById(500)->chunk(500)->each($batch->add) keeps memory flat for 40k accounts",
+    "GenerateStatement uses #[Tries(3), Backoff, Timeout, DeleteWhenMissingModels] with an exists() check, so retries do not regenerate the PDF. Probes: a transient failure recovered with completed/0 failed, and a deleted account did not stall the batch",
+    "CompleteStatementRun claims the run atomically with an update guarded on status=running, so there is no duplicate summary",
+    "StatementReady attaches the PDF via Attachment::fromStorageDisk, and the test asserts the file exists when the email is sent",
+    "Tests use a real database queue, cover two failures, the empty case and the rule that every job goes to the statements queue"
+   ]
+  },
+  "rationale": "All three use Bus::batch with allowFailures, a finally callback, a dedicated statements queue, #[Scope] and attribute-based job config, and all test suites pass. None of them schedules pruning for job_batches or failed_jobs. impl-3 is the strongest. It puts the fan-out job inside the batch and adds the account jobs in chunks with lazyById and $batch->add, so the request stays light and memory stays flat. Because the fan-out job is part of the batch, the run reaches a final status even when the dispatcher crashes (probe confirmed). Retries with backoff and the exists() check make transient failures recover, and completion is idempotent. Its one flaw is that the failure count is off if the dispatcher itself dies. impl-2 has clean code, idempotent completion and the best real-worker tests. But its dispatcher sits outside the batch, loads all 40k models, has no timeout and no failed() handler. My probe showed a fan-out failure leaves the run 'running' forever, which breaks the core 'always reaches a final status' requirement. impl-1 keeps fan-out memory low with pluck('id') and does have a failed() fallback. However, that fallback writes completed_with_errors with failed_accounts=0 and sends no summary email (probe confirmed). It also swallows every exception through catch(Throwable)->fail() so nothing gets reported, has non-idempotent finalisation and unescaped HTML in the mail, and its tests run on the sync driver. impl-2 ranks above impl-1 on code quality and tests, even though its stuck-run bug is serious."
+ },
+ "cost_usd": 0.6382585999999999
+}

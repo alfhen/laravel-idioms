@@ -1,0 +1,103 @@
+{
+ "key": "inactive-count",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "routes/console.php:12 withoutOverlapping(10) is unneeded for a sub-second read-only count on a single server, and it makes the schedule depend on a cache lock",
+    "tests/Feature/CountInactiveUsersTest.php:60 the column test uses forceFill and compares toDateTimeString; it is fine but says little beyond the cast",
+    "app/Models/User.php:39 abbreviated closure param $q where the codebase style elsewhere uses full names (minor)",
+    "Signature option description 'Days without a login' is terse"
+   ],
+   "strengths": [
+    "#[Scope] attribute scope inactiveFor with grouped whereNull/orWhere, so it composes safely with other where clauses",
+    "Indexed nullable timestamp column with a correct down()",
+    "Output is labelled ('Users inactive for 90 days: N'), which reads well in a log file",
+    "freezeTime plus an exact-boundary test (a login exactly N days ago counts as active)",
+    "Invalid --days values are tested with a dataset and an exact error message; assertFailed/assertSuccessful used",
+    "Clean Pest.php edit (the commented line was replaced, not duplicated)",
+    "Schedule entry is tested by its cron expression; appendOutputTo sends output to the logs"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "tests/Feature/InactiveUsersCountTest.php:11 Http::preventStrayRequests() is irrelevant ceremony; the command makes no HTTP calls",
+    "tests/Feature/InactiveUsersCountTest.php:75 asserting onOneServer is false freezes an incidental detail instead of a requirement",
+    "tests/Pest.php:18 left the original commented '// ->use(RefreshDatabase::class)' line above the new active line, so the line is duplicated",
+    "app/Console/Commands/CountInactiveUsers.php:24 prints a bare number; in a log file that has no context about what it counts or which N was used",
+    "tests/Feature/InactiveUsersCountTest.php:14 the column test is weak (it uses hasColumn and a null default)"
+   ],
+   "strengths": [
+    "#[Scope] attribute scope with a correctly grouped OR condition",
+    "filter_var with min_range does the validation in one step; rejects empty, negative, decimal and overflow values (verified by probe)",
+    "Indexed nullable timestamp column",
+    "Expressive factory state lastLoginAt(?DateTimeInterface) keeps the tests readable",
+    "Most thorough tests: freezeTime, an exact-boundary test on both sides (exactly 90 days vs 90 days plus 1 second), a zero-users case, a dataset of invalid inputs including empty, and multiple --days values",
+    "Proportionate schedule: dailyAt('06:00') with appendOutputTo, and no onOneServer/withoutOverlapping overhead for a single server"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 6,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 6.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "app/Console/Commands/CountInactiveUsers.php:32 grammatically wrong output for a count of 1 ('1 users have not logged in...'); Str::plural or a label format would avoid it"
+   ],
+   "antipatterns": [
+    "app/Models/User.php:7-8 imports added out of order (Pint ordered_imports fails)",
+    "app/Console/Commands/CountInactiveUsers.php:17-27 building a full Validator for one integer option is heavier than filter_var with min_range; its messages ('The days field is required.') also don't mention --days",
+    "database/migrations/...072548:13 no index on last_login_at, although every daily query filters on it",
+    "tests/Feature/CountInactiveUsersTest.php:52 expectsOutputToContain('days') is too loose to prove which validation failed",
+    "tests: no freezeTime and no exact-boundary test, so the < vs <= semantics are untested",
+    "tests/Pest.php:18 duplicated the commented RefreshDatabase line instead of replacing it",
+    "Empty .claude/ directory left in the implementation"
+   ],
+   "strengths": [
+    "Same idiomatic #[Scope] attribute scope with a grouped OR",
+    "Readable sentence output that includes N",
+    "Uses assertSuccessful/assertFailed and the array-argument form of artisan()",
+    "Schedule is proportionate (dailyAt plus appendOutputTo) and tested by its cron expression"
+   ]
+  },
+  "rationale": "All three passed their own suites (impl-2: 13 tests; impl-1 and impl-3: 11 each). They share the same core: a #[Scope] inactiveFor with a grouped whereNull/orWhere, a nullable timestamp column, an attribute-based command, and Schedule::command()->dailyAt('06:00')->appendOutputTo(). In my probes all three behaved the same. Each accepts '0', ' 3' and '+3', and each rejects empty, null, and an overflowing --days value. All gave the correct count for very large N. Each wrote its scheduled output to the log file. So the ranking comes down to tests, proportionality and polish. impl-2 has the strongest tests: freezeTime, a boundary check on both sides with subSecond, a factory state, and a dataset of invalid inputs that includes empty. It also has the leanest validation (filter_var with min_range) and an indexed column. It loses a little for Http::preventStrayRequests noise, an incidental onOneServer assertion, bare-number log output and a duplicated comment line in Pest.php. impl-1 is close. It has labelled log output, a boundary test and a clean Pest.php edit. But it adds withoutOverlapping(10), which is unneeded ceremony and a cache-lock dependency for a trivial count on a single server, and its tests are slightly less thorough. impl-3 comes last. It prints '1 users', its imports fail Pint, it uses a heavyweight Validator for one option, it has no index, and it doesn't freeze time or test the boundary. Its invalid-input assertion is also loose."
+ },
+ "cost_usd": 0.3031188
+}

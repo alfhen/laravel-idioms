@@ -3,48 +3,139 @@
     "base": "base",
     "pest": false,
     "focus": "general Laravel idioms",
-    "text": "Add a JSON sales reporting endpoint. Create Customer (name, email, country), Product (name, sku, price in cents, category), Order (customer, status: pending/paid/refunded, placed_at) and OrderItem (order, product, quantity, unit_price in cents) with migrations and factories. Add GET /api/reports/sales that accepts optional query params from, to (dates), country and status (default paid) and returns: total revenue, order count, average order value, revenue per country, top 5 products by revenue (name, sku, units, revenue) and the top 3 customers by spend. Money should be returned both as integer cents and as a formatted string. Invalid params must return 422."
+    "text": "Add a JSON sales reporting endpoint. Create Customer (name, email, country), Product (name, sku, price in cents, category), Order (customer, status: pending/paid/refunded, placed_at) and OrderItem (order, product, quantity, unit_price in cents) with migrations and factories. Add GET /api/reports/sales that accepts optional query params from, to (dates), country and status (default paid) and returns: total revenue, order count, average order value, revenue per country, top 5 products by revenue (name, sku, units, revenue) and the top 3 customers by spend. Money should be returned both as integer cents and as a formatted string. Invalid params must return 422.",
+    "set": "regression"
   },
   "blog-crud": {
     "base": "base",
     "pest": false,
     "focus": "general Laravel idioms",
-    "text": "Add a blog. Authenticated users can create, update, delete and list their own posts via a JSON API under /api/posts. A post has title, slug (generated from the title, unique), body, status (draft/published), published_at and belongs to a user; posts can have many tags (tags are created on the fly from an array of names). Only the author may update or delete a post (403 otherwise). Publishing a post (status -> published) sets published_at if missing. The index endpoint lists the current user's posts, newest first, filterable by status and tag, paginated, and includes tag names. Use Sanctum-style auth if available, otherwise the default auth guard with actingAs in tests."
+    "text": "Add a blog. Authenticated users can create, update, delete and list their own posts via a JSON API under /api/posts. A post has title, slug (generated from the title, unique), body, status (draft/published), published_at and belongs to a user; posts can have many tags (tags are created on the fly from an array of names). Only the author may update or delete a post (403 otherwise). Publishing a post (status -> published) sets published_at if missing. The index endpoint lists the current user's posts, newest first, filterable by status and tag, paginated, and includes tag names. Use Sanctum-style auth if available, otherwise the default auth guard with actingAs in tests.",
+    "set": "archive"
   },
   "csv-import": {
     "base": "base",
     "pest": false,
     "focus": "general Laravel idioms",
-    "text": "Add a product CSV import. POST /api/imports accepts an uploaded CSV file (max 5MB) with columns sku,name,price,stock. Store the file, create an Import record (user, status queued/processing/completed/failed, totals) and process it in the background: skip and record rows with invalid data (missing sku, non-numeric price, negative stock) with row number and reason, insert or update products by sku, then mark the import completed with counts (created, updated, failed) and email the user a summary. GET /api/imports/{import} returns status, counts and the list of row errors; only the owner may view it."
+    "text": "Add a product CSV import. POST /api/imports accepts an uploaded CSV file (max 5MB) with columns sku,name,price,stock. Store the file, create an Import record (user, status queued/processing/completed/failed, totals) and process it in the background: skip and record rows with invalid data (missing sku, non-numeric price, negative stock) with row number and reason, insert or update products by sku, then mark the import completed with counts (created, updated, failed) and email the user a summary. GET /api/imports/{import} returns status, counts and the list of row errors; only the owner may view it.",
+    "set": "archive"
   },
   "cart-discounts": {
     "base": "base",
     "pest": false,
     "focus": "general Laravel idioms",
-    "text": "Add cart pricing with discount codes. Model a Cart with CartItems (product name, unit price in cents, quantity, category) and DiscountCode (code, type: percentage/fixed/free_shipping, value, min_subtotal, applies_to_category nullable, expires_at, max_uses, times_used). POST /api/carts/{cart}/apply-discount with {code} validates the code (exists, not expired, under max uses, cart meets min subtotal) and returns a price breakdown: subtotal, discount, shipping (flat 4900 cents, free over 50000 cents subtotal or with free_shipping code), total, and per-line discounted prices. Category-restricted codes only discount matching lines. Return clear 422 errors for each failure reason."
+    "text": "Add cart pricing with discount codes. Model a Cart with CartItems (product name, unit price in cents, quantity, category) and DiscountCode (code, type: percentage/fixed/free_shipping, value, min_subtotal, applies_to_category nullable, expires_at, max_uses, times_used). POST /api/carts/{cart}/apply-discount with {code} validates the code (exists, not expired, under max uses, cart meets min subtotal) and returns a price breakdown: subtotal, discount, shipping (flat 4900 cents, free over 50000 cents subtotal or with free_shipping code), total, and per-line discounted prices. Category-restricted codes only discount matching lines. Return clear 422 errors for each failure reason.",
+    "set": "archive"
   },
   "blade-catalogue": {
     "base": "base-pest",
     "pest": true,
     "focus": "Blade: layouts/components, slots, @props/$attributes, directives (@error, @class, @selected...), old input, flash, pagination with query string, no logic/queries in views, redirect patterns",
-    "text": "Add a server-rendered product catalogue using Blade (no SPA, no Livewire). Category (name, slug) and Product (category, name, slug, description, price in cents, stock, is_active). Public pages: /products lists active products with a text search, a category filter and a sort (newest, price asc/desc), paginated 12 per page with filters preserved across pages; /products/{slug} shows a product with an \"Out of stock\" badge when stock is 0 and a list of 4 related products from the same category. Admins (users with an is_admin boolean) get pages under /admin/products to create, edit and delete products using one shared form; validation errors appear next to each field, previously entered input is kept after a failed submit, and a success message is shown after saving. Use a shared layout and reusable view components. There is no frontend build available, so pages must render without compiled assets."
+    "text": "Add a server-rendered product catalogue using Blade (no SPA, no Livewire). Category (name, slug) and Product (category, name, slug, description, price in cents, stock, is_active). Public pages: /products lists active products with a text search, a category filter and a sort (newest, price asc/desc), paginated 12 per page with filters preserved across pages; /products/{slug} shows a product with an \"Out of stock\" badge when stock is 0 and a list of 4 related products from the same category. Admins (users with an is_admin boolean) get pages under /admin/products to create, edit and delete products using one shared form; validation errors appear next to each field, previously entered input is kept after a failed submit, and a success message is shown after saving. Use a shared layout and reusable view components. There is no frontend build available, so pages must render without compiled assets.",
+    "set": "regression"
   },
   "filament-admin": {
     "base": "base-filament",
     "pest": true,
     "focus": "Filament 5: resource structure (Schemas/Tables classes), form/table/filter/action APIs, enums with HasLabel/HasColor, relation managers, widgets, policies, eager loading, Filament testing helpers",
-    "text": "The app has a Filament admin panel at /admin. Build a support-ticket admin in it. Customer (name, email, company), Ticket (customer, subject, body, status: open/pending/resolved, priority: low/normal/high/urgent, assigned agent = a User, nullable; resolved_at), TicketReply (ticket, author user, body, is_internal). Ticket resource: a table with searchable subject and customer name, sortable created date, status and priority shown as coloured badges, filters for status, priority, assignee and \"unassigned only\"; a create/edit form; a \"Resolve\" row action (sets status resolved and resolved_at) and a bulk \"Assign to me\" action; a replies relation manager on the ticket page. Add a Customer resource and a dashboard stats widget showing open tickets, urgent open tickets and the average resolution time in hours over the last 30 days. Only users with is_admin may delete tickets; any logged-in user may access the panel. Write Pest tests using Filament's testing helpers."
+    "text": "The app has a Filament admin panel at /admin. Build a support-ticket admin in it. Customer (name, email, company), Ticket (customer, subject, body, status: open/pending/resolved, priority: low/normal/high/urgent, assigned agent = a User, nullable; resolved_at), TicketReply (ticket, author user, body, is_internal). Ticket resource: a table with searchable subject and customer name, sortable created date, status and priority shown as coloured badges, filters for status, priority, assignee and \"unassigned only\"; a create/edit form; a \"Resolve\" row action (sets status resolved and resolved_at) and a bulk \"Assign to me\" action; a replies relation manager on the ticket page. Add a Customer resource and a dashboard stats widget showing open tickets, urgent open tickets and the average resolution time in hours over the last 30 days. Only users with is_admin may delete tickets; any logged-in user may access the panel. Write Pest tests using Filament's testing helpers.",
+    "set": "archive"
   },
   "caching": {
     "base": "base-pest",
     "pest": true,
     "focus": "Caching: remember/flexible choice, key design, invalidation via model events, locks/stampede protection, stale fallback, Http client retries/timeouts, testing with Http::fake/travel",
-    "text": "Teams have Projects, and Projects have Tasks (title, status: open/done, completed_at, assignee user). Users belong to one team. Add GET /api/dashboard returning, for the current user's team: member count, project count, open task count, tasks completed in the last 7 days, and the top 5 projects by open tasks. It is expensive and hit constantly, so cache it per team; changes to that team's projects or tasks must be reflected within seconds, while serving slightly stale data for up to 5 minutes is acceptable if recomputing is slow. Also add GET /api/exchange-rates/{currency} (3-letter ISO code, validated) that returns rates from an external API at https://rates.example.test/latest?base={currency}. Cache the rates for one hour. When many requests miss at once, only one request may call the API. If the API is down or slow (over 3 seconds), return the last known rates with \"stale\": true, or 503 if there are none."
+    "text": "Teams have Projects, and Projects have Tasks (title, status: open/done, completed_at, assignee user). Users belong to one team. Add GET /api/dashboard returning, for the current user's team: member count, project count, open task count, tasks completed in the last 7 days, and the top 5 projects by open tasks. It is expensive and hit constantly, so cache it per team; changes to that team's projects or tasks must be reflected within seconds, while serving slightly stale data for up to 5 minutes is acceptable if recomputing is slow. Also add GET /api/exchange-rates/{currency} (3-letter ISO code, validated) that returns rates from an external API at https://rates.example.test/latest?base={currency}. Cache the rates for one hour. When many requests miss at once, only one request may call the API. If the API is down or slow (over 3 seconds), return the last known rates with \"stale\": true, or 503 if there are none.",
+    "set": "archive"
   },
   "webhook-worker": {
     "base": "base-pest",
     "pest": true,
     "focus": "Queues/workers: idempotency, uniqueness/WithoutOverlapping, retries/backoff/ThrottlesExceptions, RateLimited middleware, failed(), afterCommit, queued notifications, pruning/scheduling, worker deployment config, Queue/Bus fakes",
-    "text": "Ingest payment-provider webhooks. POST /webhooks/payments receives JSON events {id, type, data} with an X-Signature header: HMAC-SHA256 of the raw body using a secret from configuration; invalid or missing signatures get 401. Store every event exactly once by its id (a duplicate delivery returns 200 and is not processed again) and respond quickly; process events in the background. Types: payment.succeeded (mark the Order paid and send the customer a receipt notification), payment.failed (mark the order payment_failed), refund.created (create a Refund and mark the order refunded). While processing, fetch payment details from the provider API GET https://api.payments.test/payments/{payment_id}; that API allows at most 10 requests per second and sometimes returns 5xx errors, so processing must retry with increasing delays, respect the limit, and never process the same event twice at the same time. Events that permanently fail must be marked failed with the error and be visible via GET /api/webhook-events?status=failed (admin only). Add a daily cleanup that deletes processed events older than 30 days. Document in the README how the queue workers must be run in production."
+    "text": "Ingest payment-provider webhooks. POST /webhooks/payments receives JSON events {id, type, data} with an X-Signature header: HMAC-SHA256 of the raw body using a secret from configuration; invalid or missing signatures get 401. Store every event exactly once by its id (a duplicate delivery returns 200 and is not processed again) and respond quickly; process events in the background. Types: payment.succeeded (mark the Order paid and send the customer a receipt notification), payment.failed (mark the order payment_failed), refund.created (create a Refund and mark the order refunded). While processing, fetch payment details from the provider API GET https://api.payments.test/payments/{payment_id}; that API allows at most 10 requests per second and sometimes returns 5xx errors, so processing must retry with increasing delays, respect the limit, and never process the same event twice at the same time. Events that permanently fail must be marked failed with the error and be visible via GET /api/webhook-events?status=failed (admin only). Add a daily cleanup that deletes processed events older than 30 days. Document in the README how the queue workers must be run in production.",
+    "set": "target"
+  },
+  "shipment-sync": {
+    "base": "base-pest",
+    "pest": true,
+    "set": "target",
+    "hidden": "eval/hidden/ShipmentSyncHiddenTest.php",
+    "skip_dimensions": [
+      "thin_controllers",
+      "validation_form_requests"
+    ],
+    "focus": "Background integration with an unreliable partner API: no duplicate shipments, nothing shipped for cancelled orders, transient errors retried without hammering the partner, permanent errors surfaced to ops, checkout stays fast",
+    "text": "Push paid orders to our warehouse partner. Create an Order model (soft-deletable, with a factory) with columns customer_email, shipping_address (text), total_cents, status (pending/paid), shipment_status (nullable: pending/sent/failed), shipment_reference (nullable) and shipment_failure_reason (nullable text). Add `Order::markAsPaid()`, which sets status paid in a database transaction and arranges for the shipment to be created in the background via a queued job `App\\Jobs\\SendOrderToWarehouse` that takes the order in its constructor. The job calls POST {services.warehouse.url}/shipments (default https://warehouse.example.test/api, bearer token services.warehouse.token) with the order id, address and total; a 201 returns {\"id\": \"SHP-...\"}, stored as shipment_reference with shipment_status sent. The partner allows 5 requests per second for our whole account, regularly answers 429 or 5xx for a minute or two and sometimes hangs. A 422 means the address is invalid: mark the shipment failed with the reason so ops can fix it by hand, without retrying. Orders cancelled (soft-deleted) before the job runs must never be shipped. Once the shipment exists, email the customer the mailable `App\\Mail\\ShipmentCreated` exactly once. If a shipment ultimately cannot be created, ops must see shipment_status failed and why."
+  },
+  "statement-batch": {
+    "base": "base-pest",
+    "pest": true,
+    "set": "target",
+    "hidden": "eval/hidden/StatementBatchHiddenTest.php",
+    "skip_dimensions": [
+      "thin_controllers",
+      "validation_form_requests"
+    ],
+    "focus": "Fan-out background processing of many accounts: one broken account does not stop the rest, the run always reaches a final status with an accurate failure count, slow work kept off the default queue, request side stays fast, queue tables do not grow forever",
+    "text": "Finance wants month-end statements. Create BillingAccount (name, email, active boolean; factory) and StatementRun (status: running/completed/completed_with_errors, total_accounts, failed_accounts default 0, completed_at nullable; factory). Add an invokable action `App\\Actions\\StartStatementRun` whose `__invoke(): StatementRun` creates a run (status running) and starts background processing for every active account, then returns immediately; production has about 40,000 active accounts. For each account, generate the PDF with the class `App\\Services\\StatementGenerator` (create it; `generate(BillingAccount $account): string` returning PDF bytes, a simple placeholder is fine), store it on the `local` disk at `statements/{run id}/{account id}.pdf`, then email the owner the mailable `App\\Mail\\StatementReady` (only after the file exists). PDF generation is slow and must not run on the default queue. One account failing (the generator throws) must not stop the others. When every account has been attempted, set the run to completed, or completed_with_errors with failed_accounts set to the number of accounts that failed, set completed_at, and email config('billing.finance_email') the mailable `App\\Mail\\StatementRunSummary`. We deploy on SQS with Redis as cache."
+  },
+  "scheduled-reports": {
+    "base": "base-pest",
+    "pest": true,
+    "set": "target",
+    "hidden": "eval/hidden/ScheduledReportsHiddenTest.php",
+    "skip_dimensions": [
+      "thin_controllers",
+      "validation_form_requests"
+    ],
+    "focus": "Recurring tasks on several servers: each runs exactly once per occurrence at the intended local time, long or crashed runs cannot block or double up, large cleanups stay memory-safe, the schedule is tested",
+    "text": "We run the shop on three app servers behind a load balancer; each runs the scheduler cron, and Redis is the shared cache and queue. The business runs on Copenhagen time. Add three recurring tasks. (1) Every Monday at 07:30 Copenhagen time, run a new command `reports:unshipped` that emails config('warehouse.email') the number of orders still unshipped 48 hours after being placed (create a minimal Order model: placed_at, shipped_at nullable). (2) Every night, run a new command `carts:prune-abandoned` that deletes carts not updated for 30 days (Cart model and factory, table `carts` with timestamps); there can be hundreds of thousands. (3) Every hour, dispatch a new queued job `App\\Jobs\\SyncSupplierStock` (no constructor arguments; a placeholder handle() that would call the supplier API is fine). It can take 20 to 40 minutes when the supplier is slow. Last quarter some tasks ran three times, and after a server was killed mid-run another task did not run again for a day; neither may happen. Add tests, and tell me how to check the schedule from the command line."
+  },
+  "export-purge-command": {
+    "base": "base",
+    "pest": false,
+    "set": "target",
+    "hidden": "eval/hidden/ExportPurgeCommandHiddenTest.php",
+    "skip_dimensions": [
+      "thin_controllers",
+      "validation_form_requests"
+    ],
+    "focus": "An operational command that deletes data: safe to run by hand against production, previewable, memory-safe on millions of rows, failures visible to automation through the exit code, safe to schedule on two servers",
+    "text": "Customers can request a CSV export of their data. Create an Export model with factory (table `exports`: id, user_id, path, timestamps); the files live on a new `exports` filesystem disk (local driver, root storage/app/exports). Add the console command `exports:purge` that deletes exports older than a retention period: the file and then the row. The retention is 30 days by default and can be changed with `--days=N`. The table has a few million rows in production. Support runs the command by hand against production when a customer complains, and wants to preview what would be removed with `--dry-run` (nothing is deleted then; print how many would be). In production the command must never delete anything unless the operator confirms it interactively or passes `--force` for unattended runs; when it refuses, it exits with a failure code. If a file cannot be deleted, keep its row so the next run retries it, carry on with the rest, and exit with a failure code so our automation notices. Print how many exports were removed. It must also run unattended every night at 03:00 on our two web servers (shared Redis cache), without overlapping a manual run. Write PHPUnit feature tests."
+  },
+  "stock-sync-dispatcher": {
+    "base": "base-pest",
+    "pest": true,
+    "set": "holdout",
+    "hidden": "eval/hidden/StockSyncDispatcherHiddenTest.php",
+    "skip_dimensions": [
+      "thin_controllers",
+      "validation_form_requests"
+    ],
+    "focus": "A scheduled dispatcher feeding queued API work: every ready row is sent exactly once per change, abandoned work is picked up again, rate limits and API errors handled without loss, safe on several servers",
+    "text": "Push stock allocations to our storefront. Create a StockAllocation model with factory (table `stock_allocations`: id, sku unique, quantity, sync_started_at nullable, synced_at nullable, disabled_at nullable, timestamps). A row is ready to sync when it is not disabled and has never been synced or was updated after its last sync. Add the command `stock:dispatch-sync`, scheduled every minute, which claims ready rows by setting sync_started_at and dispatches the queued job `App\\Jobs\\PushStockAllocations` in groups of at most 100; the job takes the list of row ids in its constructor and exposes it as the public property `$allocationIds`. A claim older than 15 minutes counts as abandoned and the row is ready again. The job sends POST https://storefront.example.test/api/stock with [{sku, quantity}, ...]; a 200 returns {\"missing\": [skus unknown to the storefront]}. Mark the sent rows synced (synced_at now, sync_started_at cleared) and set disabled_at on missing ones so they are not retried. The API is slow and returns 429 when we exceed its limit. If a job gives up for good, its rows must be picked up again by the next dispatcher run. Peak volume is about 5,000 ready rows; three containers run the scheduler, with Redis as the shared cache and SQS as the queue."
+  },
+  "queue-bugfix": {
+    "base": "base-queue-bugfix",
+    "pest": true,
+    "set": "holdout",
+    "hidden": "eval/hidden/QueueBugfixHiddenTest.php",
+    "skip_dimensions": [
+      "thin_controllers",
+      "validation_form_requests"
+    ],
+    "focus": "Debugging existing background processing: find the root causes behind each symptom and fix them without breaking existing behaviour",
+    "text": "Our app syncs newsletter subscribers to a CRM (see app/Jobs, app/Console/Commands, routes/console.php and the existing tests). Ops reported four problems. 1) When the CRM has an outage, affected subscribers never reach the CRM later, and nothing ever shows up in failed_jobs. 2) While the queue is backed up, the CRM receives the same subscriber many times. 3) After a container was killed during a deploy, the `crm:dispatch-sync` task did not run again for about a day. 4) The nightly `subscribers:normalize-emails` run leaves roughly half of the rows untouched each night. Find the root causes and fix them. Keep the existing behaviour and tests working, and add tests that prove each fix."
+  },
+  "inactive-count": {
+    "base": "base-pest",
+    "pest": true,
+    "set": "probe",
+    "skip_dimensions": [
+      "thin_controllers",
+      "validation_form_requests"
+    ],
+    "focus": "A small read-only command and a schedule entry: correct, tested and proportionate to the need",
+    "text": "Add a nullable last_login_at column to users. Add an Artisan command `users:inactive-count` that prints how many users have not logged in for the last N days (default 90, configurable with `--days`), counting users who never logged in as inactive. Run it once a day at 06:00 so the number shows up in our logs; we have a single server. Add tests."
   }
 }

@@ -1,0 +1,99 @@
+{
+ "key": "inactive-count",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Models/User.php:39 scope type-hints the concrete Illuminate\\Support\\Carbon; with Date::use(CarbonImmutable::class) now()->subDays() returns CarbonImmutable and the command throws a TypeError (I confirmed this with a probe). CarbonInterface or DateTimeInterface would avoid it. This is latent: it doesn't happen with the default config."
+   ],
+   "antipatterns": [
+    "app/Models/User.php:39 scope takes a concrete Carbon class instead of CarbonInterface/DateTimeInterface",
+    "database/factories/UserFactory.php:46 lastLoginAt() state only wraps a single attribute, which is extra ceremony, and it uses an inline FQCN \\DateTimeInterface instead of an import",
+    "tests/Feature/CountInactiveUsersTest.php:13,32,38 loose expectsOutputToContain(': 2') / (': 0') assertions could pass on the wrong line or format",
+    "tests/Feature/CountInactiveUsersTest.php:7,17 only the boundary test freezes time"
+   ],
+   "strengths": [
+    "Schedule::command(CountInactiveUsers::class) references the class, not the string",
+    "Uses $this->fail() and filter_var min_range, so validation is a single clean expression",
+    "The schedule test also checks the output log path",
+    "Boundary test covers a login exactly N days ago and confirms it counts as active",
+    "#[Signature]/#[Description]/#[Scope] attributes"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "routes/console.php:13 withoutOverlapping(10) isn't needed for a millisecond count query on a single server and adds a cache-lock dependency",
+    "app/Console/Commands/CountInactiveUsers.php:16-18 filter_var plus a separate < 0 check; min_range would do it in one step",
+    "tests/Feature/CountInactiveUsersTest.php:58 the column/cast test checks the framework more than the feature"
+   ],
+   "strengths": [
+    "Time frozen for every test (beforeEach freezeTime), so results are deterministic",
+    "Exact output assertions, plus a dedicated test that a login exactly at the N-day boundary counts as active",
+    "Dataset covers invalid --days values (negative, text, decimal) and asserts the failure exit code",
+    "Reusable #[Scope] inactiveFor with a correctly grouped OR closure",
+    "Indexed nullable timestamp column; scheduled dailyAt('06:00') with appendOutputTo a log file",
+    "Modern attribute-based command signature"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 7,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "app/Console/Commands/CountInactiveUsers.php:32 output is ungrammatical for one user ('1 users have not logged in\u2026'); the test at tests/Feature/CountInactiveUsersTest.php:20 locks this in"
+   ],
+   "antipatterns": [
+    "app/Console/Commands/CountInactiveUsers.php:17-28 full Validator::make for one integer option, followed by a redundant (int) cast; this is heavier than needed",
+    "tests/Pest.php:18 leaves the old commented-out RefreshDatabase line next to the new active one",
+    "app/Models/User.php:7-8 new imports are inserted out of alphabetical order",
+    "tests/Feature/CountInactiveUsersTest.php:50 the invalid-days test only asserts output contains 'days', which is very weak",
+    "No boundary test for a login exactly N days ago, and no freezeTime"
+   ],
+   "strengths": [
+    "Clean #[Scope] inactiveFor with grouped whereNull/orWhere",
+    "Validator produces standard, user-friendly error messages (e.g. for an empty --days)",
+    "Good spread of tests: no users, all active, never-logged-in, --days, invalid input, schedule expression",
+    "Schedule entry is minimal and correct: dailyAt('06:00') with appendOutputTo"
+   ]
+  },
+  "rationale": "All three suites pass (11 tests each), and all three meet the core requirements: a nullable last_login_at column with a datetime cast, a #[Scope] that groups whereNull/orWhere correctly, --days defaulting to 90, a schedule entry at 06:00 that appends output to a log file, and RefreshDatabase enabled. I probed each one with --days=0, an empty value, a very large value, '+5', ' 5', '05' and CarbonImmutable dates. All three handle these consistently, except impl-1, whose scope throws a TypeError under CarbonImmutable because it type-hints a concrete Carbon class. impl-2 ranks first: the most rigorous tests (time frozen everywhere, exact output, boundary case, invalid-input dataset), tight code and an indexed column. Its only excess is withoutOverlapping, which a single server doesn't need. impl-1 ranks second: modern touches (the class reference in Schedule::command, $this->fail, a min_range check in one expression, a test that asserts the log path), offset by the latent Carbon type-hint bug, a factory state that adds ceremony and loose output assertions. impl-3 ranks third: correct and reasonably well tested, but it uses a heavyweight Validator for one integer, prints '1 users', leaves a stale commented line in Pest.php, has unsorted imports, makes a weak invalid-input assertion and has no boundary test."
+ },
+ "cost_usd": 0.2583422
+}

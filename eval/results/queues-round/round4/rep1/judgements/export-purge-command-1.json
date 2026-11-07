@@ -1,0 +1,100 @@
+{
+ "key": "export-purge-command",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Minor: Isolatable takes the lock for every run, so `--dry-run` fails with 'already running' (exit 1) while a purge is in progress (probe confirmed). Support can't preview during the nightly run."
+   ],
+   "antipatterns": [
+    "tests/Feature/Console/PurgeExportsTest.php:48: the anonymous subclass copies the command's signature string to force the confirm prompt, so the test silently drifts if the real signature changes",
+    "tests/Feature/Console/PurgeExportsTest.php:224: test_the_next_run_retries_a_row_kept_after_a_failed_deletion never simulates a failed deletion, so it duplicates the missing-file test",
+    "routes/console.php:12: hardcoded ->timezone('Europe/Copenhagen') is an assumption the task never stated",
+    "app/Console/Commands/PurgeExports.php:62: 'Removed 1 exports.' is not pluralised"
+   ],
+   "strengths": [
+    "Uses the framework's Isolatable with $isolated = true, $isolatedExitCode = FAILURE and a 2h isolationLockExpiresAt. The lock goes through the shared cache, and a manual run blocks the scheduled one, which exits with a failure code",
+    "chunkById + partition(fn => $disk->delete()) + one whereKey(...)->delete() per chunk: memory-safe, few queries, and safe to delete while chunking by id",
+    "Uses fail() for invalid --days, a #[Scope] attribute scope, an index on created_at, #[Signature]/#[Description] attributes, typed relations with generics, and a User::exports relation",
+    "Dry-run runs before confirmToProceed and uses count(). Production refusal returns FAILURE, and the disk uses throw=false so delete() returns false",
+    "Most thorough tests: confirm yes/no in production (a real workaround for the Prompts fallback), --no-interaction refusal, --force, a data provider for invalid days, multiple chunks, a partial-mock failing disk, lock contention, schedule and disk config"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 6,
+    "eloquent_idioms": 7,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 7.2,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "Cache lock TTL is 3600s while the purge deletes one row per query (lazyById + $export->delete()). A large backlog of millions of rows can outlive the lock, which then lets a second run overlap"
+   ],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:77-85: one DELETE query per row on a multi-million-row table instead of batching deletes per chunk",
+    "app/Console/Commands/PurgeExports.php:42: hand-rolled Cache::lock/try/finally where the framework's Isolatable contract covers this",
+    "tests/Feature/Console/PurgeExportsTest.php:100-119: the 'not confirmed' and 'without a terminal' tests exercise the same path. The interactive confirm-yes/decline paths are never actually tested",
+    "tests/Feature/Console/PurgeExportsTest.php:138: duck-typed anonymous class returned from Storage::shouldReceive('disk') instead of a partial mock of the real disk",
+    "tests/Feature/Console/PurgeExportsTest.php:186: loops over invalid values in one test instead of using a data provider",
+    "app/Models/Export.php:20: the scope is typed to Illuminate\\Support\\Carbon rather than CarbonInterface, and the relation has no generics. No User::exports inverse relation"
+   ],
+   "strengths": [
+    "Memory-safe lazyById with select(['id','path'])",
+    "Exit code INVALID for bad --days and components output, both idiomatic",
+    "Lock is released in finally (probe confirmed). Dry-run is not blocked by the lock",
+    "Tests cover lock contention followed by a successful retry, missing files, multiple batches, a failing disk and the schedule definition"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 7.8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:47: manual Cache::lock with a public LOCK_KEY constant where the framework's Isolatable contract covers this",
+    "tests/Feature/PurgeExportsTest.php:105: the production refusal test passes without asserting a declined prompt or --no-interaction. The interactive confirm path is never tested",
+    "tests/Feature/PurgeExportsTest.php:171: loops over invalid values instead of using a data provider, and has no decimal case",
+    "app/Models/Export.php:26 / app/Models/User.php: relations have no generic return docblocks"
+   ],
+   "strengths": [
+    "chunkById + filter(fn => $disk->delete()) + one batched whereKey(...)->delete() per chunk, with $removed counted from the delete's affected-rows result",
+    "A 6h lock TTL fits a multi-million-row backlog, and the lock is released in finally (probe confirmed)",
+    "A real read-only directory probe showed the failed row is kept, the remaining 1100 rows are purged, the command exits 1 and the next run retries",
+    "Dry-run is not blocked by the lock. Output is pluralised with 'export(s)'",
+    "Tests are clean, using a partial mock of the real disk and the LOCK_KEY constant"
+   ]
+  },
+  "rationale": "All three suites pass, and all three meet the core requirements. I ran throwaway probes against each: a real disk with a read-only directory over 1100+ rows (all keep the failed row, keep going, exit 1 and retry on the next run), an exception thrown mid-purge (all release their lock), and a dry-run while the lock is held. The decisions come down to idiom and robustness on millions of rows.\n\nimpl-1 ranks first:\n- **Locking:** it uses the framework's Isolatable contract with a FAILURE exit code and a sensible lock expiry, instead of a hand-rolled lock.\n- **Deleting:** it splits each chunk with partition and batch-deletes the rows, so it stays memory-safe with few queries.\n- **Tests:** it is the only one that tests the interactive yes/no confirmation in production, working around Laravel Prompts' test fallback. My plain expectsConfirmation probe fails with exit 1 in all three apps when the environment is production, which confirms the problem it works around.\n- **Small costs:** dry-run is blocked while a purge holds the lock, the test copies the command's signature string, one test is misnamed, and it hardcodes a timezone.\n\nimpl-3 ranks second. It uses the same efficient chunkById plus batched delete and a generous 6h lock, but builds the lock by hand and never tests the confirmation prompt.\n\nimpl-2 ranks third. It deletes rows one query at a time on a multi-million-row table, and its 1h lock can expire before a large purge finishes, which would let a second run overlap. Its production-refusal tests overlap each other and never exercise the prompt itself."
+ },
+ "cost_usd": 0.4608439999999999
+}

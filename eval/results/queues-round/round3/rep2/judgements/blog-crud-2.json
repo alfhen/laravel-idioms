@@ -1,0 +1,118 @@
+{
+ "key": "blog-crud",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 8,
+    "validation_form_requests": 6,
+    "eloquent_idioms": 8,
+    "architecture_fit": 5,
+    "modern_laravel": 7,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 6,
+    "simplicity": 6
+   },
+   "overall": 6,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "routes/api.php:6 puts the API routes in the `web` middleware group, so the session, cookies and CSRF all apply to /api/posts. I swapped in a PreventRequestForgery that doesn't skip under unit tests, and an authenticated POST /api/posts returned 419. Any JSON client without an XSRF token gets 419 on every write, and the test suite can't see this because CSRF is skipped when running unit tests.",
+    "PostController.php:40,53: authorization runs inside the action, after the FormRequest has already validated. A non-author who sends an invalid payload gets 422 instead of the 403 the spec asks for.",
+    "StorePostRequest.php:18: `tags.*` has no `required`, so null or blank entries produce confusing double errors ('must be a string' plus 'has a duplicate value' on the nulls).",
+    "Guest request to /api/posts without an Accept: application/json header returns 500, because route('login') is undefined. All three implementations share this."
+   ],
+   "antipatterns": [
+    "routes/api.php:6 mixes the `web` middleware group into API routes.",
+    "app/Http/Requests/StorePostRequest.php:22-32 trims tags by hand in prepareForValidation. The global TrimStrings middleware already does this, including nested arrays.",
+    "app/Http/Requests/UpdatePostRequest.php:5,12 extends StorePostRequest only to pull one rule out with `parent::rules()['status']`, and still repeats the tags rules. This inheritance is awkward.",
+    "app/Http/Requests/UpdatePostRequest.php:10-11 uses `sometimes|string` without `required`, so title and body depend on ConvertEmptyStringsToNull to reject empty strings.",
+    "app/Http/Controllers/PostController.php:21 uses `PostStatus::from($request->validated('status'))` where `$request->enum()` would do.",
+    "No DB transaction around create + syncTagNames (PostController.php:32-33)."
+   ],
+   "strengths": [
+    "Thin controller using apiResource, Gate::authorize and a JsonResource. Store returns 201 implicitly through wasRecentlyCreated.",
+    "Modern model attributes: #[Fillable], #[ObservedBy], #[Scope], casts() method, enum cast.",
+    "Observer handles unique slug generation with a fallback for empty slugs, and sets published_at only if it is missing.",
+    "Index uses `latest()->latest('id')` as a tiebreaker, `whereRelation` for the tag filter, `withQueryString`, and validates per_page.",
+    "Tests exercise PATCH, freezeSecond and the published_at preservation path."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "PostController.php:40,53: Gate::authorize runs after FormRequest validation, so a non-author sending an invalid payload gets 422 rather than 403. Confirmed with a probe.",
+    "Guest request without a JSON Accept header returns 500 (route('login') is undefined). All three implementations share this."
+   ],
+   "antipatterns": [
+    "app/Http/Requests/StorePostRequest.php:25-28 and UpdatePostRequest.php:25-28 duplicate the same `postAttributes()` helper, which only wraps `safe()->except('tags')`.",
+    "tests/Feature/PostApiTest.php:21 calls Http::preventStrayRequests() in setUp even though no HTTP client is used. It's ceremony.",
+    "app/Observers/PostObserver.php:13 uses `slug ??=` on a non-fillable attribute that is always null on create, which suggests an override path that doesn't exist.",
+    "No DB transaction around create + syncTags (PostController.php:32-33)."
+   ],
+   "strengths": [
+    "Very idiomatic index: `$request->enum('status', PostStatus::class)`, `when()` with named scopes, `latest()->latest('id')`, validated per_page and withQueryString.",
+    "Uses slug as the route key, which suits a blog. apiResource()->except('show') supports both PUT and PATCH.",
+    "Rejects duplicate tags with `distinct` and requires `tags.*`, which gives clean error messages.",
+    "Modern attributes (#[Fillable], #[ObservedBy], #[Scope]) and an enum cast. The policy is DRY because delete delegates to update.",
+    "Composite index on (user_id, created_at) matches the index query.",
+    "Thorough tests: mass-assignment guard, re-publish keeping published_at (with travel), combined filters, default page size and query validation messages."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.3,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "routes/api.php:9 registers only PUT for update, so PATCH /api/posts/{id} returns 405. Because the request uses `sometimes`, the endpoint really behaves like PATCH, and clients sending partial updates via PATCH get rejected.",
+    "Guest request without a JSON Accept header returns 500 (route('login') is undefined). All three implementations share this."
+   ],
+   "antipatterns": [
+    "routes/api.php:7-10 defines four routes by hand instead of `Route::apiResource(...)->except('show')`. That drops route names and PATCH.",
+    "app/Http/Controllers/PostController.php:35 uses `->response()->setStatusCode(201)`, which is redundant because JsonResource already returns 201 for wasRecentlyCreated models.",
+    "app/Http/Requests/IndexPostRequest.php:20-23 implements `PostStatus::tryFrom((string) $this->validated('status'))` by hand, which `$request->enum()` already provides.",
+    "app/Models/Post.php:46-56 gives the scopes nullable parameters with internal `when()`, which mixes filter-presence logic into the model.",
+    "Tags are silently deduped with `unique()` rather than validated. That's acceptable, but a different choice from returning an error.",
+    "tests/Feature/PostApiTest.php:23 calls Http::preventStrayRequests(), which is unnecessary ceremony.",
+    "No DB transaction around create + syncTagNames."
+   ],
+   "strengths": [
+    "Authorization uses route `->can('update', 'post')` middleware, so it runs before FormRequest validation and non-authors get 403 even with invalid payloads (tested at PostApiTest.php:204).",
+    "Controller has no authorization or branching noise. Uses `safe()->except('tags')` and `$request->has('tags')` for partial tag sync.",
+    "Modern attributes, enum cast, policy, and an observer for slug and published_at.",
+    "Most thorough suite (30 tests): auth order, 404s, tags kept after delete, validation limits, combined filters, pagination defaults.",
+    "Duplicate tag names, including ones that differ only by whitespace, are deduped instead of erroring or causing a constraint violation."
+   ]
+  },
+  "rationale": "All three share most of their design: enum status, #[Fillable]/#[ObservedBy]/#[Scope] attributes, an observer for the unique slug and published_at, a policy, FormRequests, JsonResource with tag names, and `latest()->latest('id')` pagination. All suites pass (impl-1: 20 tests, impl-2: 26, impl-3: 30). The ranking came down to what the probes found.\n\nimpl-3 ranks first. It authorizes with route `->can()` middleware, so non-authors get 403 before validation runs. That is the exact requirement, and it has a test. It also has the most complete tests. Its faults are minor: hand-written routes with no PATCH (405), a redundant setStatusCode(201), and a hand-rolled enum accessor.\n\nimpl-2 is the most idiomatic in its details: `$request->enum`, apiResource, slug route key, `distinct` validation and a composite index. But it calls Gate::authorize inside the action, after the FormRequest has validated. A non-author sending an invalid payload gets 422 instead of 403, which I confirmed with a probe. It also duplicates a postAttributes helper.\n\nimpl-1 shares impl-2's authorization-ordering issue and adds a more serious one. It puts API routes in the `web` group, and with CSRF enforced as in production, an authenticated JSON POST returned 419. It also has awkward FormRequest inheritance (`parent::rules()['status']`), trims tags by hand even though TrimStrings already does, confusing errors for null tags, and the thinnest test suite.\n\nAll three return 500 for a non-JSON guest request because no login route exists, so that issue doesn't affect the ranking."
+ },
+ "cost_usd": 0.7304728
+}

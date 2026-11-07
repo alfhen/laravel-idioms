@@ -1,0 +1,126 @@
+{
+ "key": "export-purge-command",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 6,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6,
+   "rank": 4,
+   "tests_pass": true,
+   "bugs": [
+    "app/Console/Commands/PurgeExports.php:82 \u2014 $disk->delete() is not wrapped in try/catch. FilesystemAdapter::delete only catches UnableToDeleteFile, so any other Flysystem exception aborts the whole run instead of carrying on. My probe proved it: a row with path '../../etc/x.csv' throws PathTraversalDetected, the purge stops and the remaining expired exports are left untouched. That breaks the 'carry on with the rest' requirement.",
+    "If the run throws partway through a chunk, files already deleted in that chunk keep their rows until the next run (they self-heal later, but the run gives no summary)."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:82 \u2014 Collection::filter with a side-effecting callback (it deletes files). Clever, but it hides the destructive action inside a predicate.",
+    "app/Console/Commands/PurgeExports.php:31 \u2014 invalid --days returns FAILURE rather than INVALID, and it rejects --days=0 (a debatable choice).",
+    "app/Console/Commands/PurgeExports.php:20 \u2014 public LOCK_KEY constant exists only so the tests can reach it.",
+    "tests/Feature/PurgeExportsTest.php:105 \u2014 the production refusal test relies on the prompt's default answer instead of expectsConfirmation; no test for accepting the confirmation and no test for a throwing disk."
+   ],
+   "strengths": [
+    "Deletes rows in bulk per chunk with whereKey(modelKeys()), so each chunk is one DELETE query.",
+    "Uses modern attributes: #[Signature], #[Description], #[Scope], #[Fillable]. Uses ConfirmableTrait.",
+    "Index on created_at; the dry-run count needs no confirmation; the lock is released in finally; the longest lock TTL of the four (6h).",
+    "Adds a User hasMany relation."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 9,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "app/Console/Commands/PurgeExports.php:43 \u2014 the lock TTL is only 3600s. Deleting one row at a time across millions of rows could take more than an hour, and the lock would then expire while the run continues, letting a second run overlap. This is an edge case, not a demonstrated failure."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:92 \u2014 one DELETE query per row. Correct, but slower than a bulk delete per chunk on millions of rows.",
+    "tests/Feature/PurgeExportsTest.php:127 \u2014 #[RunInSeparateProcess] on the confirmation tests is unexplained ceremony.",
+    "app/Console/Commands/PurgeExports.php:78 \u2014 lazyById loads full models although only id and path are needed."
+   ],
+   "strengths": [
+    "Uses ConfirmableTrait with --force; non-interactive production runs refuse with FAILURE. Tested for decline, accept, --no-interaction and --force.",
+    "Runs lazyById over a #[Scope] createdBefore scope, backed by an index on created_at. Memory-safe, and deleting rows does not disturb the pagination.",
+    "A try/catch with report() around the file delete means a throwing disk keeps the row and the run continues. Passed my probes with a real permission-denied directory, a path-traversal path, and 2,500 rows with mixed failures.",
+    "The cache lock is released in finally, the schedule uses onOneServer and --force, invalid --days returns INVALID (2), and the command uses components output.",
+    "The most complete tests: retrying the next run, a lock held by another run, the lock being released, the schedule definition, and processing more than one page."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 7,
+    "modern_laravel": 6,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 7.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:61-69 \u2014 writes its own confirmed() helper instead of ConfirmableTrait::confirmToProceed. The isInteractive() check is redundant because confirm() already returns the default when non-interactive.",
+    "app/Console/Commands/PurgeExports.php:31 \u2014 builds the query from a closure ($expired()) instead of a model scope; Export has no scope at all.",
+    "app/Console/Commands/PurgeExports.php:71,103 \u2014 the $query and $disk parameters have no types.",
+    "app/Console/Commands/PurgeExports.php:13 \u2014 uses the $signature/$description properties rather than the #[Signature]/#[Description] attributes available in v13, and plain info/error instead of $this->components.",
+    "app/Console/Commands/PurgeExports.php:27 \u2014 invalid --days returns FAILURE rather than INVALID."
+   ],
+   "strengths": [
+    "chunkById(1000) with one bulk whereKey()->delete() per chunk: the most efficient approach for millions of rows.",
+    "Catches Throwable per file and calls report(), warns with each failing export id, carries on and exits with FAILURE. Passed every probe.",
+    "3h lock TTL, released in finally; onOneServer schedule with --force.",
+    "Good tests: confirmation declined and accepted, --no-interaction, a mixed false/throwing disk, the lock, and more than one chunk."
+   ]
+  },
+  "impl-4": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 8.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:92 \u2014 one DELETE query per row rather than a bulk delete per chunk.",
+    "tests/Feature/PurgeExportsTest.php:127 \u2014 the 'refuses without confirmation' test never calls expectsConfirmation and relies on the prompt default; no test covers accepting the confirmation.",
+    "database/migrations/2026_11_07_000000_create_exports_table.php:13 \u2014 the FK has no cascade, so deleting a user who still has exports fails. That is a defensible choice, but it is inconsistent with the User::exports relation it adds."
+   ],
+   "strengths": [
+    "select(['id','path'])->lazyById(500) is the leanest memory footprint of the four.",
+    "filter_var with min_range in one step; invalid --days returns INVALID.",
+    "ConfirmableTrait, components output, a 2h lock released in finally, report() on throwing deletes. Passed every probe.",
+    "Tests cover a mixed false/throwing disk, retrying the next run, a lock held and then released and re-run, the schedule, and the disk config.",
+    "Adds a User hasMany exports relation."
+   ]
+  },
+  "rationale": "All four suites pass: impl-2 20 tests, impl-4 19, impl-3 17, impl-1 15. Every implementation also passed my probes for a real permission-denied directory, 2,500 rows with mixed failures, and the 30-day boundary. A further probe used a row with the path '../../etc/x.csv', and only impl-1 failed it: Flysystem throws PathTraversalDetected, impl-1 has no try/catch around the delete, and the whole run stops, which breaks the 'carry on with the rest' requirement. That puts it last.\n\nimpl-2 and impl-4 are nearly the same design: ConfirmableTrait, lazyById over an attribute scope, catching Throwable and calling report(), a cache lock released in finally, INVALID exit code for bad --days. impl-2 ranks first because its tests are more complete: they cover both accepting and declining the confirmation, while impl-4 relies on the prompt's default answer and never tests acceptance. impl-4 has the leaner query (it selects only id and path) and a longer lock TTL. impl-2's 1h TTL is a small risk of overlap on very long runs.\n\nimpl-3 is correct and has the most efficient deletes (one bulk DELETE per chunk), but it is less idiomatic: it reinvents the confirmation instead of using ConfirmableTrait, has no model scope, leaves parameters untyped, uses the old signature properties, and builds the query from a closure."
+ },
+ "cost_usd": 0.6026092000000001
+}

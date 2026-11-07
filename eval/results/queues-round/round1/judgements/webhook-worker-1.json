@@ -1,0 +1,118 @@
+{
+ "key": "webhook-worker",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 6,
+    "thin_controllers": 4,
+    "validation_form_requests": 3,
+    "eloquent_idioms": 7,
+    "architecture_fit": 5,
+    "modern_laravel": 6,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 6.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "A valid event whose `data` is an empty object `{}` gets a 422, because the `required` rule on `data` rejects an empty array (PaymentWebhookController.php:27). It is never stored, so the provider keeps redelivering it. Confirmed with a probe.",
+    "An integer payment_id (e.g. `123`) is treated as a permanent failure (`! is_string($paymentId)`, ProcessWebhookEvent.php:60), so the event is marked failed even though a matching order exists. Confirmed with a probe.",
+    "`WebhookEvent::create` and `dispatch` are not atomic (PaymentWebhookController.php:37-46). If the dispatch fails, the event stays pending for good, and every redelivery is answered 'duplicate' and never processed."
+   ],
+   "antipatterns": [
+    "The controller does the HMAC check and inline `Validator::make` itself, with no middleware and no FormRequest (app/Http/Controllers/PaymentWebhookController.php:16-32).",
+    "The webhook route is in web.php and strips CSRF with `withoutMiddleware(PreventRequestForgery)`, so session/cookie middleware runs on a machine-to-machine endpoint (routes/web.php:8-9).",
+    "`JsonResource::collection($events->through(fn => [...]))` builds arrays inline instead of using a dedicated API Resource (app/Http/Controllers/WebhookEventController.php:25).",
+    "Statuses are string class constants rather than a backed enum with a cast (app/Models/WebhookEvent.php:15-19).",
+    "Empty `app/Http/Middleware` and `app/Http/Resources` directories are left behind.",
+    "A test reaches into the middleware array by index, `middleware()[1]`, and mocks the Job contract (tests/Feature/PaymentWebhookTest.php:200)."
+   ],
+   "strengths": [
+    "Uses MassPrunable with a `model:prune` daily schedule.",
+    "Combines WithoutOverlapping keyed on event_id with the RateLimited `payments-api` limiter (`Limit::perSecond(10)`).",
+    "Sets `tries=0` with `maxExceptions` so rate-limit releases don't use up retries, and `backoff()` returns increasing delays.",
+    "Processing runs in a DB transaction with lockForUpdate. The receipt notification is queued with afterCommit and is guarded so it is only sent once (`alreadyPaid`).",
+    "Separates permanent failures (4xx, unknown order) from retryable ones, and handles 429 Retry-After by releasing the job.",
+    "`markFailed` is a guarded conditional update. The README worker section is solid."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 6
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "The webhook FormRequest requires `data.payment_id` (a string) on every event, plus refund fields for refunds (PaymentWebhookRequest.php:18-20). Events of other types, or with integer ids, get a 422 and are never stored, which conflicts with 'store every event'. Confirmed with a probe.",
+    "The handler is not transactional (ProcessWebhookEvent.php:56-70). The receipt is sent before `markReceiptSent` is saved, so a crash in between re-sends the receipt on retry. Order and event updates can also be left partly applied."
+   ],
+   "antipatterns": [
+    "PaymentReceipt is not ShouldQueue, so mail is sent inline inside the job and a mail failure counts as a job exception (app/Notifications/PaymentReceipt.php:10).",
+    "`->afterCommit()` on a dispatch that is outside any transaction does nothing (app/Http/Controllers/PaymentWebhookController.php:20).",
+    "The extra `webhooks:redispatch-stuck` command and its 10-minute schedule add ceremony beyond the brief (app/Console/Commands/RedispatchStuckWebhookEvents.php, routes/console.php:13).",
+    "A test reads the Backoff attribute through reflection, which is brittle (tests/Feature/ProcessWebhookEventTest.php:109)."
+   ],
+   "strengths": [
+    "Uses modern queue attributes, verified in the installed vendor: `#[Backoff]`, `#[MaxExceptions]`, `#[Timeout]`, `#[DeleteWhenMissingModels]`. Uses FailOnException middleware for permanent errors, and `retryUntil` bounds attempts released by the rate limiter.",
+    "Signature check lives in middleware and refuses an empty secret. Uses `createOrFirst` plus `wasRecentlyCreated` for race-safe idempotency.",
+    "Thin controllers with FormRequests, an API Resource, a policy auto-discovered for `can:viewAny`, and enums with casts.",
+    "Receipt deduplication via `receipt_sent_at`, and refunds are idempotent through `firstOrCreate` on `provider_refund_id`.",
+    "Tests are the strongest of the three. They run a real database queue: retry after a 5xx, and 10 requests per second across 12 jobs with time travel. Datasets cover validation, tampered body and empty secret. My probe confirmed that retry exhaustion through the real worker marks the event failed.",
+    "Scheduler uses onOneServer, and the README covers deployment thoroughly (pcntl, retry_after, shared cache)."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 6,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "There is no guard against a second receipt. `markPaid` notifies every time a payment.succeeded event is processed, so two distinct succeeded events for the same payment send two receipts, and `paid_at` is overwritten (ProcessWebhookEvent.php:125-130). Confirmed with a probe.",
+    "A valid event with empty `data` `{}` gets a 422 (`required` on an array) and is never stored. An integer payment_id fails permanently (ProcessWebhookEvent.php:63). Confirmed with a probe.",
+    "The README tells workers to run with `--tries=3`, which is misleading: the job's `retryUntil` silently overrides it (README.md, Supervisor block)."
+   ],
+   "antipatterns": [
+    "The admin API route is declared in web.php under a hard-coded `/api/` prefix with session `auth`, instead of an api routes file (routes/web.php:10-12).",
+    "`lockForUpdate` on the event row inside the transaction is redundant alongside WithoutOverlapping (app/Jobs/ProcessWebhookEvent.php:103).",
+    "Currency silently falls back to a hard-coded 'USD' (app/Jobs/ProcessWebhookEvent.php:129,148).",
+    "A global `const SECRET` in a Pest test file pollutes the global namespace (tests/Feature/PaymentWebhookTest.php:20).",
+    "Controllers do not extend the base Controller, which is inconsistent with the app skeleton."
+   ],
+   "strengths": [
+    "The receipt uses ShouldQueueAfterCommit and is sent from inside the transaction, the correct idiom.",
+    "Uses modern job attributes (`#[Backoff]`, `#[MaxExceptions]`, `#[Timeout]`, `#[DeleteWhenMissingModels]`) with `retryUntil`, explained by a single concise comment.",
+    "Clean FormRequests with typed accessors (`$this->enum()`, `$this->integer()`), a `#[Scope]` attribute scope, an API Resource, a policy, and enums.",
+    "`createOrFirst` plus `wasRecentlyCreated` for idempotent ingestion. Signature check is in middleware and rejects an empty secret.",
+    "Real database-queue tests check that backoff delays increase, that exhaustion marks the event failed, the 10 requests/second limit, an end-to-end run, and that an event locked by another worker is skipped.",
+    "Also schedules `queue:prune-failed`. Simpler than impl-2: no extra command."
+   ]
+  },
+  "rationale": "All three suites pass (impl-1 22 tests, impl-2 37, impl-3 31). I probed each implementation and deleted the probe files afterwards.\n\nimpl-2 ranks first. It has the most idiomatic queue setup: attribute-configured job, FailOnException for permanent errors, retryUntil to bound rate-limit releases, WithoutOverlapping, and the RateLimited limiter. Controllers are thin, with FormRequests, a policy and a Resource, and receipts are deduplicated. Its tests are the strongest and run a real database queue. Its weaknesses: the receipt notification is not queued, the handler is not transactional, the webhook FormRequest is too strict and rejects some events, and a stuck-event redispatcher adds unneeded ceremony.\n\nimpl-3 ranks second. Its idioms are about as good (ShouldQueueAfterCommit inside the transaction, #[Scope], typed FormRequest accessors) and it is simpler. However, it has a real duplicate-receipt bug that a probe confirmed, the admin API route is in web.php under a hard-coded /api prefix, and the README's --tries flag is misleading.\n\nimpl-1 ranks third. Its processing logic is correct, and it is the only one of the three that is both transactional and dedupes receipts. But the controller is fat (inline HMAC and Validator::make, no FormRequest or middleware), the webhook route is in web.php with CSRF stripped, it uses string constants instead of enums, the list endpoint uses an inline array resource, and its tests are weaker."
+ },
+ "cost_usd": 1.1111722
+}

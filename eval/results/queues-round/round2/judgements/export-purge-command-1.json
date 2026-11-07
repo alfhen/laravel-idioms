@@ -1,0 +1,129 @@
+{
+ "key": "export-purge-command",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 9
+   },
+   "overall": 7.3,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "A disk that throws on delete stops the whole run instead of carrying on with the rest (PurgeExports.php:82 has no try/catch). Probe: a mocked disk throwing on a.csv left b.csv's row in place. The configured local disk uses throw:false, so in practice only another driver or a config change would trigger this."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:82 \u2014 deletes files inside a Collection::filter predicate, so the filter has side effects",
+    "tests/Feature/PurgeExportsTest.php:105 \u2014 the refusal is only covered through the default answer; there is no test for confirming 'yes' interactively"
+   ],
+   "strengths": [
+    "Deletes in batches: chunkById(500) plus one whereKey(...)->delete() per chunk, so a few million rows need few queries",
+    "Rejects --days=0 and negative values (min_range 1), which is the safest choice for a tool run by hand in production",
+    "Uses ConfirmableTrait, a #[Scope] attribute, #[Signature]/#[Description] attributes and a created_at index",
+    "Shared Cache::lock with a 6h TTL is released in finally; onOneServer plus --force in the schedule",
+    "Lock key is a public constant that the tests reuse"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 7.8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "--days=0 is accepted, so a typo can wipe every export older than 'now'. Confirmation is still required, but this is a sharp edge."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:43 \u2014 the 1h lock TTL is short for a first run deleting millions of rows one at a time; the lock can expire mid-run and let another run overlap",
+    "app/Console/Commands/PurgeExports.php:92 \u2014 one DELETE query per row ($export->delete()) instead of a batch delete per chunk",
+    "app/Console/Commands/PurgeExports.php:78 \u2014 lazyById loads full models, although only id and path are needed"
+   ],
+   "strengths": [
+    "Catches a throwing disk, reports it, keeps the row and carries on (verified by probe)",
+    "lazyById keeps memory flat and stays correct while rows are deleted",
+    "Uses ConfirmableTrait; returns INVALID for bad input; uses components->info/error output",
+    "Most thorough tests: interactive yes/no confirmation (RunInSeparateProcess is justified because Prompts keeps static state between tests), non-interactive refusal, throwing disk, retry on the next run, lock held and lock released, schedule"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 6,
+    "eloquent_idioms": 6,
+    "architecture_fit": 6,
+    "modern_laravel": 6,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 6.6,
+   "rank": 4,
+   "tests_pass": true,
+   "bugs": [
+    "--days=0 is accepted, so a typo can purge everything"
+   ],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:61-69 \u2014 hand-rolls the production confirmation instead of using ConfirmableTrait",
+    "app/Console/Commands/PurgeExports.php:13 \u2014 uses the older $signature/$description properties where the rest of the codebase uses #[Signature]/#[Description] attributes",
+    "app/Console/Commands/PurgeExports.php:71,103 \u2014 untyped $query and $disk parameters",
+    "app/Console/Commands/PurgeExports.php:31 \u2014 the expiry query is an inline closure instead of a model scope",
+    "app/Console/Commands/PurgeExports.php:45 \u2014 the comment restates what the lock does",
+    "app/Console/Commands/PurgeExports.php:85 \u2014 prints one warning per failed file, which can flood the output on millions of rows",
+    "tests/Feature/PurgeExportsTest.php:189 \u2014 the 1100 factory rows all share the path 'x.csv'"
+   ],
+   "strengths": [
+    "chunkById with one batch whereKey delete per chunk is efficient",
+    "Catches a throwing disk and carries on",
+    "Interactive refusal is explicit, with a clear error message",
+    "Tests cover confirmation yes/no, non-interactive refusal, a throwing disk, the lock and the schedule"
+   ]
+  },
+  "impl-4": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "--days=0 is accepted (min_range 0), so a typo can purge everything"
+   ],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:92 \u2014 one DELETE per row instead of a batch delete per chunk",
+    "database/factories/ExportFactory.php:23 \u2014 uses a fully-qualified \\DateTimeInterface inline instead of an import",
+    "tests/Feature/PurgeExportsTest.php:127 \u2014 no test for confirming 'yes' interactively"
+   ],
+   "strengths": [
+    "select(['id','path'])->lazyById(500) is the most memory-conscious iteration of the four",
+    "Catches throwing disks, reports them, keeps the row and carries on (verified by probe)",
+    "Uses ConfirmableTrait, a #[Scope] attribute, attribute-based signature, INVALID for bad input and components output",
+    "2h lock released in finally; onOneServer plus --force",
+    "Tests cover a disk that both returns false and throws, retry on the next run, a lock held then released then re-run, the non-interactive refusal and the disk config"
+   ]
+  },
+  "rationale": "All four test suites pass, and all four follow the same plan: dry-run counts before the confirmation step, a shared Cache::lock with try/finally, onOneServer with --force at 03:00, keyset iteration and a created_at index. My probes found the following:\n\n- **Real permission failure:** all four keep the row and exit with failure.\n- **--days=0:** impl-1 rejects it. The other three accept it and delete everything.\n- **Throwing disk:** impl-1 aborts the whole run. impl-2, impl-3 and impl-4 carry on.\n- **Interactive confirmation:** the production path works in every implementation. Testing a second confirmation in the same process fails because Laravel Prompts keeps static state, which is why impl-2's use of RunInSeparateProcess is justified.\n\n**Ranking:**\n\n1. **impl-4** ranks first. It combines the idiomatic ConfirmableTrait and scope, a minimal select with lazyById, a robust try/catch, and strong failure-path tests.\n2. **impl-2** is nearly identical. It has the best confirmation tests, but loads full models and uses a short 1h lock for one-row-at-a-time deletes.\n3. **impl-1** has the most efficient batch deletes and the safest --days validation. However, a disk that throws aborts the run, which goes against the requirement to carry on, and the side-effecting filter is a smell.\n4. **impl-3** is functionally sound and efficient. It ranks last because it re-implements ConfirmableTrait, uses old-style properties and untyped parameters, and has no scope."
+ },
+ "cost_usd": 0.600363
+}

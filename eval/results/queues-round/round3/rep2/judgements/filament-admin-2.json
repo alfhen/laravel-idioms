@@ -1,0 +1,117 @@
+{
+ "key": "filament-admin",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "resolved_at is only set by the Resolve row action. Setting status to Resolved in the edit form leaves resolved_at null, so the ticket silently drops out of the 30-day average (app/Filament/Resources/Tickets/Schemas/TicketForm.php:21-24)",
+    "Reopening a resolved ticket keeps the old resolved_at timestamp (confirmed by probe), so status and resolved_at can disagree",
+    "Non-admins can delete a Customer, and cascadeOnDelete then removes that customer's tickets. This gets around the admin-only ticket-delete rule (database/migrations/2026_11_07_081412_create_tickets_table.php:15)"
+   ],
+   "antipatterns": [
+    "TicketStats is registered explicitly in ->widgets() even though discoverWidgets already finds it (app/Providers/Filament/AdminPanelProvider.php:42)",
+    "TicketPolicy adds viewAny/view/create/update methods that all return true. They aren't needed because Filament's authorization is non-strict (app/Policies/TicketPolicy.php:10-28)",
+    "The modifyQueryUsing with() eager load is redundant: Filament already eager-loads relationship columns written with dot notation (app/Filament/Resources/Tickets/Tables/TicketsTable.php:27)",
+    "A raw resolved_at DateTimePicker lets users edit a value the Resolve action should own (TicketForm.php:24)",
+    "A fully-qualified \\DateTimeInterface appears inline in the factory signature (database/factories/TicketFactory.php:32)"
+   ],
+   "strengths": [
+    "The bulk 'Assign to me' action runs a single query with whereKey($records->modelKeys())->update() instead of N model saves",
+    "The Resolve action calls ->authorize('update') and is hidden once a ticket is resolved",
+    "Customer email is unique in both the form (ignoreRecord) and the database, and tests cover the unique rule on create and edit",
+    "Clean Schemas/Tables split, enums implementing HasLabel/HasColor, #[Scope] attribute scopes, Number::format",
+    "Most granular test suite: separate filter tests, a test that bulk delete is disabled for non-admins, an inOrder sort test, and a stats test that excludes out-of-window data"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.8,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "resolved_at is only set by the Resolve action. Setting status to Resolved in the edit form leaves resolved_at null (confirmed by probe), so the ticket is excluded from the average resolution time",
+    "Reopening a resolved ticket leaves a stale resolved_at (confirmed by probe)",
+    "Customer email has no uniqueness rule, in the form or the database, so duplicate customers can be created (confirmed by probe) (app/Filament/Resources/Customers/Schemas/CustomerForm.php:15)",
+    "Non-admins can delete a Customer, and the cascade removes its tickets, getting around the admin-only ticket-delete rule"
+   ],
+   "antipatterns": [
+    "The admin() factory state was inserted under the unverified() docblock, so the 'Indicate that the model's email address should be unverified' comment now sits on the wrong method (database/factories/UserFactory.php:36-42)",
+    "Bulk assign calls $records->each->update(), which runs one UPDATE per record instead of a single whereKey()->update() (app/Filament/Resources/Tickets/Tables/TicketsTable.php:75)",
+    "Both resources use the generic OutlinedRectangleStack navigation icon (CustomerResource.php:21, TicketResource.php:24)",
+    "Redundant modifyQueryUsing eager loads (TicketsTable.php:26, RepliesRelationManager.php:36)",
+    "Raw resolved_at DateTimePicker is exposed in the form (TicketForm.php:42)",
+    "CustomerResource keeps the scaffolded empty getRelations() stub"
+   ],
+   "strengths": [
+    "The minimal TicketPolicy (only delete/deleteAny) fits Filament's non-strict authorization: everything else is allowed by default",
+    "resolve() on the model plus well-named #[Scope] scopes (open, urgent, unassigned, resolvedSince) keep the table and widget thin",
+    "Good tests: dataset-driven validation, a combined filter test with negative assertions, a freezeSecond resolved_at check, scoping of relation-manager records, and a test that the stats widget excludes old data",
+    "A custom livewire() Pest helper keeps tests concise"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Non-admins can delete a Customer, and cascadeOnDelete then removes that customer's tickets, getting around the admin-only ticket-delete rule (database/migrations/2026_11_07_000001_create_support_tables.php:27)",
+    "The replies relation manager has no Edit action, so replies can't be corrected after posting (app/Filament/Resources/Tickets/RelationManagers/RepliesRelationManager.php:41). This is minor; the task didn't specify it"
+   ],
+   "antipatterns": [
+    "One migration alters users and creates three tables. Per-table migrations are the Laravel convention (database/migrations/2026_11_07_000001_create_support_tables.php)",
+    "TicketPolicy adds viewAny/view/create/update methods that all return true, which isn't needed with non-strict authorization (app/Policies/TicketPolicy.php:10-28)",
+    "resolve() only sets status and relies implicitly on the observer to stamp resolved_at, so the side effect is hidden from the call site (app/Models/Ticket.php:73-76)",
+    "Bulk assign calls $records->each->update(), one query per record (app/Filament/Resources/Tickets/Tables/TicketsTable.php:65)",
+    "When FilamentInfoWidget was removed, a stray blank line was left in the widgets array (app/Providers/Filament/AdminPanelProvider.php:42)",
+    "All tests sit in one TicketResourceTest file, including the customer and widget tests"
+   ],
+   "strengths": [
+    "The TicketObserver (registered with #[ObservedBy]) keeps resolved_at consistent with status on every save path: form, row action, and reopen. This is the only implementation where the 30-day stat can't be skewed by form edits, and a test covers it",
+    "Customer email is unique in the form and the database, and a test covers it",
+    "Ticket::averageResolutionHours() keeps the widget thin; the expressive factory states (status(), priority(), resolvedAfterHours()) make tests read well",
+    "Navigation group and distinct icons; the Schemas/Tables classes and HasLabel/HasColor enums follow Filament 5 conventions",
+    "Tests cover reopen clearing resolved_at, bulk delete hidden for non-admins, and a duplicate-email failure path"
+   ]
+  },
+  "rationale": "All three share the same Filament 5 skeleton: Schemas/Tables classes, HasLabel/HasColor enums, #[Scope] scopes, a FilamentUser that returns true from canAccessPanel, and a delete/deleteAny policy. All suites pass (impl-1: 37, impl-2: 36, impl-3: 28 tests). The probes separated them. impl-3 is the only one that keeps resolved_at consistent with status, using an observer. In impl-1 and impl-2, setting a ticket to Resolved through the edit form leaves resolved_at null, so the ticket silently drops out of the required 30-day average. Reopening a ticket also leaves a stale timestamp. impl-3 and impl-1 enforce a unique customer email; impl-2 allows duplicates. All three let non-admins delete a customer, which cascades to that customer's tickets. Bulk delete by non-admins was correctly blocked in every implementation. impl-1 edges out impl-2 on its unique-email rule, its single-query bulk assign, ->authorize('update') on Resolve, and finer-grained tests; it loses points for redundant widget registration and boilerplate policy methods. impl-2 has the most idiomatic minimal policy, but it has the extra duplicate-email bug and a misplaced factory docblock. Ranking: impl-3 > impl-1 > impl-2."
+ },
+ "cost_usd": 0.9600980000000001
+}

@@ -1,0 +1,104 @@
+{
+ "key": "scheduled-reports",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 9
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Jobs/SyncSupplierStock.php:15 UniqueFor(3600) equals the hourly interval: after a crashed run the lock from the 10:00:0x dispatch can still exist at the 11:00:0x dispatch, so a whole hour gets skipped. It should be strictly below 3600.",
+    "routes/console.php:12-20 the commands have no overlap guard at all (withoutOverlapping is deliberately omitted, and ScheduleTest.php:55 asserts that), so a long-running command is not protected; a short withoutOverlapping(expiresAt) would have met 'long runs cannot double up' without the 24h lock problem"
+   ],
+   "antipatterns": [
+    "config/queue.php:71 raises the global redis retry_after to 3600 for every job instead of putting the long job on a dedicated connection or queue (all three do this)",
+    ".env edited directly (CACHE_STORE/QUEUE_CONNECTION=redis), so local artisan commands such as schedule:list fail without Redis",
+    "app/Jobs/SyncSupplierStock.php:12 long inline rationale comment"
+   ],
+   "strengths": [
+    "PruneAbandonedCarts uses limit()->delete() in a do/while loop: a single query per batch, no model hydration, memory-safe",
+    "Schedule tests use UTC instants across CET/CEST and include 'wrong hour' negatives",
+    "Tests assert the timeout < retry_after <= UniqueFor relationship via the attributes",
+    "Modern attributes (#[Signature], #[Scope], #[Fillable], #[Tries], #[UniqueFor]) and a text mail view with Str::plural",
+    "Mail failure path when warehouse.email is missing is covered"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Mail/UnshippedOrdersReport.php:20 HTML body built inline with htmlString instead of a view, with no pluralisation ('1 orders')",
+    "app/Console/Commands/PruneAbandonedCarts.php:18-22 chunkById hydrates 1000 models per batch only to collect keys before deleting; lazyById/pluck or limit()->delete() is lighter",
+    "config/queue.php:71 raises the global redis retry_after to 3600 for every job",
+    "routes/console.php:6 aliases the Schedule class as SchedulerSchedule just to get the MONDAY constant, which adds ceremony",
+    "tests/Feature/SyncSupplierStockTest.php:11-12 inline fully qualified attribute class names instead of imports"
+   ],
+   "strengths": [
+    "Every task is guarded: onOneServer, plus withoutOverlapping with short expiry (10/180 min), so a killed run cannot block the next occurrence for 24h",
+    "Job timing is coherent: Timeout 3000 < retry_after 3600, UniqueFor 3300 < the hourly interval, with FailOnTimeout and Tries(1)",
+    "Prune runs at 03:30 Copenhagen time, outside the DST gap",
+    "Sets the real SCHEDULE_CACHE_STORE setting in .env.example",
+    "Best tests: two schedule:run calls in the same minute dispatch once, uniqueness checked against a real database queue, DST checks via travelTo in Copenhagen time, exact 48h boundary, ->sole() lookup",
+    "$this->fail() for the missing-config failure path"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 6,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 7,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "routes/console.php:17-20 prune is scheduled at 01:30 in the app timezone (UTC), not Copenhagen like the rest of the business schedule, so its local time shifts with DST (02:30 or 03:30)",
+    "tests/Feature/ScheduleTest.php:58 the test is named 'not twice while it is in flight' but runs schedule:run only once, so the claim is never tested"
+   ],
+   "antipatterns": [
+    "tests/Feature/SyncSupplierStockTest.php:34 expect(true)->toBeTrue() filler assertion",
+    "tests/Feature/SyncSupplierStockTest.php:18 awkward assertion uniqueFor > retry_after - 1",
+    "app/Models/Order.php:32 and tests use inline fully qualified class names (\\DateTimeInterface, Illuminate\\Queue\\Attributes\\Timeout)",
+    "app/Console/Commands/PruneAbandonedCarts.php:14 untyped const, while the other implementations use typed constants",
+    "app/Models/Cart.php:5-8 unsorted imports",
+    "config/queue.php:71 changes the global redis retry_after"
+   ],
+   "strengths": [
+    "Sound job timing: Timeout 2700 < retry_after 3000 < UniqueFor 3300 < the hourly interval, with FailOnTimeout and Tries(1)",
+    "onOneServer plus a short withoutOverlapping expiry on the commands",
+    "Prune selects ids in batches (pluck with limit) then runs whereKey()->delete(): memory-safe and avoids hydrating models",
+    "Small composable scopes (unshipped, placedBefore)",
+    "DST checks with UTC instants for both winter and summer"
+   ]
+  },
+  "rationale": "All three have similar foundations: onOneServer on every task, the report scheduled in Copenhagen time, a unique queued job with a bounded lock, and batched deletes. impl-2 is the most complete and best tested. Both commands get short-expiry withoutOverlapping, so a killed run can't block the next one and a long run can't double up. Every job timing value fits inside the hour. Its tests actually run schedule:run twice in the same minute and check uniqueness against a real database queue. impl-1 has the leanest cart cleanup and excellent DST tests. However, it deliberately leaves the commands with no overlap guard, and its UniqueFor equals the one-hour interval, so after a crash the next hourly dispatch can be skipped. impl-3 has sound job timing but schedules the cart cleanup in UTC, unlike the rest of the business schedule. Its tests are weaker: one is misnamed and doesn't test what it claims, plus an expect(true) filler and awkward assertions."
+ },
+ "cost_usd": 0.6363171999999999
+}

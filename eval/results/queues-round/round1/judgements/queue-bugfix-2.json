@@ -1,0 +1,101 @@
+{
+ "key": "queue-bugfix",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 6,
+    "architecture_fit": 6,
+    "modern_laravel": 9,
+    "focus_area": 6,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 7
+   },
+   "overall": 6.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Root cause 2 is only partly fixed: DispatchCrmSync is unchanged, so every minute it still loads every unsynced subscriber, calls dispatch, and rewrites crm_sync_queued_at, even though the ShouldBeUnique lock silently drops the push. This makes crm_sync_queued_at meaningless (app/Console/Commands/DispatchCrmSync.php:19-23).",
+    "'Queued N subscribers.' counts subscribers whose dispatch the unique lock skipped. A probe showed that a second run prints 'Queued 1' when nothing was pushed.",
+    "Duplicate protection depends only on a cache lock that lasts UniqueFor(3600). If the queue is backed up for more than an hour, the dispatcher queues the same subscriber again. A probe at 61 minutes found 2 pushes."
+   ],
+   "antipatterns": [
+    "app/Jobs/SyncSubscriberToCrm.php:37 \u2014 `$this->subscriber->fresh()?->` runs an extra query. SerializesModels already re-fetches the model when the job is unserialized.",
+    "app/Jobs/SyncSubscriberToCrm.php:41-49 \u2014 a try/catch that updates and rethrows when failed() already records the error. The error is written twice.",
+    "tests/Feature/CrmSyncTest.php:3-8 \u2014 imports are not ordered, so Pint fails.",
+    "app/Jobs/SyncSubscriberToCrm.php:32 \u2014 WithoutOverlapping has no releaseAfter. A lock collision releases the job immediately and uses up one of its tries."
+   ],
+   "strengths": [
+    "Uses the Laravel 13 queue attributes #[Tries, MaxExceptions, Backoff, Timeout, UniqueFor] together with ShouldBeUnique and uniqueId().",
+    "failed() records the error and clears crm_sync_queued_at, so after a permanent failure the scheduler picks the subscriber up again (a probe confirmed recovery).",
+    "Best end-to-end test: a real database queue with queue:work --once and travel() goes through outage, failed_jobs and recovery, then a successful sync.",
+    "Uses chunkById for the normalize fix and withoutOverlapping(10) for the scheduler mutex, and tests the mutex expiry through the Schedule events."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 8.3,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "CLAIM_TTL_MINUTES (30) is shorter than UniqueFor(3600). Between 30 and 60 minutes the claim succeeds and the command counts the subscriber as queued, but ShouldBeUnique drops the push. A probe at 31 minutes showed 'Queued 1' with 0 new pushes. This only affects the output and the timestamp; it causes no duplicate and no data loss."
+   ],
+   "antipatterns": [
+    "tests/Feature/CrmSyncTest.php:76-82 \u2014 uses reflection to assert that the attributes exist. This tests configuration, not behaviour, and the test name promises 'backoff above the release count' but never checks it.",
+    "app/Jobs/SyncSubscriberToCrm.php:19 \u2014 uses both ShouldBeUnique and a DB claim with a different TTL. The two dedupe layers are slightly redundant and inconsistent with each other.",
+    "tests/Feature/CrmSyncTest.php:48-54 \u2014 'records the error' test never asserts crm_last_error (that is covered separately through failed())."
+   ],
+   "strengths": [
+    "Fixes the root cause of duplicates at the source: an atomic conditional UPDATE claim (whereKey + whereNull + stale-TTL, then `=== 1`) that is safe under concurrent dispatchers. The claim TTL also lets the scheduler re-queue subscribers after a permanent failure (a probe confirmed outage \u2192 failed_jobs \u2192 recovery).",
+    "Uses lazyById in the dispatcher, which avoids the offset/mutating-filter pitfall that impl-3 hit (a probe pushed all 2500 rows).",
+    "Cleanest job: no swallowing try/catch, a failed() hook for crm_last_error, modern queue attributes, and WithoutOverlapping with releaseAfter/expireAfter.",
+    "Has a real queue:work test proving the job is released for retry rather than deleted, a stale-claim test, and a schedule expiresAt test. Pint passes."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 6,
+    "eloquent_idioms": 5,
+    "architecture_fit": 7,
+    "modern_laravel": 6,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 5,
+    "simplicity": 8
+   },
+   "overall": 5.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "DispatchCrmSync uses offset-based each() (chunk of 1000) while filtering on crm_sync_queued_at and updating that same column inside the loop. Rows drop out of the result set and pages are skipped. A probe with 2500 eligible subscribers pushed only 1500. This is the same pitfall as symptom 4, reintroduced (app/Console/Commands/DispatchCrmSync.php:21-29).",
+    "Duplicates are prevented only by the 60-minute requeue window. There is no unique lock, so a backlog longer than an hour re-dispatches the same subscriber (a probe found 2 pushes at 61 minutes)."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/DispatchCrmSync.php:26-30 \u2014 the closure body is mis-indented, so Pint fails (statement_indentation).",
+    "app/Jobs/SyncSubscriberToCrm.php:30 \u2014 `$this->subscriber->fresh()?->` runs a redundant query because SerializesModels already re-fetches the model.",
+    "app/Jobs/SyncSubscriberToCrm.php:41-47 \u2014 keeps catch/log/update and adds rethrow instead of using a failed() hook. crm_last_error is written on every attempt.",
+    "app/Jobs/SyncSubscriberToCrm.php:15-19 \u2014 uses old-style public $tries/$backoff properties rather than the queue attributes available in Laravel 13.",
+    "tests/Feature/CrmSyncTest.php:46,97 \u2014 inline fully qualified class names instead of imports, so Pint fails (fully_qualified_strict_types).",
+    "app/Jobs/SyncSubscriberToCrm.php:25 \u2014 WithoutOverlapping has no releaseAfter, so a lock collision immediately uses up one of only 3 tries."
+   ],
+   "strengths": [
+    "Minimal diff that fixes each root cause: rethrow (retries and failed_jobs), backoff, a requeue filter on crm_sync_queued_at, withoutOverlapping(10), and chunkById.",
+    "A test drives queue:work through 3 attempts and asserts the job lands in failed_jobs.",
+    "Tests cover the stale-requeue window and the schedule mutex expiry."
+   ]
+  },
+  "rationale": "All three pass their own suites (11, 14 and 12 tests). All three correctly fix chunk \u2192 chunkById, the 24-hour scheduler mutex (withoutOverlapping(5 or 10)), and the swallowed exceptions. In each one, a probe confirmed that an outage reaches failed_jobs and the scheduler later recovers the subscriber. The duplicate-dispatch fix is what separates them. impl-2 fixes it at the source with an atomic conditional UPDATE claim plus lazyById, uses a failed() hook and Laravel 13 queue attributes, and passes Pint. Its only flaw is cosmetic: the 30-minute claim TTL is shorter than the 60-minute unique lock, so the 'Queued N' count can be wrong in that window. impl-1 has a similarly modern job and the best end-to-end test, but it leaves DispatchCrmSync untouched and relies only on a cache unique lock. The dispatcher still rewrites crm_sync_queued_at for every unsynced row each minute and over-reports the count. impl-3 is the simplest, but its new filter combined with offset-based each() while mutating the filtered column skips pages: a probe pushed only 1500 of 2500 rows. That is the same bug class as symptom 4. It also uses older property-style configuration and fails Pint."
+ },
+ "cost_usd": 0.5260638
+}

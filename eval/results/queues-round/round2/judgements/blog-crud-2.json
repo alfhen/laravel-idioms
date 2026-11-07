@@ -1,0 +1,74 @@
+{
+ "key": "blog-crud",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 9,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Requests/StorePostRequest.php:25 - the tagNames() helper exists only on the store request, while update calls validated('tags') directly (app/Http/Controllers/PostController.php:41). It adds an inconsistent bit of ceremony.",
+    "routes/api.php:7-11 - five routes are registered by hand, including a duplicated PUT/PATCH pair. Route::apiResource(...)->except('show') would do the same job, and the ->can() calls could still be attached per route or done via authorize.",
+    "app/Models/Post.php:25 - the default status is the literal 'draft' instead of PostStatus::Draft->value. The migration uses the enum, so the two are inconsistent.",
+    "app/Http/Requests/*:11 - rules() has no array-shape docblock (minor)."
+   ],
+   "strengths": [
+    "Store returns new PostResource on a model that was just created, so the 201 comes from the framework instead of being set by hand.",
+    "Uses $request->integer('per_page', 15) for typed input, and $request->enum() combined with when() for the filters.",
+    "The observer uses published_at ??= now(), which is concise. Only the creating event generates the slug, so the slug stays stable when a post is updated, and a test checks this.",
+    "Duplicate tag names are removed silently with collect()->unique(). Probe: ['php','php','Laravel'] gives 201 with two tags, which suits 'created on the fly'.",
+    "Uses the modern Laravel 12/13 attributes #[Fillable], #[ObservedBy] and #[Scope]. Authorization uses route ->can() with a policy and relation ->is(), and tags are eager-loaded with only the columns needed ('tags:id,name').",
+    "26 tests in the most thorough suite: mass-assignment protection for slug and user_id, max lengths, the default page size of 15, combined filters, exact validation messages, PATCH and PUT, and the 404 path."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 9,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.4,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Duplicate tag names get a 422 instead of being merged: the 'distinct' rule at StorePostRequest.php:21 rejects them. Probe: tags [' php ','php','Laravel'] returns 422 on both tags.0 and tags.1. syncTagNames also calls unique(), so either the rule or that call is redundant, and the rule makes the API stricter than 'tags created on the fly from an array of names'."
+   ],
+   "antipatterns": [
+    "app/Providers/AppServiceProvider.php:23 - adds Model::shouldBeStrict() for the whole app. That is outside the task's scope and changes behaviour globally.",
+    "app/Http/Controllers/PostController.php:22-28 - uses the HasMiddleware interface with string 'can:update,post' middleware. Chaining ->can() on the route, or calling Gate/authorize, would be lighter.",
+    "app/Http/Controllers/PostController.php:37 - passes $request->validated('per_page', 15), which is the raw string, to paginate. $request->integer() would be cleaner.",
+    "app/Http/Controllers/PostController.php:48 - calls ->response()->setStatusCode(201) by hand, even though a JsonResource around a model that was just created already returns 201.",
+    "app/Models/Post.php:50 - trims names that the TrimStrings middleware has already trimmed, and calls unique() after the 'distinct' validation has already passed. This is redundant defensive code."
+   ],
+   "strengths": [
+    "Route::apiResource('posts')->except('show') keeps the routes file short.",
+    "Uses modern model attributes (#[Fillable], #[ObservedBy], #[Scope]), an enum cast with Rule::enum, and $request->enum() combined with when() for the filters.",
+    "The default status uses PostStatus::Draft->value, consistent with the migration.",
+    "The policy uses relation ->is(), which avoids lazy loading and so works under strict mode.",
+    "The tests are solid: guests get 401, a non-author sending invalid data still gets 403, filters work alone and combined, published_at is kept when already set, and sending no tags is handled differently from sending an empty array."
+   ]
+  },
+  "rationale": "I ranked impl-1 first, but only just: the two implementations are almost the same in structure. Both have the same migration, enum, observer, policy, resource and scopes. Both test suites pass (impl-2: 19 tests, impl-1: 26). My probes, run against both, gave the same results on slug fallback and transliteration, keeping published_at when a post goes from published to draft and back, rejecting null titles, validating bad query strings, a non-author sending invalid data (403), and the missing show route (405).\n\nThe one difference in behaviour is duplicate tag names. impl-2's 'distinct' rule turns ['php','php'] into a 422. impl-1 merges the duplicates and returns 201, which fits 'tags created on the fly' better.\n\nOn idioms, impl-1 is slightly ahead:\n- it uses $request->integer() for page size\n- it gets the 201 implicitly from the just-created model\n- it uses ??= in the observer\n- it authorizes with route ->can() instead of HasMiddleware\n- its tests are broader, including mass-assignment and the default page size\n\nAgainst that, impl-1 registers its routes by hand instead of with apiResource, its tagNames() helper is used only on store, and it has a literal 'draft' default. impl-2 also makes a global shouldBeStrict change that the task didn't ask for."
+ },
+ "cost_usd": 0.4239058
+}

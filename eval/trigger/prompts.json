@@ -30,5 +30,17 @@
   {"id": "neg-general", "expect": "skip", "fixture": "laravel",
    "prompt": "What does HTTP status 429 mean and when should a server send it?"},
   {"id": "neg-bash", "expect": "skip", "fixture": "laravel",
-   "prompt": "Write me a one-line shell command that counts the lines in all markdown files under the current directory."}
+   "prompt": "Write me a one-line shell command that counts the lines in all markdown files under the current directory."},
+  {"id": "schedule-task", "expect": "trigger", "fixture": "laravel",
+   "prompt": "Every night at 2am we need to close tickets that have been resolved for more than 14 days. Set that up."},
+  {"id": "artisan-command", "expect": "trigger", "fixture": "laravel",
+   "prompt": "Write a command support can run to reassign all open tickets from one agent to another."},
+  {"id": "worker-issue", "expect": "trigger", "fixture": "laravel",
+   "prompt": "Our queue worker sometimes processes the same ticket notification twice after a deploy. Why could that happen here?"},
+  {"id": "neg-symfony-command", "expect": "skip", "fixture": "php",
+   "prompt": "Add a Symfony Console command to this project that prints how many contact messages are stored."},
+  {"id": "neg-node-cron", "expect": "skip", "fixture": "typescript",
+   "prompt": "How do I run a script from this project every night at 2am with cron on an Ubuntu server?"},
+  {"id": "neg-celery", "expect": "skip", "fixture": "laravel",
+   "prompt": "In Celery, what is the difference between acks_late and the visibility timeout on a Redis broker?"}
 ]

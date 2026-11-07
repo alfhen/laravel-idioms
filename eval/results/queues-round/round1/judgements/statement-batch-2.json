@@ -1,0 +1,109 @@
+{
+ "key": "statement-batch",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "QueueStatementJobs has #[Tries(3)] with no dedupe (app/Jobs/QueueStatementJobs.php:18): a retry after partial fan-out re-adds every account; GenerateStatement skips regeneration but re-sends StatementReady, so owners get duplicate emails and the batch job count is inflated",
+    "#[DeleteWhenMissingModels] on GenerateStatement (app/Jobs/GenerateStatement.php:20): an account deleted mid-run is recorded as a batch success, so the run is 'completed' with failed_accounts 0 although no statement was produced (probe confirmed)",
+    "A failure of the fan-out job itself is counted in $batch->failedJobs as a failed account",
+    "No scheduled queue:prune-batches / queue:prune-failed; every failed account (after 3 tries) also lands in failed_jobs, so the queue tables grow without bound"
+   ],
+   "antipatterns": [
+    "tests/Feature/StatementRunTest.php:168 asserts QueueStatementJobs::class toBeString(), which tests nothing",
+    "tests/Feature/StatementRunTest.php:26-32 drainQueue loops queue:work 5 times with travel(); this works but is brittle ceremony",
+    "app/Actions/StartStatementRun.php:13 hard-codes the queue name as a class constant rather than putting it in config",
+    "app/Mail/StatementReady.php:32 duplicates the path format from GenerateStatement"
+   ],
+   "strengths": [
+    "Failure count comes from $batch->failedJobs, so killed or timed-out jobs are counted correctly (probe: completed_with_errors, failed 1)",
+    "The PDF write is safe to repeat: it skips the generator if the file exists and throws if put() returns false",
+    "Retries with backoff and timeouts via queue attributes; the PDF is attached from the storage disk",
+    "Conditional update on status=Running means the run can't be finalised twice or send two summaries",
+    "Tests run a real database queue worker, covering retry, failure, an empty run, queue placement and repeat runs"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 6,
+    "architecture_fit": 7,
+    "modern_laravel": 6,
+    "focus_area": 5,
+    "tests": 6,
+    "correctness": 5,
+    "simplicity": 9
+   },
+   "overall": 5.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "failed_accounts is incremented only inside the job's try/catch (app/Jobs/GenerateStatement.php:36-38); a worker timeout or kill bypasses it, so the run ends 'completed' with failed 0 and finance is misinformed (probe confirmed)",
+    "QueueStatementJobs has tries=1 and no timeout: if pushing 40k jobs to SQS exceeds the worker timeout, the remaining accounts are silently never processed and the run still reports 'completed'",
+    "No GenerateStatement timeout is set for slow PDF work, so it falls back to the worker default",
+    "No pruning of job_batches is scheduled"
+   ],
+   "antipatterns": [
+    "app/Models/StatementRun.php:13-17 uses string constants instead of a backed enum, and status is not cast",
+    "app/Models/StatementRun.php:13-20 puts the constants above the trait `use` statement, an unusual member order",
+    "app/Models/StatementRun.php:22 adds $attributes failed_accounts default that duplicates the DB default",
+    "tests/Feature/StatementRunTest.php:14 calls uses(RefreshDatabase) per file instead of pest()->use in Pest.php",
+    "app/Mail/StatementRunSummary.php:21 uses the cryptic $r alias"
+   ],
+   "strengths": [
+    "Smallest, easiest-to-read implementation: the batch is seeded by a job inside it, so it can't finish early",
+    "chunkById with select('id') and batch()->add per chunk",
+    "An atomic increment of failed_accounts avoids races",
+    "Tests cover a failing account, an empty run, inactive accounts and queue name"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 5.5,
+    "simplicity": 7
+   },
+   "overall": 6.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "failed() hook (app/Jobs/GenerateStatement.php:47-50) runs after Laravel records the failure on the batch, so when the last job is killed or times out the finally callback finalises first: the run ends 'completed' with failed_accounts=1 and the summary says 0 failed (probe confirmed)",
+    "QueueStatementJobs has #[Tries(3)] with no dedupe (app/Jobs/QueueStatementJobs.php:14): a retry after partial fan-out regenerates and re-emails already-queued accounts",
+    "No pruning of job_batches is scheduled"
+   ],
+   "antipatterns": [
+    "app/Jobs/GenerateStatement.php:23 stores the whole StatementRun model in each of the ~40k jobs, adding a needless re-fetch per job when only the id is used",
+    "app/Jobs/GenerateStatement.php:41-49 swallows all Throwables plus a failed() hook, so there are two failure paths with different timing",
+    "app/Jobs/QueueStatementJobs.php:30-31 lazyById(500)->chunk(500) is a roundabout chunkById",
+    "tests/Feature/StatementRunTest.php:63-69 asserts the queue property on hand-built job instances rather than on actual dispatches"
+   ],
+   "strengths": [
+    "Backed enum with model cast, #[Scope] attribute, #[Tries]/#[Timeout] job attributes",
+    "Invokable FinalizeStatementRun with a status=Running guard against finalising twice",
+    "StatementReady attaches the stored PDF from the disk",
+    "Queue name is in config",
+    "Tests include a mocked disk failure proving no email is sent without the file"
+   ]
+  },
+  "rationale": "All three share the same batch design: a job inside the batch adds the per-account jobs, allowFailures, a dedicated statements queue and a finally step. The deciding factor was whether the failure count stays accurate when a job dies outside its own try/catch, for example on a worker timeout. A probe that fails the last statement job through $job->fail() showed impl-1 correct (uses $batch->failedJobs), impl-3 inconsistent (failed()=1 but status completed and a summary saying 0 failed, because failed() runs after the batch has finalised) and impl-2 plainly wrong (completed, 0 failed). impl-1 also writes the PDF safely on retry and has the strongest tests on a real database queue. Its main defects are duplicate emails if the fan-out job is retried and counting a deleted account as a success. impl-3 is modern and clean but has the ordering bug and the same retry-duplication risk. impl-2 is the simplest but uses string constants, sets no timeouts, and silently loses failures and possibly accounts. None of the three prunes job_batches."
+ },
+ "cost_usd": 0.719946
+}

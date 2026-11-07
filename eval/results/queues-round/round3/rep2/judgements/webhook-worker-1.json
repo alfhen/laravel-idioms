@@ -1,0 +1,127 @@
+{
+ "key": "webhook-worker",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 8.6,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "PaymentProvider::payment() (app/Services/PaymentProvider.php:23) declares an array return type, but a 200 response with an empty or non-JSON body returns null and throws a TypeError. The job then retries it as a generic exception instead of handling it.",
+    "Refund is allowed from Pending/PaymentFailed (Order.php:57), so a refund on an order that was never paid still marks it refunded (minor domain looseness)."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/PruneWebhookEvents.php:16: a hand-written prune command where MassPrunable plus model:prune is the framework idiom",
+    "app/Console/Commands/RecoverStuckWebhookEvents.php: an extra recovery command and schedule beyond the brief, adding ceremony",
+    "app/Jobs/ProcessWebhookEvent.php:70 and :99: event types matched as string literals instead of a backed enum",
+    "app/Jobs/ProcessWebhookEvent.php:52: in_array over enum cases instead of an enum helper such as isFinal()",
+    "routes/web.php:18: an /api route registered in web.php with session auth and a hand-built 'can:viewAny,'.Class string instead of ->can()",
+    "tests/Feature/ProcessWebhookEventTest.php:157,176,192: Mockery Job mocks instead of withFakeQueueInteractions()/assertFailed()/assertReleased()"
+   ],
+   "strengths": [
+    "Order state transitions are conditional UPDATEs with whereIn on from-states (Order.php:67-77), so repeats or races can't double-transition, and a late payment.failed can't overwrite a paid order (verified)",
+    "Receipt is sent only when the transition actually happened, via a ShouldQueueAfterCommit notification on a Notifiable Order with routeNotificationForMail",
+    "Domain work runs in DB::transaction with lockForUpdate on the order",
+    "createOrFirst plus wasRecentlyCreated gives race-safe idempotent ingestion",
+    "Modern queue attributes (Backoff, MaxExceptions, Timeout, DeleteWhenMissingModels, WithoutRelations), retryUntil, WithoutOverlapping with releaseAfter/expireAfter, RateLimited with Limit::perSecond(10)",
+    "429 handling honours Retry-After via release(); 4xx fail() permanently; 5xx rethrow for backoff",
+    "The fullest README on worker deployment (timeouts nesting, shared cache, restart, scheduler)",
+    "Broadest test suite: 42 tests including late-failure, replayed refund, 429 release and schedule assertions"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 6,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 5,
+    "simplicity": 8
+   },
+   "overall": 5.8,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "ProcessWebhookEvent.php:51: forceFill(['status' => Processing])->increment('attempts') persists only the increment. The status stays 'pending' in the DB while processing and after a 5xx (verified by probe).",
+    "ProcessWebhookEvent.php:128-130: markPaid always notifies, even when the order is already paid. A second payment.succeeded event for the same payment sends a second receipt (verified: 2 receipts).",
+    "PaymentReceipt.php:10: the receipt notification is not queued and is sent synchronously inside the job. It is also not in a transaction with the order and event updates, so a mail failure after the order is marked paid causes a retry that re-sends or re-applies.",
+    "ProcessWebhookEvent.php:95: payment.failed unconditionally overwrites status, so a late failure flips a paid order to payment_failed (verified).",
+    "ProcessWebhookEvent.php:38: WithoutOverlapping has no releaseAfter, so contended jobs are released with 0 delay and spin through the Tries(50) budget.",
+    "ProcessWebhookEvent.php:55: unknown event types are silently marked processed rather than failed or flagged."
+   ],
+   "antipatterns": [
+    "app/Jobs/ProcessWebhookEvent.php:106: Http client called inline in the job instead of a small provider client, which makes the job harder to test",
+    "app/Jobs/ProcessWebhookEvent.php:27: Tries(50) magic number with an explanatory comment, where retryUntil() would express a time budget",
+    "app/Jobs/ProcessWebhookEvent.php:136: transaction wraps only the refund branch, not the event status update",
+    "tests/Feature/ProcessWebhookEventTest.php:34-37: hand-rolled response queue via array_shift in an Http::fake closure instead of Http::sequence()",
+    "tests/Feature/ProcessWebhookEventTest.php:182: test couples to the RateLimiter internal key md5('payments-api')",
+    "tests/Pest.php:56-73: header-munging helper built with collect()->mapWithKeys, which is heavier than needed"
+   ],
+   "strengths": [
+    "MassPrunable with a prunable() query, scheduled via model:prune daily; also prunes failed jobs",
+    "createOrFirst plus wasRecentlyCreated for idempotent ingestion",
+    "preventRequestForgery(except:) and ->can() route idioms in bootstrap/app.php",
+    "Refund keyed by a unique webhook_event_id makes refund creation idempotent per event",
+    "Real WithoutOverlapping lock test and rate-limit-exhausted test exercise the middleware behaviour",
+    "Concise README with a Supervisor config and notes on retry_after and stopwaitsecs"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 7,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 7.4,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "ProcessWebhookEvent.php:94: payment.failed unconditionally sets payment_failed, so a late or out-of-order failure event flips a paid order (verified).",
+    "ProcessWebhookEvent.php:112: the 'already paid' guard reads status without a lock or conditional update, and WithoutOverlapping is per event_id. Two different events for the same payment processed concurrently can both send a receipt.",
+    "database/factories/OrderFactory.php: no user_id default, and RefundFactory has no order_id/webhook_event_id. Order::factory()->create() and Refund::factory()->create() both throw QueryException (verified).",
+    "PaymentProviderClient::payment() (Services/PaymentProviderClient.php:25): a null JSON body gives a TypeError against the array return type."
+   ],
+   "antipatterns": [
+    "database/migrations/2026_11_07_000002_create_orders_table.php: migration named create_orders_table also creates webhook_events and refunds",
+    "app/Models/WebhookEvent.php:38: legacy scopeWithStatus prefix instead of the #[Scope] attribute available in this version",
+    "app/Actions/StoreWebhookEvent.php:27-34: try/catch that deletes the row on dispatch failure, which is extra ceremony for a single-call action",
+    "tests/Feature/ProcessWebhookEventTest.php:21 and ReceiveWebhookTest.php:8: global const declarations in Pest files can collide across the suite",
+    "app/Jobs/ProcessWebhookEvent.php:46: explanatory inline comment where the code is self-evident"
+   ],
+   "strengths": [
+    "The most modern queue testing: withFakeQueueInteractions()->assertFailed() for permanent failures",
+    "ShouldQueueAfterCommit receipt notification with its own Tries/Backoff attributes, dispatched inside the transaction",
+    "MassPrunable plus a model:prune daily schedule",
+    "retryUntil time budget plus MaxExceptions(5), Backoff attributes, WithoutOverlapping with releaseAfter/expireAfter, RateLimited",
+    "WebhookEventStatus::isFinal() enum helper and a WebhookEventType enum for the match",
+    "Transaction wraps the order change, refund and event-processed update",
+    "End-to-end test through the sync queue; a good README with a Supervisor config and pcntl note"
+   ]
+  },
+  "rationale": "Impl-1 ranks first, impl-3 second and impl-2 third. All three test suites pass: 42 tests for impl-1, 34 for impl-2 and 38 for impl-3. I wrote throwaway probe tests for each and deleted them afterwards.\n\n**Impl-1 (rank 1)** is the most correct.\n- Order changes are conditional updates that only apply from allowed states, run in a transaction with a row lock. A repeated or late event can't move an order backwards (I checked this with a probe) and can't send a second receipt.\n- The receipt is a queued notification sent only after the transaction commits.\n- It handles 429 by waiting for the provider's Retry-After, and has the fullest README on running workers.\n- Weaknesses: the cleanup is a hand-written command instead of the framework's prunable-model feature, the stuck-event recovery command goes beyond the brief, event types are string literals, and the tests use Mockery job mocks.\n\n**Impl-3 (rank 2)** uses the cleanest framework features: prunable models, an `isFinal()` helper on the status enum, a queued notification with its own retry settings, and the newer fake-queue test helpers (`withFakeQueueInteractions`, `assertFailed`). But:\n- A late `payment.failed` flips a paid order to payment_failed (I checked this).\n- The \"already paid\" check has no lock, so two different events for the same payment running at once could both send a receipt.\n- The Order and Refund factories crash on their own because they are missing required foreign keys.\n- One migration is misnamed.\n\n**Impl-2 (rank 3)** has the most real bugs, all confirmed with probes:\n- The \"processing\" status is never saved, because only the attempts increment is written.\n- Every `payment.succeeded` event sends a receipt, so a second event for the same payment sends a second one.\n- The receipt is sent synchronously inside the job, and that step is not in a transaction with the order update.\n- `payment.failed` overwrites a paid order.\n- Its overlap lock has no release delay, so blocked jobs retry immediately and burn through the 50-try limit.\n- Unknown event types are quietly marked processed.\n\nIts prunable-model cleanup and route setup are good, but these bugs are in the task's main focus areas."
+ },
+ "cost_usd": 1.2076608
+}

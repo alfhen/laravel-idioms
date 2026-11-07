@@ -1,0 +1,80 @@
+{
+ "key": "cart-discounts",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 6,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 5,
+    "simplicity": 7
+   },
+   "overall": 6,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Empty cart with an unrestricted code returns 422 'This discount code only applies to items in the  category.' (blank category name). The `contains` check at app/Models/DiscountCode.php:53 also runs when applies_to_category is null.",
+    "Lookup is normalised one way only: app/Http/Requests/ApplyDiscountRequest.php:45 upper-cases the input, but stored codes are never upper-cased (no mutator). A code saved as 'summer10' can never be redeemed and returns 'does not exist'.",
+    "DivisionByZeroError (500) for a fixed code when every eligible line totals 0 (e.g. a free item). app/Pricing/PriceCart.php:84 calls intdiv(..., 0) with no guard."
+   ],
+   "antipatterns": [
+    "app/Pricing/PriceCart.php:52-101 uses plain arrays (array_map/array_filter/array_fill_keys, `+` union) after converting the collection with ->all(), so it drops Collection helpers.",
+    "app/Http/Requests/ApplyDiscountRequest.php:45 reads $this->input('code') instead of validated data.",
+    "app/Http/Requests/ApplyDiscountRequest.php:27-29 calls discountCode() twice in a ternary. It is memoised, but reads awkwardly.",
+    "tests/Feature/ApplyDiscountTest.php:20 Http::preventStrayRequests() is ceremony; there is no HTTP client usage.",
+    "tests/Feature/ApplyDiscountTest.php:38 apply() has no return type.",
+    "Single migration creates three unrelated tables (2026_01_01_000000_create_carts_tables.php)."
+   ],
+   "strengths": [
+    "Invokable controller is a single line, and the FormRequest after() hook produces the 422s.",
+    "DiscountCode::rejectionReason uses a match(true) chain on the model, which reads cleanly.",
+    "Explicit integer casts, the #[Fillable] attribute and an enum cast.",
+    "Fixed-amount split caps the remainder per line so no line goes negative.",
+    "Extra 422 for a category code with no matching lines, plus a test for case/whitespace-insensitive input."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "A category-restricted code with no matching lines in the cart is accepted with 200 and discount 0. It is not wrong under the spec, but a clear 422 would be friendlier. Minor/debatable."
+   ],
+   "antipatterns": [
+    "routes/api.php:7 adds throttle:30,1, which the task did not ask for.",
+    "tests/Feature/ApplyDiscountTest.php:21 Http::preventStrayRequests() is ceremony; there is no HTTP client usage.",
+    "app/Http/Requests/ApplyDiscountRequest.php:54 uses load() inside once() and the controller then calls loadMissing; harmless but redundant.",
+    "app/Pricing/CalculateCartPricing.php:93-100 imperative foreach for leftover-cent distribution (acceptable).",
+    "No integer casts on DiscountCode/CartItem numeric columns, so it relies on the driver returning ints."
+   ],
+   "strengths": [
+    "The FormRequest after() hook uses a match(true) chain, one clear 422 message per failure reason, and skips when base rules already failed.",
+    "once() memoises the code lookup; discountCode() reads validated() input.",
+    "Pricing service uses Collection filter/sum/mapWithKeys and a match on the enum type.",
+    "Guarded against division by zero (amount===0 early return), so empty and zero-priced carts work.",
+    "24 thorough tests covering the threshold boundaries (exactly 50000 and 50001), rounding, leftover-cent distribution, the min_subtotal boundary, null expiry/max_uses, an empty cart, 404, and the code not being consumed.",
+    "Factory states (percentage/fixed/freeShipping/expired/exhausted) keep the tests readable."
+   ]
+  },
+  "rationale": "The two implementations are very alike in structure: an invokable controller, a FormRequest whose after() hook raises the 422s, a DiscountType enum, model helpers and an invokable pricing class. Both suites pass (impl-2: 24 tests, impl-1: 20). Probes decided the ranking, and the probe files were deleted afterwards. impl-1 has three real bugs. An empty cart with a plain code returns a 422 with a blank category name. Codes stored in lowercase can never be redeemed, because only the input is upper-cased. A fixed code on a cart whose eligible lines total 0 crashes with DivisionByZeroError (500). impl-2 handled all of these cases correctly (200 with sensible numbers). Its only debatable gap is silently accepting a category code that matches no lines. impl-2 also makes better use of Collection helpers (impl-1 drops to plain arrays), reads validated input, and has stronger boundary tests. Its throttle middleware and preventStrayRequests call are small bits of ceremony. impl-2 ranks first."
+ },
+ "cost_usd": 0.4209828
+}

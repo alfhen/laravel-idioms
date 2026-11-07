@@ -1,0 +1,114 @@
+{
+ "key": "blog-crud",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.6,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Authorization happens in the controller after FormRequest validation, so a non-author sending an invalid payload gets 422 (leaking validation) instead of 403 (PostController.php:40)",
+    "Tag names are case-sensitive: ['PHP','php'] creates two tags (Post.php:66-67). The other two implementations have the same flaw"
+   ],
+   "antipatterns": [
+    "app/Http/Requests/StorePostRequest.php:25 and UpdatePostRequest.php:25: the postAttributes() helper is duplicated, along with near-identical rules",
+    "app/Models/Post.php:67: a firstOrCreate query per tag (N+1 writes)",
+    "tests/Feature/PostApiTest.php:21: Http::preventStrayRequests() is ceremony because the feature makes no HTTP calls",
+    "app/Http/Controllers/PostController.php:40: Gate::authorize runs after validation instead of FormRequest authorize()"
+   ],
+   "strengths": [
+    "$request->enum('status', PostStatus::class) is used for the index filter",
+    "Route model binding uses the slug (getRouteKeyName), which suits a blog",
+    "Observer uses ??= for the slug and published_at, so factories and seeders can override them",
+    "#[Fillable], #[ObservedBy] and #[Scope] attributes (current Laravel conventions); enum cast; Rule::enum",
+    "whenLoaded tags plucked to names; eager loading; latest()->latest('id') as a tiebreaker; withQueryString",
+    "Most thorough test suite: 26 tests covering validation messages, slug collisions, published_at preservation across draft\u2192published, pagination defaults and bounds, filter combinations, and the 404 and 403 paths"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 6,
+    "eloquent_idioms": 8,
+    "architecture_fit": 4,
+    "modern_laravel": 7,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 5,
+    "simplicity": 7
+   },
+   "overall": 5.8,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "routes/api.php:6 wraps the API in the 'web' middleware group, so CSRF verification applies. A probe confirmed that POST /api/posts returns 419 outside the testing environment. The tests only pass because ValidateCsrfToken is skipped during unit tests, so real JSON API clients cannot create, update or delete",
+    "Non-author sending an invalid payload gets 422 instead of 403, because validation runs before Gate::authorize (PostController.php:40)",
+    "Tag names are case-sensitive, so 'PHP' and 'php' become separate tags"
+   ],
+   "antipatterns": [
+    "routes/api.php:6: the web/session middleware stack is applied to stateless API routes",
+    "app/Http/Requests/StorePostRequest.php:22-32: prepareForValidation trimming duplicates the global TrimStrings middleware",
+    "app/Http/Requests/UpdatePostRequest.php:5-12: extends StorePostRequest, then reaches into parent::rules()['status'] and redefines everything else, which makes the inheritance awkward",
+    "app/Http/Controllers/PostController.php:21: PostStatus::from($validated) where $request->enum() would do",
+    "app/Http/Controllers/PostController.php:44: $request->has('tags') checks raw input instead of the validated/safe data",
+    "app/Policies/PostPolicy.php:15-18: duplicated ownership logic"
+   ],
+   "strengths": [
+    "Clean, thin controller with FormRequests, an API Resource and policy-based 403s",
+    "Modern model attributes (#[Fillable], #[ObservedBy], #[Scope]), enum cast, Rule::enum",
+    "Observer handles the unique slug and sets published_at only if missing",
+    "Tests cover the main CRUD paths, filters, pagination, validation and republishing"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 9,
+    "thin_controllers": 9,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.2,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Non-author sending an invalid payload gets 422 instead of 403, because validation runs before Gate::authorize (PostController.php:38)",
+    "Tag names are case-sensitive, so 'PHP' and 'php' become separate tags (Post.php:61-65)"
+   ],
+   "antipatterns": [
+    "app/Http/Requests/SavePostRequest.php:16: a single request branches on isMethod('POST') instead of separate Store and Update requests",
+    "app/Requests/IndexPostRequest.php:25: PostStatus::tryFrom((string) ...) cast hack where $request->enum() exists",
+    "app/Models/Post.php:59-70: syncTagNames both mutates the relation and returns $this->load('tags'), mixing a command with a query; also a firstOrCreate per tag",
+    "app/Models/Post.php:62: trim() duplicates the TrimStrings middleware for HTTP input (harmless)",
+    "app/Policies/PostPolicy.php:15-18: duplicated ownership logic"
+   ],
+   "strengths": [
+    "Nullable scopes (withStatus/withTag using when()) keep the controller query chain free of conditionals",
+    "Tag normalisation with a collection pipeline (trim \u2192 filter \u2192 unique \u2192 firstOrCreate) dedupes tags gracefully instead of rejecting them",
+    "IndexPostRequest exposes typed status()/perPage() accessors",
+    "Modern attributes (#[Fillable], #[ObservedBy], #[Scope]), enum cast, Rule::enum, an API Resource with whenLoaded",
+    "Idiomatic tests using hasAttached() and sequence() factories; a wide range of validation edge cases (array, string, max lengths, whitespace-only tags, per_page bounds), 404s on both update and delete, and checks that client-supplied slug, owner and published_at are ignored"
+   ]
+  },
+  "rationale": "I ran all three test suites and they pass (26, 20 and 24 tests). I also ran a throwaway probe test in each implementation and then deleted it. It checked: a non-author sending an invalid payload, tag case, tags that differ only by whitespace, a null title on update, the CSRF behaviour outside the testing environment, a filter on an unknown tag, and a title that produces no slug.\n\nimpl-2 has a real production bug. Its API routes sit inside the 'web' middleware group, and with the environment switched out of testing, POST /api/posts returns 419 (CSRF). The suite hides this because Laravel skips CSRF checks during unit tests. It also has redundant trimming in prepareForValidation and an awkward UpdatePostRequest that extends StorePostRequest. That puts it clearly last.\n\nimpl-1 and impl-3 are close and share the same two minor flaws:\n- A non-author sending an invalid payload gets 422 instead of 403, because the controller authorises after validation.\n- Tag names are case-sensitive, so 'PHP' and 'php' become two tags.\n\nimpl-1 ranks first. It has separate Store and Update FormRequests, uses $request->enum() for the status filter, binds routes by slug, and uses ??= in the observer so factories can override the slug and published_at. Its 26 tests are the most thorough. Its weaknesses are a duplicated postAttributes() helper and an unnecessary Http::preventStrayRequests() in the tests.\n\nimpl-3 is a close second. Its nullable scopes keep the controller free of conditionals, its collection pipeline dedupes tags neatly, and its factory-based tests (hasAttached, sequence) are excellent. It loses a little for branching one request on isMethod('POST'), the tryFrom((string)) cast where $request->enum() exists, and a syncTagNames that both saves the tags and returns the reloaded model."
+ },
+ "cost_usd": 0.5881666
+}

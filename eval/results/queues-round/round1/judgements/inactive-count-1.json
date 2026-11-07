@@ -1,0 +1,69 @@
+{
+ "key": "inactive-count",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Console/Commands/CountInactiveUsers.php:17-27 \u2014 building a Validator for a single integer option is heavier than it needs to be. filter_var or a simple ctype_digit check would do the same job.",
+    "app/Models/User.php:7-8 \u2014 the new Scope/Builder imports break the alphabetical order of the existing use block.",
+    "tests/Pest.php:18 \u2014 the commented-out `// ->use(RefreshDatabase::class)` line is left in place directly above the new active line, so the file now has a duplicate.",
+    "tests/Feature/CountInactiveUsersTest.php:10-21 \u2014 time isn't frozen, and nothing tests the exact 90-day cutoff. The 91/89-day fixtures leave so much margin that a < versus <= regression would go unnoticed.",
+    "app/Console/Commands/CountInactiveUsers.php:33 \u2014 the message says '1 users' with no pluralisation, and the tests lock that wording in."
+   ],
+   "strengths": [
+    "The schedule uses appendOutputTo(storage_path('logs/inactive-users.log')), so the daily number actually lands in the logs, which is what the task asked for. A probe confirmed the event's output is that file with append enabled.",
+    "It correctly leaves out onOneServer and withoutOverlapping, since there's a single server and the command is a cheap read.",
+    "The scope uses Laravel 12's #[Scope] attribute with a grouped whereNull/orWhere, so the OR can't leak into other conditions.",
+    "The command declares its signature and description with the modern #[Signature]/#[Description] attributes.",
+    "Tests cover never-logged-in users, the default and custom --days, zero users, invalid input (as a dataset) and the cron expression of the schedule entry."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 6,
+    "tests": 9,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "routes/console.php:11 \u2014 Schedule::command('users:inactive-count')->dailyAt('06:00') has no output target (no appendOutputTo, sendOutputTo or logging). Scheduled command output goes to /dev/null by default, and a probe confirmed $event->output === '/dev/null'. The number therefore never 'shows up in our logs', which misses an explicit requirement."
+   ],
+   "antipatterns": [
+    "tests/Feature/InactiveUsersCountTest.php:62-68 \u2014 the schedule test checks only the cron expression and not where the output goes, so the missing log output isn't caught.",
+    "database/factories/UserFactory.php:47-52 \u2014 a lastLoginAt() factory state that just wraps one attribute adds little over create(['last_login_at' => ...]).",
+    "tests/Feature/InactiveUsersCountTest.php:72-78 \u2014 the 'stores last_login_at as a nullable datetime' test mostly re-tests framework casting.",
+    "tests/Feature/InactiveUsersCountTest.php:43 \u2014 the --days=0 test has a confusing name and relies on a future-dated login.",
+    "tests/Feature/InactiveUsersCountTest.php:15 \u2014 assertExitCode(0)/assertExitCode(1) is used where assertSuccessful()/assertFailed() would be more idiomatic."
+   ],
+   "strengths": [
+    "filter_var with min_range is a lean, proportionate way to validate --days.",
+    "The inactiveSince(CarbonInterface $cutoff) scope keeps the time calculation in the command and the scope pure, using the modern #[Scope] attribute and a grouped OR.",
+    "Tests are stronger on boundaries: time is frozen with freezeSecond(), and there is an explicit check that a login exactly at the cutoff still counts as active.",
+    "The invalid-input dataset asserts on the actual error message."
+   ]
+  },
+  "rationale": "Both implementations are nearly identical in structure. Each has a migration with a nullable timestamp, a datetime cast, a #[Scope] with a grouped whereNull/orWhere, an attribute-configured command and a Pest feature suite. Both suites pass (11 and 12 tests). My probes found the two behave the same on unusual --days values ('007', ' 5', '', huge values) and at the exact 90-day boundary. What decides the ranking is the requirement that the number 'shows up in our logs'. impl-1 sends the scheduled output to storage/logs/inactive-users.log with appendOutputTo. impl-2 sets no output target, so the scheduler discards the output to /dev/null, which I confirmed by inspecting the Event. impl-2 has the somewhat better tests (frozen time and an exact-cutoff test) and leaner validation, but missing a stated requirement outweighs that. impl-1's issues are minor: a heavier Validator than needed, unsorted imports, a leftover comment in Pest.php, no boundary test and the '1 users' wording."
+ },
+ "cost_usd": 0.2742752
+}
