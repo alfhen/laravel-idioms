@@ -31,6 +31,16 @@ All evaluations used fresh Laravel 13.33 apps: PHPUnit, Pest 5.2 and Filament 5.
 | stock-sync-dispatcher (holdout) | Scheduled dispatcher with claims, rate limits and retries |
 | queue-bugfix (holdout) | Fix a seeded app whose job swallows failures and double-sends |
 | inactive-count (probe) | A small scheduled count that tests for over-engineering |
+| coupon-redeem | A per-user, capped redemption under concurrent requests |
+| orders-api | A token API with abilities, guests without `Accept`, no leaked internals |
+| stock-csv-import | Real-world CSV upload: BOM, header case, bad rows with line numbers |
+| document-vault | Confidential uploads with expiring download links |
+| orders-customer-link | A foreign key and backfill on a big legacy table, zero downtime |
+| carrier-quote | A flaky partner API inside a 5-second request budget |
+| ship-order | Mail and points exactly once, nothing on rollback |
+| token-login (holdout) | Token login with brute-force limits and revocation |
+| thread-mentions (holdout) | @mentions: one private mail and one notification per user |
+| profile-nickname (probe) | A small profile endpoint that tests for over-engineering |
 
 ## Skill vs no skill
 
@@ -110,6 +120,56 @@ The final version ranked first on 13 and 15 of 30 judgements, against 6 and 4 fo
 - **Cost:** builds cost the same with this version as with `main` ($0.38 vs $0.37 on average) and take about as long. The skill grew from 250 to 308 lines.
 
 Raw judgements, mappings, per-build stats and hidden-test results are in [`eval/results/queues-round/`](../eval/results/queues-round). CI checks that the round 3 and round 4 tables still re-derive from them.
+
+## Races, API auth, files, schema, HTTP client and events
+
+This round added six areas to the skill: races (`SKILL.md` §8b), API guards and error responses (§3b), file uploads (§7d), migrations (§5b), outbound HTTP (§8c), and events and mail. Five new references cover the details: `concurrency`, `files-and-uploads`, `migrations`, `http-client` and `events-and-notifications`. The first three areas were real bugs in every arm of the queue round's builds.
+
+**Method.** As in the queue round, with three changes:
+- Before any build, two independent correct reference builds per task (for example a pessimistic lock and a conditional `UPDATE`) had to pass every hidden test. Three tests rejected a correct design and were fixed first.
+- Every API task checks a guest request without an `Accept` header. One `bootstrap/app.php` line flips that check in every task, so it is reported on its own row.
+- Each revision was rebuilt on all 23 tasks, so every row below comes from the text that was judged.
+
+Target and holdout tasks have three builds per arm, and the probe and the 13 regression tasks have two. The regression tasks are the queue round's eight plus sales-report, blog-crud, csv-import, blade-catalogue and caching. Blind Opus judges scored two replicates, with two judges per task.
+
+**Hidden tests** (41 builds per skill arm, 289 tests):
+
+| | No skill | `main` | This version |
+|---|---|---|---|
+| Guest without `Accept` gets a JSON 401 | 1/8 | 3/23 | **23/23** |
+| Every other hidden test | 63/63 | 265/266 | 266/266 |
+
+Every reference build (before its fix) and 20 of 23 `main` builds fail it: an API guest that sends no `Accept` header gets a 500, because the default guest redirect calls `route('login')`. Apart from that check, every arm is at the ceiling. The race, rollback, retry, upload and backfill checks pass in every arm, so the judges' notes are the measure for those areas.
+
+**Judges** (mean overall score, replicates 1 / 2; `main` was judged again in each round, so its numbers move a little):
+
+| Task set | `main` | Draft | Round 2 | This version |
+|---|---|---|---|---|
+| Target (7 tasks) | 7.76 / 8.07 | 7.09 / – | 8.15 / 7.84 | **8.27 / 7.99** |
+| Holdout (2 tasks) | 7.08 / 7.28 | 8.72 / – | 7.90 / 7.88 | **7.95 / 8.18** |
+| Probe (1 task) | 8.00 / 7.90 | 8.45 / – | 8.50 / 8.50 | 8.00 / 9.00 |
+| Regression (13 tasks) | 7.63 / 7.47 | 7.97 / – | 7.86 / 7.62 | **7.72 / 7.83** |
+| All 23 | 7.64 / 7.65 | 7.79 / – | 7.98 / 7.75 | **7.92 / 7.96** |
+
+This version ranked first on 27 and 28 of 46 judgements, against 16 and 18 for `main`. It had fewer bugs per build (1.43 and 1.48, against 1.96 and 1.78), and fewer on targets alone (0.79 and 0.79, against 1.43 and 0.86). On targets the second replicate is a tie. The holdouts, which were never read while revising, favour it in both replicates. Judges scored its simplicity slightly lower than `main` (7.70 / 7.80 against 7.86 / 8.07).
+
+**What the rounds changed.** Each judged miss was checked with grep across every build of that task:
+- The draft said token abilities sit "on top of a policy", and 2 of 3 orders-api builds checked `tokenCan()` in a policy that runs after the FormRequest: a read-only token got 422, not 403. The same order, authorization after validation, showed in 2 of 2 blog-crud builds. Now 0 of 3 do it: abilities run as route middleware ahead of route-model binding (3 of 3, so a missing id and another user's id both get 403), and actions that take a FormRequest authorize on the route or in `authorize()`.
+- The draft's race snippet inserted the child row before a guarded `UPDATE` of the parent, and 3 of 3 coupon builds copied it. On MySQL two concurrent requests then deadlock on the foreign-key lock. The snippet now locks the parent row first, as all 3 `main` builds did.
+- The draft's `$file->store('documents')` left the disk implicit in 3 of 3 vault builds. The snippet now names the private disk, and 3 of 3 do.
+- `Validator::make` per CSV row (3 of 3) was heavy and gave generic messages, and counting `fgetcsv()` records put line numbers out of step with the file. Builds now parse one physical line at a time with explicit checks (3 of 3).
+- One draft carrier build reported every transient failure to the error tracker. The skill now says to report only what a person must act on.
+- Second round: one non-atomic migration on a 20-million-row MySQL table, and a `down()` that missed indexes. The skill now asks for one DDL step per migration and an index before the foreign key.
+
+**Non-regression checks.**
+- **Triggering:** over two full rounds of 30 prompts with Haiku (6 runs each), this version and `main` both loaded the skill on 109 of 114 should-trigger runs and 0 of 66 should-skip runs. The eight new prompts (API guests, a migration on a big table, uploads, a hanging HTTP call, a race; Django migrations, an Express upload, a curl option) behave as expected.
+- **Static checks:** no build in any skill arm stores a client file name, calls `Http::` without a timeout, or retries without `when`. Raw foreign-key arrays in tests and `chunk()` are at or below `main`, and Pint finds about as much to fix (0.18 files per build against 0.16). This version adds `Http::preventStrayRequests()` to apps that make no HTTP calls more often than `main` (16 against 10 of 55 builds), although the skill now says not to.
+- **Audit traps:** no trap failed in two runs (`main` failed trap d once).
+- **Cost:** builds cost about the same ($0.30 against $0.32) and take about as long. `SKILL.md` grew from 308 to 394 lines.
+
+**Caveats.** Three snippets use the domain of a target task: bookings with a capacity (coupons), a carrier rate quote, and `orders:write`. That can lift target scores, so the holdouts are the cleaner signal. The hidden tests found one difference between versions. The rest of the evidence is judge scores from two replicates, whose per-task numbers move by up to 1.5 points between replicates.
+
+Raw judgements, mappings, per-build stats, hidden-test results, static counts, triggering and audit runs are in [`eval/results/races-round/`](../eval/results/races-round). CI checks that every table re-derives from them.
 
 ## Audit mode
 

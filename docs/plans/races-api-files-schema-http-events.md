@@ -111,3 +111,14 @@ About 119 builds at $0.40–2.70 (~$150), about 92 judgements (~$80), up to two 
 ## Deliverables
 
 A PR on `feat/races-api-files-schema-http-events` with the skill changes, the harness changes and a `docs/evaluation.md` section. The raw results go in a stacked PR if the main PR would pass 100 files. No release tag until the user decides.
+
+## Outcome
+
+Two revisions, each rebuilt on all 23 tasks and judged over two replicates (see `docs/evaluation.md`). Against the pass bar:
+1. Hidden tests: not met as written. Apart from the shared guest check (23/23 against 3/23), every arm was at the ceiling in every area, so no area could improve on `main`. The judges' notes, confirmed with grep, were the working measure, as in the queue round.
+2. Judge bugs per build on targets and holdout: met (0.79 and 0.79 per target build against 1.43 and 0.86; holdout 1.75 and 1.50 against 2.00 and 1.25, a split).
+3. Regression and probe: met (regression 7.72 / 7.83 against 7.63 / 7.47; probe simplicity 9.0 against 7.5 and 9.0).
+4. The skill fired in all 220 skill-arm builds.
+5. Triggering: equal to `main` (109/114 each, 0/66 false triggers).
+6. Audit traps: no failures (`main` one).
+
