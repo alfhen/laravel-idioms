@@ -1,0 +1,107 @@
+{
+ "key": "stock-sync-dispatcher",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 7.3,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "PushStockAllocations.php:41-48 does not filter on sync_started_at, so when SQS delivers a job twice the second copy POSTs rows that are already synced. The test 'does nothing the second time it runs' (PushStockAllocationsTest.php:41-51) asserts assertSentCount(2), which contradicts its own name.",
+    "PushStockAllocations.php:64-66: if a 200 body has missing:null, in_array() throws a TypeError. My probe confirmed it. The job then retries and fails even though the push succeeded.",
+    "PushStockAllocations.php:43 sets synced_at to the job's start time with second precision. An edit in the same second after the rows are read is never sent again (same window as impl-2)."
+   ],
+   "antipatterns": [
+    "AppServiceProvider + config/services.php: RateLimited('storefront') uses a made-up limit of 30 requests a minute. It throttles locally in addition to the 429 handling, which adds config and a middleware the spec didn't ask for.",
+    "PushStockAllocations.php:58 uses status() === 429 instead of $response->tooManyRequests().",
+    "PushStockAllocations.php:59: Retry-After has no upper cap.",
+    "Removed the base ExampleTest files, which is outside the task's scope.",
+    "Model has no integer cast on quantity."
+   ],
+   "strengths": [
+    "Claim inside chunkById re-checks readyToSync under lockForUpdate in a transaction, which is a correct atomic claim.",
+    "Uses toBase() so claiming and syncing don't touch updated_at.",
+    "withoutOverlapping(5) plus onOneServer on the schedule.",
+    "Sets retryUntil below the claim TTL, and failed() clears the claim.",
+    "Uses partition() for known and unknown SKUs; the URL is in config.",
+    "Best test idioms: withFakeQueueInteractions()->assertReleased(), preventStrayRequests() set globally in Pest.php, and an end-to-end dispatch-to-sync test."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 9
+   },
+   "overall": 8.4,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "PushStockAllocations.php:38/65: synced_at is the time the rows were read, at second precision. An edit in the same second after the read leaves updated_at == synced_at, so the change is never re-sent. My probe confirmed it; the window is narrow.",
+    "DispatchStockSync.php:26-28 identifies the rows it won by sync_started_at = $now. Two dispatchers claiming in the same second would both select the other's rows. onOneServer covers this in practice."
+   ],
+   "antipatterns": [
+    "PushStockAllocations.php:21: the endpoint is a hard-coded class constant instead of config/services.php.",
+    "PushStockAllocations.php:53 uses status() === 429 instead of $response->tooManyRequests().",
+    "routes/console.php:11 has no withoutOverlapping(). With a slow DB, one run could overlap the next on the same server.",
+    "PushStockAllocationsTest.php:99-115 hand-builds a Mockery Job instead of using withFakeQueueInteractions()/assertReleased()."
+   ],
+   "strengths": [
+    "Only job that guards against duplicate SQS delivery: it reads only rows that are still claimed (whereNotNull sync_started_at), so a redelivered job sends nothing.",
+    "Claim is a lock-free conditional UPDATE re-checked with readyToSync, using chunkById so changing the filter column is safe.",
+    "Retry-After parsing falls back on a non-integer value and is capped at 120s. retryUntil (12 minutes) is tied to CLAIM_TTL_MINUTES. failed() clears claims.",
+    "Uses toBase() everywhere so updated_at is never touched by claim or sync.",
+    "Lean and readable, with comments only where they explain a constraint.",
+    "Thorough tests: the 15-minute claim boundary, an edit while the request is in flight, duplicate delivery, the Retry-After cap, and failure making rows ready again for the dispatcher."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 6,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "PushStockAllocations.php:41-44,70: there is no claim filter, and synced_at = DB::raw('sync_started_at'). On a duplicate SQS delivery, or when a claim was cleared or reused, the job POSTs again and sets synced_at to NULL. The row then becomes ready and is dispatched again. My probe confirmed synced_at ends up null after a second handle().",
+    "PushStockAllocations.php:56: a Retry-After in HTTP-date form casts to 0, so release(0) retries immediately while the API is returning 429. My probe confirmed available_at == now.",
+    "When an old job finishes after its claim was re-taken, it clears the new claim and sets synced_at to the new claim time. The newer job then nulls synced_at, which causes another re-send."
+   ],
+   "antipatterns": [
+    "PushStockAllocations.php:54 uses status() === 429 instead of tooManyRequests().",
+    "PushStockAllocations.php:51 maps fields by hand where ->map->only(['sku','quantity']) would do.",
+    "PushStockAllocations.php:65: array_values(array_filter(..., is_string(...))) is extra ceremony.",
+    "PushStockAllocationsTest.php:68,80: partial mocks of the job under test instead of withFakeQueueInteractions()."
+   ],
+   "strengths": [
+    "Clever choice of synced_at = claim time, which narrows the window for losing an edit made while the request is in flight.",
+    "Claim loop uses a transaction with lockForUpdate and a limit. The schedule has onOneServer and withoutOverlapping. The URL is in config.",
+    "Separate test file for the readyToSync scope covering the claim boundaries; uses a dataset for Retry-After."
+   ]
+  },
+  "rationale": "All three use the same overall design: a readyToSync scope, claims written with toBase() so updated_at isn't touched, retryUntil below the 15-minute claim TTL, and failed() clearing claims. What separates them is how each behaves when the queue delivers a job more than once and when the API rate-limits.\n\n**impl-2 (rank 1).** It is the only one that reads only rows that are still claimed, so a redelivered SQS job does nothing. It also handles Retry-After safely: values that aren't integers fall back to a default, and the wait is capped. It is the simplest of the three. Its remaining issues are narrow: an edit made in the same second after the read can be lost (impl-1 has the same window), and the endpoint is a hard-coded constant instead of config.\n\n**impl-1 (rank 2).** It has the best test idioms (withFakeQueueInteractions, global preventStrayRequests) and adds withoutOverlapping. Its weaknesses:\n- A duplicate delivery re-sends rows. The damage is limited, but one of its tests is named as if the job does nothing the second time while asserting it sent twice.\n- It crashes with a TypeError when `missing` is null.\n- It adds a RateLimited middleware with an invented limit, which is extra ceremony.\n\n**impl-3 (rank 3).** It has a real bug: on a duplicate or late delivery, `synced_at = sync_started_at` becomes NULL, so rows are re-sent and the \"exactly once per change\" requirement is broken. Probes confirmed it. A Retry-After given as an HTTP date also makes it retry immediately while the API is still returning 429."
+ },
+ "cost_usd": 0.5999992
+}

@@ -1,0 +1,140 @@
+{
+ "key": "shipment-sync",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Order::markAsPaid (app/Models/Order.php:43) checks the in-memory status with no lock or conditional update. Two stale instances of the same order both dispatch the job (probe confirmed 2 pushes), and the job has no WithoutOverlapping, so two workers could both POST. Only the Idempotency-Key header stands between that and a duplicate shipment.",
+    "A 201 without an id throws (SendOrderToWarehouse.php:104-106), so the job retries and POSTs again even though the partner may already have created the shipment. Probe confirmed 2 POSTs."
+   ],
+   "antipatterns": [
+    "app/Jobs/SendOrderToWarehouse.php:22: the explanatory comment is borderline. It is useful, but it runs long.",
+    "app/Jobs/SendOrderToWarehouse.php:51-55: nested ifs that could be one condition (impl-2/4 write it as `&&`).",
+    "Extra shipment_notified_at column and fillable entry not in the spec. Reasonable, but undocumented ceremony."
+   ],
+   "strengths": [
+    "Uses modern Laravel 13 queue attributes (#[Timeout, Backoff, MaxExceptions, DeleteWhenMissingModels]), the Foundation Queueable trait, the #[Fillable] attribute and enum casts.",
+    "Account-wide RateLimited('warehouse') with Limit::perSecond(5). retryUntil bounds total time while MaxExceptions bounds real errors.",
+    "429 releases the job honouring Retry-After. 5xx and timeouts throw into backoff. 422 records the reason and completes without retrying.",
+    "Claims the email atomically (conditional update on shipment_notified_at) before sending and rolls the claim back if sending fails, which gives true exactly-once.",
+    "dispatch()->afterCommit inside DB::transaction. failed() never overwrites an existing shipment.",
+    "Very thorough Pest tests: withFakeQueueInteractions assertReleased(delay: 7), a serialize round-trip for cancellation, mail-failure recovery and idempotency."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 5,
+    "simplicity": 8
+   },
+   "overall": 5.5,
+   "rank": 4,
+   "tests_pass": true,
+   "bugs": [
+    "Order::markAsPaid (app/Models/Order.php:39-50) has no idempotency guard. Calling it on an already-shipped order resets shipment_status to pending and dispatches again. The job then skips creation because a reference exists, so the order stays 'pending' forever despite having a shipment (probe confirmed). Every repeated call (e.g. a retried webhook) also queues another job.",
+    "notifyCustomer (SendOrderToWarehouse.php:121-127) sends first and records shipment_notified_at afterwards with no atomic claim. A crash or failed save between the two re-sends the email on retry.",
+    "429 is thrown as an exception (no Retry-After handling), so partner throttling eats into MaxExceptions(10) and uses the fixed backoff.",
+    "A 201 without an id throws and retries, so it re-POSTs (probe: 2 requests).",
+    "Without #[DeleteWhenMissingModels], a hard-deleted order turns into a failed job instead of being dropped."
+   ],
+   "antipatterns": [
+    "app/Models/Order.php:41-46: unconditional forceFill in markAsPaid, which also clears the failure reason. That hides a state-machine decision inside a payment method.",
+    "app/Jobs/SendOrderToWarehouse.php:116: treats every 4xx except 408/429 as permanent with $this->fail(). That is acceptable, but a 401 from a misconfigured token fails every order permanently.",
+    "forceFill used throughout even though the attributes are fillable (except shipment_notified_at)."
+   ],
+   "strengths": [
+    "Modern attributes (#[Backoff], #[MaxExceptions], #[Timeout], #[Fillable]), enums, and the Foundation Queueable trait.",
+    "WithoutOverlapping per order plus a global RateLimited, an Idempotency-Key header, and connect/read timeouts.",
+    "Permanent rejection goes through $this->fail(), so failed() records the reason in one place.",
+    "Tests cover transaction rollback, a 429/5xx dataset, mail failure and a serialize round-trip for cancellation. Http::preventStrayRequests is set in Pest.php."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "The job never checks that the order is paid (SendOrderToWarehouse.php:50-66). Dispatching it for a pending order ships it (probe confirmed a POST).",
+    "markAsPaid (app/Models/Order.php:42) uses a non-atomic in-memory guard. Two stale instances each dispatch a job (probe confirmed 2 pushes). WithoutOverlapping plus refresh() keeps this from producing a double POST, though.",
+    "429 is thrown as a generic RequestException: Retry-After is ignored and throttling counts toward MaxExceptions(8).",
+    "A 201 without an id throws and retries, so it re-POSTs (probe: 2 requests)."
+   ],
+   "antipatterns": [
+    "app/Jobs/SendOrderToWarehouse.php:58-64: checks shipment_status twice around a void createShipment() that mutates $this->order. The bool-return style of impl-1/2/4 is clearer.",
+    "app/Jobs/SendOrderToWarehouse.php:32: the docblock says releases don't count as exceptions, which is standard framework behaviour."
+   ],
+   "strengths": [
+    "refresh() at the start of handle reads the latest state, and the soft-deleted check is reliable.",
+    "Http::baseUrl, modern variadic #[Backoff], #[DeleteWhenMissingModels], WithoutOverlapping and RateLimited, and a 2h retryUntil.",
+    "Exactly-once email via an atomic claim with rollback on failure.",
+    "Markdown mailable using <x-mail::message>.",
+    "Good tests: configurable URL, sync-driver failure that reaches failed(), outage recovery and mail-retry isolation."
+   ]
+  },
+  "impl-4": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 7,
+    "modern_laravel": 5,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 6
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "notifyCustomer (SendOrderToWarehouse.php:139-148) sends before recording shipment_notified_at, with no atomic claim, so a crash between the two re-sends the email. WithoutOverlapping prevents the concurrent case only.",
+    "markAsPaid uses withTrashed (Order.php:54), so a cancelled order can be marked paid and get a job queued. The job then correctly skips it, so this is harmless but sloppy.",
+    "Every non-5xx/408/429 4xx is permanent. A 401 from a bad token marks every order failed with no automatic retry. Arguable, but ops can see it."
+   ],
+   "antipatterns": [
+    "app/Models/Order.php:19-27: string constants instead of backed enums with enum casts. This is not current Laravel style.",
+    "app/Jobs/SendOrderToWarehouse.php:7-22: the legacy Dispatchable/InteractsWithQueue/Queueable/SerializesModels quartet instead of Illuminate\\Foundation\\Queue\\Queueable, and public properties instead of queue attributes ($deleteWhenMissingModels, $maxExceptions, $timeout).",
+    "app/Models/Order.php:13: #[UseFactory] is redundant alongside HasFactory's convention.",
+    "app/Models/Order.php:66-69: forceFill()->syncOriginal() after a query update is ceremony to mirror state.",
+    "Comment density above the rest of the app (Order.php:47-50, Job:26,29-30,33,60, AppServiceProvider:25), some of it narrating the design."
+   ],
+   "strengths": [
+    "Atomic, idempotent markAsPaid via a conditional update (where status = pending). It is the only implementation without the double-dispatch race (probe passed).",
+    "handle() does a scoped Order::query()->find(), so cancelled orders read as null, and it checks the paid status.",
+    "A 201 without an id is recorded as failed rather than retried. This deliberately avoids a duplicate shipment.",
+    "429 honours Retry-After, capped at 120s. 5xx/408/timeouts throw into backoff. recordFailure is guarded by whereNull('shipment_reference').",
+    "WithoutOverlapping per order plus account-wide RateLimited.",
+    "Strongest tests: a real rate-limit test (7 dispatches, frozen time, 5 sent, travel 1s), DB-queue afterCommit rollback, assertReleased(delay: 7) and a 401 path."
+   ]
+  },
+  "rationale": "All four suites pass (25, 22, 20 and 24 tests). Each implementation got 7 shared probes, run then deleted. These covered:\n- markAsPaid called on two stale copies of the same order\n- markAsPaid called again on an already-shipped order\n- the job run against an unpaid order\n- a 201 without an id, then a retry\n- cancellation, a 422 and a 503, each through a real database queue worker\n\nRanking:\n1. impl-1 ranks first. It is the cleanest and most modern: queue attributes, enums, #[Fillable], 429 handling that honours Retry-After, an atomic exactly-once email claim, and excellent tests. Its weaknesses are a non-atomic markAsPaid guard (two stale instances push 2 jobs) and no WithoutOverlapping lock. Only the Idempotency-Key header stops a duplicate POST in that narrow race.\n2. impl-4 ranks second. It is the most robust on the focus area: an atomic conditional-update markAsPaid, a 201 without an id treated as permanent to avoid duplicates, Retry-After capped at 120s, WithoutOverlapping, and the best tests (a real rate-limit test, afterCommit on the DB queue). But it uses string constants instead of enums, the legacy job traits and property-style config, and carries more ceremony and comments. It also sends the email before recording it, so a crash in between re-sends it.\n3. impl-3 ranks third. It is modern and safe against concurrency (refresh() plus WithoutOverlapping), but the job never checks the paid status (probe: it ships unpaid orders) and it treats 429 as a generic exception.\n4. impl-2 ranks last because of a real state bug. markAsPaid has no guard, so calling it again on a shipped order resets shipment_status to pending forever and dispatches a new job each time. Its email handling is also non-atomic."
+ },
+ "cost_usd": 0.8078078
+}

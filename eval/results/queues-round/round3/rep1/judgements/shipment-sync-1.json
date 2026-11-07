@@ -1,0 +1,110 @@
+{
+ "key": "shipment-sync",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 8.3,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "No Idempotency-Key or other dedup token is sent to the partner. If the partner creates the shipment but the request hangs or times out client-side, the retry posts again and can create a duplicate shipment (app/Jobs/SendOrderToWarehouse.php:105). Verified with a probe.",
+    "failed() filters with `where('shipment_status', '!=', Sent)`. SQL NULL semantics mean an order whose shipment_status is NULL is never marked failed (app/Jobs/SendOrderToWarehouse.php:96). A probe confirmed it stays null. Only orders that skip markAsPaid can reach this state."
+   ],
+   "antipatterns": [
+    "app/Jobs/SendOrderToWarehouse.php:37-40: RateLimited runs before WithoutOverlapping, so a job blocked by the overlap lock still uses up one of the 5 per-second slots.",
+    "app/Jobs/SendOrderToWarehouse.php:60-76: a chain of status-code ifs where $response->tooManyRequests() and similar helpers exist.",
+    "tests/Feature/SendOrderToWarehouseTest.php:159-161: hand-rolled Mockery Job mocks instead of withFakeQueueInteractions()/assertReleased().",
+    "tests/Feature/SendOrderToWarehouseTest.php:253: uses reflection to read the Backoff attribute, which tests configuration rather than behaviour."
+   ],
+   "strengths": [
+    "markAsPaid uses an atomic conditional UPDATE (pending\u2192paid) inside the transaction and dispatches afterCommit. Calling it twice, from stale instances, or on a cancelled order never dispatches a second job (verified by probe).",
+    "The job reloads with fresh(), checks trashed() and paid status, and runs under WithoutOverlapping per order plus a global RateLimited('warehouse') at Limit::perSecond(5).",
+    "On 429 the job releases with Retry-After clamped to 5\u2013300s. 5xx and connection errors throw into backoff. MaxExceptions plus retryUntil keep retries bounded. HTTP timeouts are shorter than the job timeout.",
+    "A 422 calls fail() with the partner's message, so failed() records the reason and nothing is retried. failed() never downgrades a sent shipment and also works on trashed orders.",
+    "The exactly-once email uses an atomic claim on shipment_notified_at and rolls the claim back if sending throws.",
+    "Broad, well-named Pest tests: cancelled, unpaid, 422, 429 Retry-After cap/floor dataset, 5xx, hang, missing id, mail failure, failed() edge cases. Also adds .env.example entries."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 6,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 5,
+    "simplicity": 8
+   },
+   "overall": 5.8,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "markAsPaid has no guard. Calling it on an already shipped order sets shipment_status back to pending and dispatches again. The job then skips the request because a reference exists, so the order is stuck showing 'pending' even though it has a shipment reference (app/Models/Order.php:39-49). Verified by probe.",
+    "Calling markAsPaid twice dispatches two jobs, and calling it on a cancelled (soft-deleted) order still marks it paid and dispatches (app/Models/Order.php:41-48). Verified by probe. The job's trashed check stops the shipment itself, but checkout is not idempotent.",
+    "A 429 is thrown as a RequestException, so it ignores Retry-After, counts toward MaxExceptions(10) and enters generic backoff. A long rate-limit episode can use up the exception budget and mark the shipment failed (app/Jobs/SendOrderToWarehouse.php:97,116).",
+    "notifyCustomer sends first and then saves shipment_notified_at with no atomic claim. If the save or the worker fails after sending, the customer gets the email twice (app/Jobs/SendOrderToWarehouse.php:121-127)."
+   ],
+   "antipatterns": [
+    "app/Models/Order.php:15-23: shipment columns are mass-assignable through #[Fillable] even though the code writes them with forceFill.",
+    "app/Jobs/SendOrderToWarehouse.php:116: any 4xx except 408/429 counts as a permanent address rejection. A 401 from a bad token is recorded as a failed shipment with no retry.",
+    "app/Jobs/SendOrderToWarehouse.php:42: uses a fully-qualified \\DateTimeInterface inline instead of an import.",
+    ".env.example not updated with WAREHOUSE_URL/WAREHOUSE_TOKEN.",
+    "tests/Feature/SendOrderToWarehouseTest.php: no test calls markAsPaid on an already paid or cancelled order, which hides the double-dispatch bug."
+   ],
+   "strengths": [
+    "Sends an Idempotency-Key header, which guards against duplicate shipments when a hung request is retried.",
+    "Uses WithoutOverlapping per order before RateLimited (the better order) and a global Limit::perSecond(5).",
+    "failed() reloads with fresh() and skips orders that already have a shipment reference.",
+    "The 422 test goes end to end through markAsPaid on the sync queue. A rollback test checks that no job is pushed when the transaction fails.",
+    "Compact, readable job. preventStrayRequests is set globally in Pest.php."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "markAsPaid is not atomic: it only checks the in-memory status. Two requests holding stale instances both dispatch a job (verified by probe: pushed 2 times), and nothing stops them running at the same time because there is no WithoutOverlapping. Both can POST, so only the Idempotency-Key header prevents a duplicate shipment (app/Models/Order.php:43, app/Jobs/SendOrderToWarehouse.php:33-36).",
+    "markAsPaid on a cancelled (soft-deleted) order still marks it paid and dispatches. The job refuses to ship, so this is harmless but noisy.",
+    "The 429 Retry-After value is not capped. A probe showed a release of 86400s, far beyond retryUntil(1h), so a single bad header ends the job by time-out (app/Jobs/SendOrderToWarehouse.php:137-141)."
+   ],
+   "antipatterns": [
+    "app/Jobs/SendOrderToWarehouse.php:23: DeleteWhenMissingModels does nothing useful here. Orders are only soft-deleted, so the model is never missing.",
+    "app/Jobs/SendOrderToWarehouse.php:51-55: nested if where `&& !` would read more simply.",
+    "app/Models/Order.php:15-24: all shipment and notification columns are mass-assignable, and the job writes them with update().",
+    "tests/Feature/OrderShipmentTest.php:108-117: fragile workaround (forgetInstance('mail.manager'), an event listener throwing, reading the array transport) to simulate a mail failure.",
+    "app/Models/Order.php:43: the idempotency check is inside the transaction but not locked, so the transaction gives a false impression of safety."
+   ],
+   "strengths": [
+    "Sends an Idempotency-Key header, and a test names the hung-request duplicate scenario.",
+    "On 429 the job releases honouring Retry-After (default 30s). A 422 marks the shipment failed with the reason and completes cleanly without retrying or landing in failed_jobs. 5xx and timeouts throw into backoff, bounded by retryUntil and MaxExceptions.",
+    "The exactly-once email uses an atomic claim on shipment_notified_at with rollback on failure.",
+    "Modern test idioms: withFakeQueueInteractions()->assertReleased(delay:), Http::fakeSequence for recovery after a transient error, describe blocks, and an end-to-end sync-queue test.",
+    "Short job. The single comment explains a real constraint (releases count as attempts)."
+   ]
+  },
+  "rationale": "All three suites pass: impl-1 25 tests, impl-2 22, impl-3 25. I ran throwaway probes against each implementation and then deleted them.\n\nimpl-1 ranks first. It is the most robust inside the app:\n- markAsPaid uses an atomic conditional update, so it can't dispatch twice, even from stale instances or on a cancelled order.\n- The job reloads the order, checks trashed() and paid status, and runs under a per-order WithoutOverlapping lock plus the global 5/s rate limit.\n- On 429 it releases using Retry-After, clamped to 5\u2013300s.\n- A 422 goes through fail(), which records the reason. failed() never downgrades a sent shipment.\n- The email is claimed atomically, so it is sent exactly once.\nIts weak spots: it sends no idempotency key, so a request that hangs after the partner created the shipment can be retried into a duplicate. Its NULL-unsafe `!=` in failed() also misses orders with a null shipment_status, which only happens when markAsPaid is skipped.\n\nimpl-3 ranks second. It sends an Idempotency-Key, honours Retry-After and handles 422 cleanly, and its tests are the most modern (withFakeQueueInteractions, fakeSequence). But markAsPaid only checks the in-memory status. Probes showed two stale instances both dispatch, and with no overlap lock both jobs can POST. Retry-After is also uncapped (a probe got a release of 86400s).\n\nimpl-2 ranks third. A probe showed that markAsPaid on an already shipped order resets shipment_status to pending, and the order stays pending forever with a reference attached. It also dispatches on every call, including on cancelled orders. A 429 is treated as a generic exception that ignores Retry-After and uses up MaxExceptions. The email is sent before it is recorded, so a crash in between duplicates it. Its Idempotency-Key header and simple code don't make up for these bugs."
+ },
+ "cost_usd": 0.7138186000000001
+}

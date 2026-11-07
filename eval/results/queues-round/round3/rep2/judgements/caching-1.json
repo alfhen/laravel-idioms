@@ -1,0 +1,119 @@
+{
+ "key": "caching",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "A guest request without a JSON Accept header to GET /api/dashboard returns 500 instead of 401, because the auth middleware calls the missing route('login'). The other two implementations do the same.",
+    "A response with an empty rates array is rejected, which is correct. Not a bug."
+   ],
+   "antipatterns": [
+    "routes/web.php:11-14 \u2014 the API endpoints are added to web.php under Route::prefix('api') instead of a routes/api.php file registered in bootstrap/app.php. This means the full web middleware stack (session, CSRF) runs on the rates endpoint.",
+    "app/Services/ExchangeRates.php:59 \u2014 exceptions are re-wrapped into RuntimeException just so they can be caught by the outer catch. Control flow by exception is slightly convoluted.",
+    "app/Services/ExchangeRates.php:40-41 \u2014 the comment explains reasoning rather than a constraint.",
+    "tests/Feature/ExchangeRatesTest.php:13 \u2014 Http::swap(new Factory) is used to reset fakes, which is test ceremony.",
+    "tests/Feature/DashboardTest.php:78 \u2014 the DB facade is used through the global alias without an import."
+   ],
+   "strengths": [
+    "Uses Cache::flexible([60, 300]) for the dashboard. This matches the 'stale up to 5 minutes if recomputing is slow' requirement, and a probe confirmed it serves stale data and then refreshes in the background.",
+    "Observers implement ShouldHandleEventsAfterCommit and use getPrevious() to invalidate both the old and new team when a project, task or user moves. Probes of project and user moves passed.",
+    "The task observer finds the team by querying project_id, so it is not fooled by a stale loaded relation.",
+    "Lock plus block with a double-check inside the lock, a short failure cooldown key, a long-lived last-good copy, Http::timeout(3), and a 503 when nothing is known.",
+    "The lock wait is configurable, so tests can deterministically prove that a held lock prevents the API call and that stale data is served.",
+    "alpha:ascii with size:3 correctly rejects 'USD\\n'.",
+    "Thorough tests: one team's changes don't touch another team's cache, both teams are invalidated on a move, the TTL is checked with travel(), and the error-status and malformed-response paths are covered."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "The dashboard uses Cache::remember with a hard 5-minute TTL instead of flexible/stale-while-revalidate. Every miss recomputes the expensive query synchronously with no stampede protection, so the allowance for slightly stale data is never used.",
+    "A 200 response with an empty rates array ('rates' => []) is cached as fresh for an hour and returned with stale: false. This was confirmed by a probe.",
+    "A guest request without a JSON Accept header to /api/dashboard returns 500 (route [login] is not defined)."
+   ],
+   "antipatterns": [
+    "app/ExchangeRates/FetchExchangeRates.php:28 \u2014 the lock wait of 5s is hardcoded, so the lock path cannot be tested without a real 5-second wait. No test proves that only one request calls the API under contention.",
+    "routes/api.php:7 \u2014 the 'web' middleware group is attached inside the api route file to get session auth.",
+    "app/Observers/DashboardCacheObserver.php:33 \u2014 teamIds() has no return type.",
+    "app/Dashboard/BuildDashboard.php:17 \u2014 the docblock restates the reasoning behind the TTL.",
+    "tests/Feature/ExchangeRatesTest.php:12 \u2014 Http::swap(new Factory) is test ceremony."
+   ],
+   "strengths": [
+    "A single DashboardCacheObserver shared by User, Project and Task, after-commit, with getPrevious() handling moves. Clean use of collections.",
+    "The Task saving hook keeps completed_at consistent with status, and a test covers reopening a task.",
+    "The exchange-rates service is clean: the cache is double-checked inside the lock, there is a failure cooldown, a last-known copy, and Http::timeout(3).",
+    "The controller spreads the result into the response and uses abort_if for the 503, which keeps it thin.",
+    "Good tests: a query-log check that cache hits don't query tasks, both teams invalidated when a member moves, the TTL checked with travel(), recovery after an outage, and the cooldown."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 6,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 5,
+    "simplicity": 7
+   },
+   "overall": 6,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "The exchange-rates route sits behind the auth middleware (routes/api.php:7), which the spec never asked for, so anonymous callers get 401.",
+    "The currency rule regex:/^[A-Z]{3}$/ accepts a trailing newline. A probe of GET /api/exchange-rates/USD%0A returned 200 with base \"USD\\n\", sent the newline to the upstream API and created a separate cache key.",
+    "The task observer uses $model->project?->team_id (the possibly stale loaded relation). When project_id is changed directly on a task whose project was already loaded, the new team's dashboard is not invalidated. A probe showed the new team still reported 0 open tasks.",
+    "The dashboard uses Cache::remember with a 5-minute TTL instead of flexible, so there is no stale-while-revalidate or stampede protection on the expensive recompute.",
+    "A guest request without a JSON Accept header returns 500 (route [login] is not defined)."
+   ],
+   "antipatterns": [
+    "tests/Feature/ExchangeRatesTest.php:13-30 \u2014 the Http fake handler is driven through $GLOBALS['rates_api'], a test-global mutable state antipattern.",
+    "app/Observers/DashboardCacheObserver.php:43-45 \u2014 the observer lazy-loads a relation instead of using the foreign-key value.",
+    "app/Observers/DashboardCacheObserver.php:14 \u2014 the observer is typed against the generic Model, with a match(true) default branch.",
+    "database/factories/UserFactory.php:28 \u2014 uses a fully qualified class name instead of an import.",
+    "app/Rates/ExchangeRates.php:35 and :58 \u2014 the failed-key check is duplicated outside and inside the lock."
+   ],
+   "strengths": [
+    "Timeout, lock wait and backoff are all configurable in config/services.php.",
+    "A clever test re-enters the service while the lock is held, proving only one call goes to the API, and a test asserts the 3-second timeout option is passed.",
+    "Rejects empty or malformed payloads and falls back to the last known rates, which are stored with Cache::forever.",
+    "The Task saving hook keeps completed_at in sync with status.",
+    "Broad dashboard tests: cache hits verified with the query log, per-team isolation, moves between teams, and the TTL."
+   ]
+  },
+  "rationale": "All three suites pass (26, 29 and 30 tests). They share the same core design: invokable controllers, a FormRequest that upper-cases the currency, after-commit observers using getPrevious(), and a lock plus last-known copy plus failure cooldown for the rates.\n\nimpl-1 ranks first. It is the only one to use Cache::flexible for the dashboard, which is the right fit for 'stale for up to 5 minutes if recomputing is slow'. Its lock wait is configurable, so the lock path is actually tested. Its validation (alpha:ascii) is strict, and every probe of the invalidation edge cases passed. Its main flaw is architectural: the API routes live in web.php.\n\nimpl-2 ranks second. Its code is clean, with a single observer and an api.php route file, but it uses Cache::remember with no stale-while-revalidate. Its lock wait is hardcoded and the lock path is untested, and a probe showed it caches an empty rates payload as fresh.\n\nimpl-3 ranks third. Its rates tests are strong, but probes confirmed real bugs: the exchange-rates endpoint wrongly requires auth, a currency with a trailing newline passes validation and reaches the API, and a stale loaded relation causes a missed invalidation when a task's project_id changes. It also uses remember instead of flexible, and its tests rely on $GLOBALS."
+ },
+ "cost_usd": 0.7485733999999999
+}

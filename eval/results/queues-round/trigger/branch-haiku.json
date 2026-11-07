@@ -1,0 +1,1008 @@
+{
+ "plugin_dir": "feat/queues-schedule-commands",
+ "model": "haiku",
+ "runs": 3,
+ "isolated": false,
+ "rows": [
+  {
+   "id": "review-model",
+   "expect": "trigger",
+   "fired": 3,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.028807640000000002
+  },
+  {
+   "id": "review-filament",
+   "expect": "trigger",
+   "fired": 3,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.032988390000000006
+  },
+  {
+   "id": "plan-refactor",
+   "expect": "trigger",
+   "fired": 3,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.03323046
+  },
+  {
+   "id": "refactor",
+   "expect": "trigger",
+   "fired": 3,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.03101472
+  },
+  {
+   "id": "build-feature",
+   "expect": "trigger",
+   "fired": 3,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.0413829
+  },
+  {
+   "id": "perf",
+   "expect": "trigger",
+   "fired": 3,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.025936170000000005
+  },
+  {
+   "id": "tests",
+   "expect": "trigger",
+   "fired": 3,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.03511661
+  },
+  {
+   "id": "assess",
+   "expect": "trigger",
+   "fired": 3,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.02746431
+  },
+  {
+   "id": "mono-review",
+   "expect": "trigger",
+   "fired": 3,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.028381780000000002
+  },
+  {
+   "id": "mono-perf",
+   "expect": "trigger",
+   "fired": 3,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.02614598
+  },
+  {
+   "id": "mono-build",
+   "expect": "trigger",
+   "fired": 3,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.03643242
+  },
+  {
+   "id": "mono-neg-ts",
+   "expect": "skip",
+   "fired": 0,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.01621877
+  },
+  {
+   "id": "neg-php",
+   "expect": "skip",
+   "fired": 0,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.01505823
+  },
+  {
+   "id": "neg-ts",
+   "expect": "skip",
+   "fired": 0,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.013968459999999999
+  },
+  {
+   "id": "neg-general",
+   "expect": "skip",
+   "fired": 0,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.009563990000000001
+  },
+  {
+   "id": "neg-bash",
+   "expect": "skip",
+   "fired": 0,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.008691850000000001
+  },
+  {
+   "id": "schedule-task",
+   "expect": "trigger",
+   "fired": 3,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.0276854
+  },
+  {
+   "id": "artisan-command",
+   "expect": "trigger",
+   "fired": 3,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.036298010000000006
+  },
+  {
+   "id": "worker-issue",
+   "expect": "trigger",
+   "fired": 3,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.024888019999999997
+  },
+  {
+   "id": "neg-symfony-command",
+   "expect": "skip",
+   "fired": 0,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.0185598
+  },
+  {
+   "id": "neg-node-cron",
+   "expect": "skip",
+   "fired": 0,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.01224645
+  },
+  {
+   "id": "neg-celery",
+   "expect": "skip",
+   "fired": 0,
+   "runs": 3,
+   "errors": 0,
+   "cost": 0.01162831
+  }
+ ],
+ "totals": {
+  "trigger": {
+   "fired": 42,
+   "runs": 42
+  },
+  "skip": {
+   "fired": 0,
+   "runs": 24
+  },
+  "errors": 0,
+  "cost": 0.54170867
+ },
+ "results": [
+  {
+   "id": "review-model",
+   "run": 1,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.009824349999999999,
+   "turns": 10,
+   "stop": "success"
+  },
+  {
+   "id": "review-model",
+   "run": 2,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.0098594,
+   "turns": 11,
+   "stop": "success"
+  },
+  {
+   "id": "review-model",
+   "run": 3,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.00912389,
+   "turns": 9,
+   "stop": "success"
+  },
+  {
+   "id": "review-filament",
+   "run": 1,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.011461540000000001,
+   "turns": 13,
+   "stop": "success"
+  },
+  {
+   "id": "review-filament",
+   "run": 2,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.01019686,
+   "turns": 12,
+   "stop": "success"
+  },
+  {
+   "id": "review-filament",
+   "run": 3,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.011329990000000002,
+   "turns": 12,
+   "stop": "success"
+  },
+  {
+   "id": "plan-refactor",
+   "run": 1,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.011122950000000001,
+   "turns": 15,
+   "stop": "success"
+  },
+  {
+   "id": "plan-refactor",
+   "run": 2,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.011280660000000001,
+   "turns": 15,
+   "stop": "success"
+  },
+  {
+   "id": "plan-refactor",
+   "run": 3,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.01082685,
+   "turns": 16,
+   "stop": "success"
+  },
+  {
+   "id": "refactor",
+   "run": 1,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.01145181,
+   "turns": 13,
+   "stop": "success"
+  },
+  {
+   "id": "refactor",
+   "run": 2,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.01016943,
+   "turns": 7,
+   "stop": "error_max_turns"
+  },
+  {
+   "id": "refactor",
+   "run": 3,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.00939348,
+   "turns": 7,
+   "stop": "error_max_turns"
+  },
+  {
+   "id": "build-feature",
+   "run": 1,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.0168471,
+   "turns": 17,
+   "stop": "success"
+  },
+  {
+   "id": "build-feature",
+   "run": 2,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.01251223,
+   "turns": 15,
+   "stop": "success"
+  },
+  {
+   "id": "build-feature",
+   "run": 3,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.012023570000000003,
+   "turns": 7,
+   "stop": "error_max_turns"
+  },
+  {
+   "id": "perf",
+   "run": 1,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.00941866,
+   "turns": 9,
+   "stop": "success"
+  },
+  {
+   "id": "perf",
+   "run": 2,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.009093260000000002,
+   "turns": 12,
+   "stop": "success"
+  },
+  {
+   "id": "perf",
+   "run": 3,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.007424250000000001,
+   "turns": 8,
+   "stop": "success"
+  },
+  {
+   "id": "tests",
+   "run": 1,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.01058588,
+   "turns": 12,
+   "stop": "success"
+  },
+  {
+   "id": "tests",
+   "run": 2,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.01267401,
+   "turns": 7,
+   "stop": "error_max_turns"
+  },
+  {
+   "id": "tests",
+   "run": 3,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.011856720000000001,
+   "turns": 7,
+   "stop": "error_max_turns"
+  },
+  {
+   "id": "assess",
+   "run": 1,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.00942562,
+   "turns": 13,
+   "stop": "success"
+  },
+  {
+   "id": "assess",
+   "run": 2,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.00947627,
+   "turns": 13,
+   "stop": "success"
+  },
+  {
+   "id": "assess",
+   "run": 3,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.008562420000000001,
+   "turns": 11,
+   "stop": "success"
+  },
+  {
+   "id": "mono-review",
+   "run": 1,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.010220410000000003,
+   "turns": 12,
+   "stop": "success"
+  },
+  {
+   "id": "mono-review",
+   "run": 2,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.00922773,
+   "turns": 10,
+   "stop": "success"
+  },
+  {
+   "id": "mono-review",
+   "run": 3,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.00893364,
+   "turns": 9,
+   "stop": "success"
+  },
+  {
+   "id": "mono-perf",
+   "run": 1,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.008806880000000001,
+   "turns": 9,
+   "stop": "success"
+  },
+  {
+   "id": "mono-perf",
+   "run": 2,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.00872073,
+   "turns": 9,
+   "stop": "success"
+  },
+  {
+   "id": "mono-perf",
+   "run": 3,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.00861837,
+   "turns": 9,
+   "stop": "success"
+  },
+  {
+   "id": "mono-build",
+   "run": 1,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.012308320000000001,
+   "turns": 7,
+   "stop": "error_max_turns"
+  },
+  {
+   "id": "mono-build",
+   "run": 2,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.01228536,
+   "turns": 7,
+   "stop": "error_max_turns"
+  },
+  {
+   "id": "mono-build",
+   "run": 3,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.01183874,
+   "turns": 7,
+   "stop": "error_max_turns"
+  },
+  {
+   "id": "mono-neg-ts",
+   "run": 1,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.00631723,
+   "turns": 3,
+   "stop": "success"
+  },
+  {
+   "id": "mono-neg-ts",
+   "run": 2,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.00445122,
+   "turns": 2,
+   "stop": "success"
+  },
+  {
+   "id": "mono-neg-ts",
+   "run": 3,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.005450320000000001,
+   "turns": 3,
+   "stop": "success"
+  },
+  {
+   "id": "neg-php",
+   "run": 1,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.00601392,
+   "turns": 4,
+   "stop": "success"
+  },
+  {
+   "id": "neg-php",
+   "run": 2,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.00416843,
+   "turns": 2,
+   "stop": "success"
+  },
+  {
+   "id": "neg-php",
+   "run": 3,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.004875880000000001,
+   "turns": 3,
+   "stop": "success"
+  },
+  {
+   "id": "neg-ts",
+   "run": 1,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.00483045,
+   "turns": 2,
+   "stop": "success"
+  },
+  {
+   "id": "neg-ts",
+   "run": 2,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.00442401,
+   "turns": 2,
+   "stop": "success"
+  },
+  {
+   "id": "neg-ts",
+   "run": 3,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.0047139999999999994,
+   "turns": 2,
+   "stop": "success"
+  },
+  {
+   "id": "neg-general",
+   "run": 1,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.0034934300000000005,
+   "turns": 1,
+   "stop": "success"
+  },
+  {
+   "id": "neg-general",
+   "run": 2,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.00307933,
+   "turns": 1,
+   "stop": "success"
+  },
+  {
+   "id": "neg-general",
+   "run": 3,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.00299123,
+   "turns": 1,
+   "stop": "success"
+  },
+  {
+   "id": "neg-bash",
+   "run": 1,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.00312153,
+   "turns": 1,
+   "stop": "success"
+  },
+  {
+   "id": "neg-bash",
+   "run": 2,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.00281201,
+   "turns": 1,
+   "stop": "success"
+  },
+  {
+   "id": "neg-bash",
+   "run": 3,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.00275831,
+   "turns": 1,
+   "stop": "success"
+  },
+  {
+   "id": "schedule-task",
+   "run": 1,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.01318045,
+   "turns": 15,
+   "stop": "success"
+  },
+  {
+   "id": "schedule-task",
+   "run": 2,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.006001660000000001,
+   "turns": 7,
+   "stop": "error_max_turns"
+  },
+  {
+   "id": "schedule-task",
+   "run": 3,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.00850329,
+   "turns": 7,
+   "stop": "error_max_turns"
+  },
+  {
+   "id": "artisan-command",
+   "run": 1,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.01408678,
+   "turns": 14,
+   "stop": "success"
+  },
+  {
+   "id": "artisan-command",
+   "run": 2,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.01085867,
+   "turns": 7,
+   "stop": "error_max_turns"
+  },
+  {
+   "id": "artisan-command",
+   "run": 3,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.011352560000000001,
+   "turns": 14,
+   "stop": "success"
+  },
+  {
+   "id": "worker-issue",
+   "run": 1,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.008469649999999999,
+   "turns": 10,
+   "stop": "success"
+  },
+  {
+   "id": "worker-issue",
+   "run": 2,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.00831798,
+   "turns": 10,
+   "stop": "success"
+  },
+  {
+   "id": "worker-issue",
+   "run": 3,
+   "fired": true,
+   "skills": [
+    "laravel-idioms:laravel-idioms"
+   ],
+   "available": true,
+   "error": null,
+   "cost": 0.008100389999999999,
+   "turns": 10,
+   "stop": "success"
+  },
+  {
+   "id": "neg-symfony-command",
+   "run": 1,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.005662820000000001,
+   "turns": 7,
+   "stop": "success"
+  },
+  {
+   "id": "neg-symfony-command",
+   "run": 2,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.00604041,
+   "turns": 9,
+   "stop": "success"
+  },
+  {
+   "id": "neg-symfony-command",
+   "run": 3,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.00685657,
+   "turns": 10,
+   "stop": "success"
+  },
+  {
+   "id": "neg-node-cron",
+   "run": 1,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.00415739,
+   "turns": 4,
+   "stop": "success"
+  },
+  {
+   "id": "neg-node-cron",
+   "run": 2,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.0040453600000000004,
+   "turns": 3,
+   "stop": "success"
+  },
+  {
+   "id": "neg-node-cron",
+   "run": 3,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.0040437,
+   "turns": 4,
+   "stop": "success"
+  },
+  {
+   "id": "neg-celery",
+   "run": 1,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.00413093,
+   "turns": 1,
+   "stop": "success"
+  },
+  {
+   "id": "neg-celery",
+   "run": 2,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.0038550400000000005,
+   "turns": 1,
+   "stop": "success"
+  },
+  {
+   "id": "neg-celery",
+   "run": 3,
+   "fired": false,
+   "skills": [],
+   "available": true,
+   "error": null,
+   "cost": 0.00364234,
+   "turns": 1,
+   "stop": "success"
+  }
+ ]
+}

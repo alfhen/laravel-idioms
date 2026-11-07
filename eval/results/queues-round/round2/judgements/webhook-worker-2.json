@@ -1,0 +1,160 @@
+{
+ "key": "webhook-worker",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 5,
+    "thin_controllers": 3,
+    "validation_form_requests": 2,
+    "eloquent_idioms": 5,
+    "architecture_fit": 4,
+    "modern_laravel": 4,
+    "focus_area": 7,
+    "tests": 6,
+    "correctness": 5,
+    "simplicity": 6
+   },
+   "overall": 4.5,
+   "rank": 4,
+   "tests_pass": true,
+   "bugs": [
+    "Empty or missing PAYMENTS_WEBHOOK_SECRET is not rejected: the controller computes the HMAC with an empty key, so anyone can forge a valid signature (probe returned 200 with hash_hmac(body, ''))",
+    "Unknown event types go to `default => null` in the match and are marked `processed` after a pointless provider API call, instead of failing (probe confirmed)",
+    "A failed event can't be reprocessed with queue:retry: handle() returns early unless the status is PENDING",
+    "Unknown order is only detected after the provider API call, which wastes rate-limit budget"
+   ],
+   "antipatterns": [
+    "app/Http/Controllers/PaymentWebhookController.php:16-22 signature verification inline in the controller instead of middleware",
+    "app/Http/Controllers/PaymentWebhookController.php:24-32 Validator::make plus a hand-built 422 instead of a FormRequest",
+    "app/Http/Controllers/PaymentWebhookController.php:36-44 try/catch on UniqueConstraintViolationException where createOrFirst would do",
+    "app/Http/Controllers/WebhookEventController.php:15 inline $request->validate with Rule::in on string constants instead of a FormRequest/Rule::enum",
+    "app/Http/Controllers/WebhookEventController.php:25 JsonResource::collection over through() closure instead of an API Resource class",
+    "app/Models/WebhookEvent.php:15-19 and app/Jobs/ProcessWebhookEvent.php:111-152 magic status strings and consts; no backed enums or casts",
+    "app/Jobs/ProcessWebhookEvent.php:23 legacy Dispatchable/InteractsWithQueue/SerializesModels trait set instead of Foundation\\Queue\\Queueable",
+    "app/Jobs/ProcessWebhookEvent.php:52 redundant $this->event->fresh() (SerializesModels already re-fetches)",
+    "routes/web.php:9-10 FQCNs inline with withoutMiddleware(PreventRequestForgery) instead of a dedicated route file",
+    "app/Providers/AppServiceProvider.php:26 Gate closure instead of a policy"
+   ],
+   "strengths": [
+    "Handles 429 explicitly with Retry-After release, and treats other 4xx as permanent",
+    "DB transaction with lockForUpdate on the order; receipt only sent on first transition to paid; queued notification with afterCommit",
+    "MassPrunable + scheduled model:prune; WithoutOverlapping keyed on event id with expireAfter",
+    "README worker section is reasonable"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 9
+   },
+   "overall": 8.3,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "handle() treats Failed as finished, so `queue:retry` (recommended in the README) on a failed job is a silent no-op that leaves the event failed (probe confirmed)",
+    "Tries(30) is consumed by RateLimited/WithoutOverlapping releases; under a sustained backlog an event can be failed with MaxAttemptsExceeded without ever hitting a real error",
+    "Numeric event ids are rejected with 422 by the 'string' rule, so the provider would keep redelivering them (minor, contract-dependent)"
+   ],
+   "antipatterns": [
+    "tests/Feature/PaymentWebhookTest.php:230-236 asserts attribute values via reflection, which tests configuration rather than behaviour",
+    "tests/Feature/PaymentWebhookTest.php:283-311 rate limit and overlap are exercised through mocked Job/middleware instead of running a real worker",
+    "app/Jobs/ProcessWebhookEvent.php:24 comment is acceptable but the Tries/MaxExceptions trade-off could be avoided with retryUntil"
+   ],
+   "strengths": [
+    "Clean, thin controller: FormRequest + createOrFirst + wasRecentlyCreated, dispatched only for new events",
+    "Signature middleware rejects an empty secret and uses hash_equals",
+    "Job uses modern attributes (Tries, MaxExceptions, Backoff, Timeout, DeleteWhenMissingModels), WithoutOverlapping keyed per event, RateLimited with a named limiter, failed() records the error",
+    "Checks for an unknown order/type before calling the provider; 4xx except 429 fails permanently via $this->fail()",
+    "Backed enums with casts, model state helpers, MassPrunable, model:prune daily()->onOneServer()",
+    "Queued receipt with ShouldQueueAfterCommit inside a transaction; guards against a duplicate receipt and a duplicate refund (firstOrCreate on provider_refund_id)",
+    "Policy-based admin gate, API Resource, paginated validated index; thorough README covering Supervisor, timeouts vs retry_after, shared cache"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.9,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "OrderFactory has no user_id although orders.user_id is NOT NULL, so Order::factory()->create() throws an integrity violation (probe confirmed); every test has to work around it with ->for(User::factory(), 'user')",
+    "No receipt idempotency at order level: two different payment.succeeded events for the same order send two receipts (probe: 2 notifications)",
+    "Hard-coded 'USD' currency fallback for the receipt and refund when the provider omits currency",
+    "Unknown order is detected only after the provider API call (inside the transaction), which wastes rate-limit budget",
+    "model:prune schedule has no onOneServer(), so it runs on every scheduler host"
+   ],
+   "antipatterns": [
+    "database/factories/OrderFactory.php:15-19 factory missing a required relation",
+    "app/Jobs/ProcessWebhookEvent.php:129,148 magic 'USD' defaults",
+    "app/Models/WebhookEvent.php:14 status/error/processed_at fillable (mass-assignable) rather than state methods",
+    "README.md supervisor line uses --tries=3, which reads as contradicting the retryUntil-based policy (harmless but confusing)"
+   ],
+   "strengths": [
+    "Best test suite: runs a real database queue worker to prove increasing backoff, retry exhaustion \u2192 failed, a real 10/s rate limit across 12 jobs, and the overlap lock skipping a locked event",
+    "retryUntil + MaxExceptions avoids the problem of releases eating tries; WithoutOverlapping + RateLimited middleware",
+    "Re-checks status under lockForUpdate inside the transaction, so double processing is prevented even if the overlap lock expires",
+    "PermanentWebhookException path with $this->fail(); failed() records the error; a failed event can be retried and is reprocessed",
+    "FormRequest helpers using $this->enum()/$this->integer(), #[Scope] attribute, Rule::enum, API Resource, policy via ->can()",
+    "Webhook route in its own file without web/CSRF middleware; queued ShouldQueueAfterCommit receipt"
+   ]
+  },
+  "impl-4": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 6
+   },
+   "overall": 7.2,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "PaymentReceipt is not queued (no ShouldQueue), so mail is sent synchronously inside the job; a mail failure leaves the order paid but the event 'processing' and makes the job retry (probe confirmed)",
+    "The provider API is called before the order lookup, so unknown orders burn rate-limit budget (probe: 1 HTTP call, then failed)",
+    "isFinished() includes Failed, so `queue:retry` on a failed job is a no-op",
+    "Ingestion requires data.payment_id for every type, so the provider gets 422 for any other event shape and will redeliver indefinitely (minor)"
+   ],
+   "antipatterns": [
+    "app/Console/Commands/RedispatchStuckWebhookEvents.php whole command plus a 10-minute schedule is extra machinery the task didn't ask for (over-engineering)",
+    "app/Jobs/ProcessWebhookEvent.php:89-92 Notification::route + manual receipt_sent_at bookkeeping instead of a queued notification to a notifiable",
+    "app/Jobs/ProcessWebhookEvent.php:56-70 no transaction around order mutation and event status",
+    "app/Http/Controllers/PaymentWebhookController.php:20 ->afterCommit() on a dispatch that is never inside a transaction (noise)",
+    "database/migrations/2026_11_07_000003_create_webhook_events_table.php processing_started_at column never read"
+   ],
+   "strengths": [
+    "Modern FailOnException middleware for permanent errors, retryUntil + MaxExceptions + Backoff attributes, WithoutOverlapping + RateLimited",
+    "Order model behaviour methods (markPaid, refund) and receipt_sent_at idempotency",
+    "Stricter FormRequest with required_if for refund fields; safe()->only()",
+    "Tests run a real database worker for retry-then-succeed and the 10/s limit; good dataset-driven validation tests",
+    "Thorough README (pcntl, retry_after vs timeout, stopwaitsecs, onOneServer)"
+   ]
+  },
+  "rationale": "I ran all four suites and they pass (impl-1: 22, impl-2: 37, impl-3: 31, impl-4: 37). I read every added file and probed each implementation with throwaway tests, deleted afterwards.\n\nimpl-2 ranks first. It is the cleanest and most idiomatic: a FormRequest, createOrFirst, signature middleware that rejects an empty secret, job attributes, WithoutOverlapping and RateLimited, a receipt queued only after the transaction commits, MassPrunable with onOneServer, and a policy for admin access. It also checks for an unknown order before calling the provider. Its only real flaw: queue:retry on a failed event does nothing, even though the README recommends it.\n\nimpl-3 has the strongest tests: it runs a real database queue worker to prove increasing backoff, retries running out, the 10 requests/second limit and the overlap lock. It also re-checks the event status under a row lock. It ranks below impl-2 because of a broken OrderFactory (no user_id, so Order::factory()->create() fails), duplicate receipts when two different payment.succeeded events arrive for one order, a hard-coded USD fallback, and no onOneServer on the cleanup schedule.\n\nimpl-4 uses modern APIs well (FailOnException, retryUntil). But its receipt notification is not queued, so mail goes out synchronously inside the job, and a mail failure leaves the order paid with the event stuck in processing. It also calls the provider before looking up the order, and adds an over-engineered command that re-dispatches stuck events.\n\nimpl-1 is last. It accepts forged signatures when the secret isn't configured (confirmed with a probe). Unknown event types are silently marked processed. It validates inline in the controller instead of using a FormRequest, uses magic status strings instead of enums, uses the legacy queue traits, and has the thinnest tests."
+ },
+ "cost_usd": 1.3964041999999999
+}

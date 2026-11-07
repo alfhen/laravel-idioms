@@ -1,0 +1,101 @@
+{
+ "key": "inactive-count",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Console/Commands/CountInactiveUsers.php:24 prints a bare number. Appended to inactive-users.log, that gives a column of numbers with no label, no --days value and no timestamp, so the log entries are hard to read later",
+    "tests/Feature/InactiveUsersCountTest.php:11 Http::preventStrayRequests() has nothing to do with this command and is just noise",
+    "tests/Feature/InactiveUsersCountTest.php:72 asserts onOneServer is false, which tests that something is absent rather than any behaviour",
+    "tests/Pest.php:18 leaves the old commented-out `// ->use(RefreshDatabase::class)` line next to the new active line",
+    "No test checks that the schedule entry writes its output to the log file, even though that is the logging requirement"
+   ],
+   "strengths": [
+    "The #[Scope] attribute scope inactiveFor uses a grouped whereNull/orWhere closure, so a later where() cannot leak into the OR",
+    "Uses #[Signature]/#[Description] console attributes (Laravel 12+) and returns self::SUCCESS/FAILURE",
+    "filter_var with min_range rejects negative, decimal, text and empty --days values; probes confirmed each one",
+    "Adds an index on last_login_at, which helps the daily count query",
+    "appendOutputTo(storage_path('logs/...')) means the scheduled output really reaches a log. Probe confirmed output path and shouldAppendOutput=true",
+    "Correctly skips onOneServer for the single-server setup",
+    "Thorough frozen-time tests: the exact-N-days boundary, never-logged-in users, an empty table, an invalid-input dataset that includes the empty value, and the cron expression"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 9,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 5,
+    "tests": 8,
+    "correctness": 5,
+    "simplicity": 9
+   },
+   "overall": 5.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "routes/console.php:11 the schedule entry has no output destination (no appendOutputTo, sendOutputTo or Log call in the command). Probe showed $event->output is /dev/null, so the daily count never appears in any log, which breaks the explicit 'so the number shows up in our logs' requirement"
+   ],
+   "antipatterns": [
+    "tests/Feature/InactiveUsersCountTest.php:58-64 the schedule test checks only the cron expression, so it cannot catch the missing log output",
+    "No index on last_login_at (minor)"
+   ],
+   "strengths": [
+    "The inactiveSince(CarbonInterface $cutoff) scope keeps clock logic out of the model and makes it easier to reuse",
+    "Output is self-describing ('Inactive users (no login in the last N days): X'), the most readable message of the three",
+    "Uses #[Signature]/#[Description] attributes and filter_var validation with min_range",
+    "freezeSecond() avoids sub-second drift. Tests cover the exact-cutoff boundary, --days=0, an empty table, invalid values and the cron expression",
+    "Pest.php replaces the commented-out RefreshDatabase line cleanly instead of duplicating it",
+    "Asserts the datetime cast round-trips"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 6,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Console/Commands/CountInactiveUsers.php:17-28 runs the Validator facade, then error-bag lookup, then validated(), then an (int) cast, all to check one integer option. That is heavier than filter_var",
+    "app/Console/Commands/CountInactiveUsers.php:32 '1 users have not logged in' has no pluralisation (Str::plural / trans_choice would fix it)",
+    "tests/Feature/CountInactiveUsersTest.php:50 expectsOutputToContain('days') is a very weak assertion, because almost any output contains 'days'",
+    "Tests do not freeze time and have no exact-cutoff boundary test (they rely on 89 vs 91 days)",
+    "No test checks that the schedule writes its output to the log file",
+    "tests/Pest.php:18 leaves the old commented-out RefreshDatabase line next to the new active line"
+   ],
+   "strengths": [
+    "appendOutputTo(storage_path('logs/inactive-users.log')) meets the logging requirement. Probe confirmed it",
+    "Scope written with #[Scope] and a grouped where closure; uses the console attributes",
+    "Its log line includes the --days value, so it is more useful in a log than a bare number",
+    "Smallest footprint: uses create([...]) overrides instead of adding a factory state",
+    "Uses assertSuccessful()/assertFailed() and passes options as an array, both idiomatic"
+   ]
+  },
+  "rationale": "All three pass their own suites (13, 12 and 11 tests). The core logic is nearly identical: a grouped whereNull/orWhere scope written with #[Scope], and the new console attributes. Probes showed identical behaviour on the edge cases: --days=0, '', '+5', ' 5', '05', '1e2' and a very large value (all three reject '05'). What separates them is the requirement that 'the number shows up in our logs'. impl-2 schedules the command with no output destination, and the probe showed the event's output is /dev/null, so the requirement is not met. That is the only real bug found. impl-1 and impl-3 both append the output to storage/logs/inactive-users.log. impl-1 ranks first: it has the strongest tests (frozen time, the exact-cutoff boundary, empty --days, never-logged-in users), simple filter_var validation and an index on the column. Its weakness is a bare-number log line with no context. impl-3 is correct but has weaker tests (no frozen time, no boundary test, a vague 'days' assertion), heavier Validator ceremony, and the '1 users' pluralisation slip. impl-2 has the best output message and very good tests but misses a stated requirement, so it ranks last."
+ },
+ "cost_usd": 0.3256198
+}

@@ -1,0 +1,111 @@
+{
+ "key": "blog-crud",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.6,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Validation runs before Gate::authorize in update, so a non-author sending invalid data gets 422 instead of 403 (PostController.php:38-40). All three implementations share this."
+   ],
+   "antipatterns": [
+    "app/Http/Requests/StorePostRequest.php:25 and UpdatePostRequest.php:25: identical postAttributes() helper copied into both requests. It only wraps safe()->except('tags'), so it adds ceremony without abstracting anything.",
+    "tests/Feature/PostApiTest.php:21: Http::preventStrayRequests() in setUp does nothing here because the feature makes no HTTP calls.",
+    "tests/Feature/PostApiTest.php:311: test_status_is_cast_to_enum only checks framework cast behaviour, so it adds little.",
+    "routes/api.php:6: the session 'auth' guard is used without session middleware, so outside actingAs it can never authenticate. The task allowed this."
+   ],
+   "strengths": [
+    "Uses slug route model binding via getRouteKeyName, so URLs use the stable generated slug.",
+    "Observer uses ??= for slug and published_at, which is concise and lets factories override the slug.",
+    "$request->enum('status', PostStatus::class) plus when() in index; also latest()->latest('id') as a tie-breaker and withQueryString.",
+    "'sometimes','required' on update fields and 'required','distinct' on tags.* give explicit 422s for blank or duplicate tags.",
+    "Policy delete delegates to update; the check uses $post->user()->is($user).",
+    "Modern attributes throughout: #[Fillable], #[ObservedBy], #[Scope].",
+    "26 tests: guest 401s on every endpoint, mass-assignment protection, published_at preserved across draft\u2192published, 404, default and custom pagination, query validation."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 9,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8.5,
+    "simplicity": 7.5
+   },
+   "overall": 8,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "routes/api.php:6 puts the 'web' group on API routes, which adds PreventRequestForgery. Tests skip CSRF, so they pass, but a real JSON client without Sec-Fetch-Site or a CSRF token gets 419 on POST/PUT/DELETE.",
+    "Validation runs before Gate::authorize in update, so a non-author sending invalid data gets 422, not 403 (PostController.php:38-40)."
+   ],
+   "antipatterns": [
+    "app/Http/Requests/UpdatePostRequest.php:5-15: extends StorePostRequest only to inherit prepareForValidation, then overrides rules(). It pulls one rule via parent::rules()['status'] and re-declares the tags rules anyway, which is awkward coupling.",
+    "app/Http/Requests/StorePostRequest.php:22-32: manual trimming in prepareForValidation repeats the global TrimStrings middleware, which already trims nested array input.",
+    "StorePostRequest.php:18: tags.* has no 'required'. It only works because ConvertEmptyStringsToNull makes 'string' fail on blanks.",
+    "PostController.php:21: PostStatus::from($status) on validated input where $request->enum() would be cleaner."
+   ],
+   "strengths": [
+    "Thin controller: when() filters, scoped query through $request->user()->posts(), latest()->latest('id') tie-breaker, withQueryString.",
+    "Modern attribute-based model (#[Fillable], #[ObservedBy], #[Scope]) and an enum cast with Rule::enum.",
+    "Observer handles both slug uniqueness and auto-setting published_at.",
+    "Composite (user_id, created_at) index in the migration.",
+    "20 focused tests, including exact validation messages, freezeSecond for the published_at check, republish keeping published_at, and tag clearing with []."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8.5,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8.5,
+    "modern_laravel": 9,
+    "focus_area": 8.5,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.4,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Validation runs before Gate::authorize in update, so a non-author sending invalid data gets 422, not 403 (PostController.php:36-38)."
+   ],
+   "antipatterns": [
+    "app/Models/Post.php:45-54: scopes take nullable arguments and do the when() internally, so withStatus(null) silently does nothing. That is a surprising scope contract; the conditional belongs at the call site.",
+    "app/Models/Post.php:59-70: syncTagNames both mutates and eager-loads, then returns $this. Mixing a side effect with a fluent return makes store() rely on that hidden load.",
+    "Post.php:62-64: trim()/filter() repeat TrimStrings and the tags.* 'required' rule; unique() silently drops duplicate tags instead of rejecting them.",
+    "app/Http/Requests/SavePostRequest.php:16: switching rules on isMethod('POST') is a terse but implicit way to share one request between store and update.",
+    "tests/Feature/Api/PostTest.php:106: substring message assertions such as '255' and 'array' are loose."
+   ],
+   "strengths": [
+    "One SavePostRequest, plus typed status() and perPage() helpers on IndexPostRequest, keep the index action to a single fluent chain.",
+    "Best test suite: 24 tests using hasAttached, sequence and travel, the draft\u2192published\u2192draft\u2192published round trip, client-supplied slug/owner/published_at ignored, and blank-tag rejection.",
+    "Modern attributes (#[Fillable], #[ObservedBy], #[Scope]) and Rule::enum with an enum cast.",
+    "Policy uses $post->user()->is($user); deleting cascades to the pivot table, and the test checks it.",
+    "latest()->latest('id') gives deterministic ordering; withQueryString on the paginator."
+   ]
+  },
+  "rationale": "All three tests suites pass (impl-2: 20, impl-3: 24, impl-1: 26). They share the same core design: enum cast, #[Fillable]/#[ObservedBy]/#[Scope] attributes, an observer for the unique slug and published_at, a policy using user()->is(), and apiResource without show. My probes found the same behaviour in all three: blank tags return 422, title:null returns 422, an all-symbol title gets slug 'post' then 'post-2', client-supplied published_at/user_id are ignored, and an array passed to the filters returns 422. All three also validate before authorizing, so a non-author sending invalid data gets 422 instead of 403. Unauthenticated non-JSON requests return 500 (no login route) in all three; that comes from the base app. What separates them: impl-2 puts the 'web' middleware group on API routes, which brings in CSRF (PreventRequestForgery). The tests hide this because CSRF is skipped under unit tests, but real token-less JSON clients would get 419. impl-2 also has an awkward UpdatePostRequest that extends the store request and plucks parent::rules()['status'], and its trimming repeats TrimStrings, so it ranks last. impl-3 has the strongest tests and a very thin controller. Against that, its scopes take nullable arguments and no-op on null, syncTagNames mixes a side effect with a returned eager-load, and duplicate tags are silently dropped. impl-1 is the cleanest idiomatically: $request->enum(), ??= in the observer, slug route binding, 'sometimes','required' plus 'distinct' for explicit 422s, and a policy whose delete delegates to update. Its only real flaws are minor ceremony (a postAttributes() helper copied into both requests, Http::preventStrayRequests, a trivial cast test), so it ranks first, narrowly ahead of impl-3."
+ },
+ "cost_usd": 0.6428370000000001
+}

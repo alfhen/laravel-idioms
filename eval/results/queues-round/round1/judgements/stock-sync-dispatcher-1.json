@@ -1,0 +1,108 @@
+{
+ "key": "stock-sync-dispatcher",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 9
+   },
+   "overall": 8.4,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "synced_at is stored at second precision, so an edit made in the same second as the pre-request read leaves updated_at == synced_at and the change is never re-sent (probe confirmed). impl-2 and impl-3 have the same flaw.",
+    "The job does not check that the rows are still claimed (no whereNotNull('sync_started_at')). A duplicate SQS delivery, or a re-run after success, posts the rows again.",
+    "Retry-After is passed to release() without a cap (app/Jobs/PushStockAllocations.php:46). SQS rejects delays over 900s.",
+    "withoutOverlapping() keeps its default 24h lock expiry (routes/console.php:11). If a scheduler process crashes mid-run, dispatching stops for up to a day."
+   ],
+   "antipatterns": [
+    "routes/console.php:11 withoutOverlapping() with no expiry, on a job that runs every minute",
+    "app/Jobs/PushStockAllocations.php:24 retryUntil leaves only a 1-minute margin (CLAIM_TTL-1) while the job timeout is 60s, so the margin is tight"
+   ],
+   "strengths": [
+    "Modern Laravel 13 style throughout: #[Signature]/#[Description], #[Timeout, Backoff, MaxExceptions] queue attributes, #[Scope], #[Fillable], casts() method",
+    "retryUntil is derived from StockAllocation::CLAIM_TTL_MINUTES, so a job always gives up before its claim is treated as abandoned. failed() releases the claim",
+    "Claims each batch inside a transaction with lockForUpdate, and uses toBase() updates so claiming and syncing don't touch updated_at",
+    "synced_at is taken from the time before the read, so edits made during a slow request are re-synced",
+    "Http::baseUrl(config('services.storefront.url')) and partition() on collections read cleanly",
+    "Tests are concise Pest tests covering the scope, batching, re-claiming abandoned rows, 429 release, 5xx, failed(), the retryUntil bound and the schedule"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 6,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 7.7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Same-second edit during the request is lost because timestamps are second-precision (probe confirmed).",
+    "Retry-After is not capped (app/Jobs/PushStockAllocations.php:58). Values over 900s exceed SQS's DelaySeconds limit."
+   ],
+   "antipatterns": [
+    "app/Jobs/PushStockAllocations.php:16 the endpoint is a hardcoded class constant instead of services config",
+    "app/Jobs/PushStockAllocations.php:30 retryUntil hardcodes 10 minutes rather than deriving it from CLAIM_TTL_MINUTES, so the coupling exists only in a comment",
+    "app/Models/StockAllocation.php:27 uses a legacy scopeReadyToSync and a $fillable property where #[Scope]/#[Fillable] are available",
+    "app/Models/StockAllocation.php:10 #[UseFactory] is redundant alongside HasFactory, and so is $model in the factory",
+    "Job settings are public properties ($tries, $maxExceptions, $backoff) rather than the queue attributes",
+    "tests/Feature/DispatchStockSyncTest.php:31 the updated_at assertion (equalTo(...)->toBeFalse) is confusing and weak",
+    "Deleted the base ExampleTest files, which was out of scope"
+   ],
+   "strengths": [
+    "The job only sends rows that are still claimed and not disabled, so redelivery is idempotent",
+    "withoutOverlapping(10) sets a bounded lock expiry",
+    "Transactional claim with lockForUpdate, toBase() updates, and synced_at taken before the request",
+    "Updated .env.example for SQS/Redis",
+    "Tests are split per component, including a test that edits a row mid-request"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 5,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 7
+   },
+   "overall": 6.4,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "Job lifetime is not bounded by the 15-minute claim: #[Tries(10)] with no retryUntil, and 429 releases of up to 600s each. A rate-limited job can still be alive after its claim expires. The dispatcher then re-claims and re-dispatches the same rows, both jobs send (whereNotNull('sync_started_at') still matches), and the old job's failed() later clears the new claim, causing a third dispatch. Probe confirmed the re-dispatch.",
+    "The job doesn't filter on disabled_at, so rows disabled after being claimed are still POSTed and marked synced (probe confirmed).",
+    "Same-second edit during the request is lost because timestamps are second-precision (probe confirmed)."
+   ],
+   "antipatterns": [
+    "app/Providers/AppServiceProvider.php:23 Schedule::useCache('redis') hardcodes the store globally when CACHE_STORE config already covers it",
+    "app/Jobs/PushStockAllocations.php:44 the URL is built by string concatenation instead of Http::baseUrl(), and the redundant asJson() is the client default",
+    "app/Console/Commands/DispatchStockSync.php:20 claims rows with no transaction or row lock and relies entirely on onOneServer",
+    "tests/Feature/StockAllocationTest.php:63 the isSameDay assertion for updated_at is weak"
+   ],
+   "strengths": [
+    "chunkById over the ready scope is a neat, idiomatic way to batch while mutating the filter column",
+    "Wraps the synced/disabled updates in a transaction. Caps release delay below SQS's 900s limit",
+    "Modern attributes (#[Tries], #[Backoff], #[Scope], #[Fillable]) and config-driven URL",
+    "Most thorough test suite, including an idempotency-on-rerun test"
+   ]
+  },
+  "rationale": "impl-1 and impl-2 handle the core risk the same way: retryUntil keeps the job alive for less time than the 15-minute claim, and failed() releases the claim, so work is never lost or stuck. impl-1 ranks first because its idioms are more current (queue and Eloquent attributes, #[Scope], config baseUrl) and its retryUntil is derived from the claim constant. Against it: no idempotency guard on redelivery and a 24h overlap lock. impl-2 has the stronger idempotency guard and a bounded overlap lock, but uses older conventions (legacy scope, property-based job config, hardcoded endpoint, redundant UseFactory). impl-3 is clean and well tested, but it has no retryUntil and allows 10 tries with up to 600s release each. A rate-limited job can outlive its claim, which leads to duplicate sends and claim clobbering, the exact multi-server and exactly-once problem the task highlights. It also sends rows that were disabled after being claimed. All three lose an edit made in the same second as the read, because timestamps are second-precision."
+ },
+ "cost_usd": 0.5683919999999999
+}

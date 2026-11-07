@@ -1,0 +1,119 @@
+{
+ "key": "caching",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 6,
+    "modern_laravel": 8,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 7.8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Marking a task done without also setting completed_at (e.g. $task->update(['status' => 'done'])) means it never shows up in tasks_completed_last_7_days. Nothing keeps status and completed_at consistent, and completed_at is mass-assignable (app/Models/Task.php:17). Probe confirmed this.",
+    "The API endpoints are registered in routes/web.php:11-14 under an 'api' prefix, so they run the full web stack (sessions, cookies, CSRF). The probe showed session cookies being set on /api/exchange-rates responses.",
+    "A request that waits on the refresh lock blocks for up to lock_wait=5s (config/services.php) before falling back to stale data, which is longer than the 3s 'slow API' budget (probe: 4.9s)."
+   ],
+   "antipatterns": [
+    "routes/web.php:11 \u2014 API routes placed in web.php with Route::prefix('api') instead of routes/api.php plus withRouting(api:)",
+    "app/Services/ExchangeRates.php:27 \u2014 catches the broad RuntimeException as control flow; refresh() throws RuntimeException to signal 'down' and rewraps ConnectionException (line 59), so unrelated RuntimeExceptions are swallowed as well",
+    "app/Services/ExchangeRates.php:40-41 \u2014 multi-line comment that restates what the code does",
+    "config/services.php \u2014 URL hard-coded rather than read from env()",
+    "app/Services/ \u00ad\u2014 generic Services namespace (minor)"
+   ],
+   "strengths": [
+    "The only implementation that uses Cache::flexible([60, 300]) (app/Services/TeamDashboard.php:15). This matches the brief exactly: fresh for 60s, stale-while-revalidate up to 5 minutes, and immediate event invalidation on top",
+    "Three focused observers implementing ShouldHandleEventsAfterCommit. Moves are handled through getPrevious(), and the team is resolved from project_id instead of a cached relation",
+    "Variadic TeamDashboard::forget(?int ...$teamIds) with array_unique/array_filter is tidy",
+    "Lock plus a double-check inside the lock, a 15s failure cooldown, Http::timeout(3), and a 30-day last-good copy",
+    "Tests cover a lock held by another request (with and without last-known rates), the failure cooldown, malformed payloads, 500s, time travel for TTLs, and other teams' caches being left alone",
+    "map->only() higher-order collection usage"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 7.6,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "The dashboard uses a plain Cache::remember with a 5-minute TTL, with no stale-while-revalidate. Every expiry or invalidation leads to a synchronous recompute on the request path, so the 'slightly stale is OK if recomputing is slow' allowance goes unused (app/Dashboard/BuildDashboard.php:23).",
+    "A waiter on the refresh lock blocks for up to 5s (block(5)) before returning stale data, which exceeds the 3s slow-API budget (probe: 5.08s).",
+    "An API response of {\"rates\": []} is cached as fresh for an hour and served with stale:false (probe confirmed). is_array accepts an empty array."
+   ],
+   "antipatterns": [
+    "routes/api.php:7 \u2014 ->middleware(['web','auth']) inside api.php to get session auth; this mixes the web stack into API routes",
+    "app/Observers/DashboardCacheObserver.php:33 \u2014 private teamIds() has no return type and returns an Eloquent or base collection depending on the branch",
+    "app/ExchangeRates/FetchExchangeRates.php:59 \u2014 catches the generic RuntimeException thrown by its own throw_unless, a mild control-flow-by-exception pattern",
+    "tests/Feature/ExchangeRatesTest.php:10-14 \u2014 Http::swap(new Factory) in a freshHttp() helper to reset fakes, which is ceremony",
+    "app/Dashboard/BuildDashboard.php:16-17 \u2014 long docblock explaining the design rationale"
+   ],
+   "strengths": [
+    "Single DashboardCacheObserver attached with #[ObservedBy], implementing ShouldHandleEventsAfterCommit. It resolves team ids from project_id plus getPrevious(), so moves invalidate both teams and stale loaded relations aren't a problem",
+    "Task saving hook keeps completed_at consistent with status, and reopening clears it",
+    "Strong model layer: #[Scope] attributes, enum cast, hasManyThrough for team tasks, sensible composite indexes",
+    "Clean invokable action classes and thin controllers; FormRequest normalises case and exposes a typed currency() accessor",
+    "Exchange rates: lock with double-check, 30s failure cooldown, last-known copy, Http::timeout(3), report() on failure",
+    "Tests use the query log to prove cache hits, time travel for TTLs, and cover both-team invalidation on moves, the failure cooldown and recovery"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 6,
+    "simplicity": 7
+   },
+   "overall": 6.6,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "Task invalidation reads $model->project?->team_id (app/Observers/DashboardCacheObserver.php:43). If the project relation is already loaded and project_id is then changed directly, the cached old relation is used and the new team's dashboard is never invalidated, leaving it stale for up to 5 minutes. Probe confirmed this. It also lazy-loads a Project on every task save.",
+    "GET /api/exchange-rates/{currency} is placed behind web+auth middleware (routes/api.php:7-10). The task does not ask for auth, so unauthenticated clients get 401 (and a non-JSON request gets a 500 because no login route exists).",
+    "The dashboard uses a plain Cache::remember with a 5-minute TTL, with no stale-while-revalidate, so the 'serve stale up to 5 minutes' allowance goes unused (app/Dashboard/TeamDashboard.php:26).",
+    "Lock waiters block for up to lock_wait=5s before falling back to stale data, which exceeds the 3s budget (probe: 4.94s)."
+   ],
+   "antipatterns": [
+    "tests/Feature/ExchangeRatesTest.php:13-30 \u2014 uses $GLOBALS['rates_api'] to swap fake behaviour between steps, a global-state hack in place of Http::fake sequences or re-faking",
+    "routes/api.php:7 \u2014 the 'web' middleware group applied to API routes",
+    "app/Http/Requests/ExchangeRateRequest.php:17 \u2014 regex:/^[A-Z]{3}$/ where alpha:ascii|size:3 is more readable",
+    "app/Observers/DashboardCacheObserver.php:44-46 \u2014 calls getPrevious() repeatedly with a nested ternary inside the match arm",
+    "app/Rates/ExchangeRates.php:35 and :58 \u2014 the failed-key check is duplicated before and inside the lock"
+   ],
+   "strengths": [
+    "Includes a genuine re-entrancy stampede test (a nested call during the API call gets null) and a test asserting the 3-second timeout option",
+    "Config-driven timeout, lock wait and backoff values in services.rates",
+    "Small private key helpers (freshKey/lastKnownKey/failedKey) and a payload() builder keep ExchangeRates readable",
+    "Same strong model layer as impl-2: #[Scope], enum cast, saving hook for completed_at, hasManyThrough, indexes",
+    "Observer uses ShouldHandleEventsAfterCommit and handles user and project team moves through getPrevious()"
+   ]
+  },
+  "rationale": "All three pass their own suites (impl-1 26, impl-2 29, impl-3 30), and they share a lot of structure. The ranking comes down to how closely each matched the caching brief and to the bugs the probes found. impl-1 is the only one that uses Cache::flexible([60,300]). That is the idiomatic answer to 'reflect changes within seconds, but serving stale data for up to 5 minutes is fine if recomputing is slow', and it combines it with after-commit observer invalidation that resolves teams by project_id. It also has the best stampede tests (a held lock, with and without last-known rates). Its weaknesses are API routes living in web.php (session cookies on API responses), exception-driven control flow around a broad RuntimeException, and no hook keeping completed_at in sync with status. impl-2 has the cleanest model and observer design and a completed_at hook, and its invalidation is correct, including moves. However, it uses plain remember (no stale-while-revalidate), has no lock-contention test, caches an empty rates payload as fresh, and adds 'web' middleware to api.php. impl-3 is almost identical to impl-2 but has a confirmed invalidation bug: it reads the possibly stale loaded $task->project relation, so the new team's dashboard is missed when a task moves. It also puts exchange-rates behind auth for no reason and uses $GLOBALS to swap fakes in its tests, which outweighs its nice timeout and re-entrancy tests. All three let lock waiters block for about 5s, beyond the 3s slow-API budget."
+ },
+ "cost_usd": 0.825398
+}

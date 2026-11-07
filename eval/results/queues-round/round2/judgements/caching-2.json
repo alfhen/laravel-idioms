@@ -1,0 +1,83 @@
+{
+ "key": "caching",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 6,
+    "modern_laravel": 7,
+    "focus_area": 7,
+    "tests": 6,
+    "correctness": 7,
+    "simplicity": 6
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Invalidation uses Cache::forget (app/Dashboard/TeamDashboard.php:17), so it can race: if a recompute is already running when a write commits, it writes its pre-change result back after the forget, and that result stays stale for up to 5 minutes.",
+    "The old team's cache is forgotten in `saving` (Observers/ProjectObserver.php:11-15, UserObserver.php:11-15, TaskObserver.php:15-17). That runs before commit because the framework does not defer `-ing` events, so a concurrent read can repopulate the old team's cache from pre-commit data.",
+    "The stampede test's guard `expect(...)->not->toThrow(Throwable::class)` (tests/Feature/ExchangeRatesTest.php:82) never fails: a probe showed Pest's negated toThrow passes even when the closure throws. The nested caller actually blocks for 5s and then throws RatesUnavailableException, so the test does not verify what it claims and adds 5s to the suite."
+   ],
+   "antipatterns": [
+    "routes/web.php:11-14: API endpoints live in web.php under Route::prefix('api') instead of routes/api.php via withRouting(api:)",
+    "app/Exchange/ExchangeRates.php:46: report($e) on every LockTimeoutException and upstream failure, which floods logs during an outage",
+    "app/Exchange/UnexpectedRatesResponse.php: extra exception class whose only job is internal control flow (ceremony)",
+    "tests/Feature/ExchangeRatesTest.php:13-16: apiGoesDown() just swaps in a fresh Http factory to reset fakes, so the name is misleading",
+    "tests/Feature/ExchangeRatesTest.php:94-104: the 'does not refetch inside the lock' test only covers a plain fresh-cache hit; the lock path is never exercised",
+    "Dashboard uses Cache::remember instead of Cache::flexible, although the task explicitly allows up to 5 minutes of stale-while-revalidate (TeamDashboard.php:26)"
+   ],
+   "strengths": [
+    "Throws a renderable RatesUnavailableException for the 503, which keeps the controller to a single line",
+    "Uses Http ->throw() plus a typed catch list for the upstream-failure paths",
+    "Observers implement ShouldHandleEventsAfterCommit, so post-commit invalidation is correct (verified in vendor that saving is not deferred)",
+    "Failure cooldown is checked both before and inside the lock, so a down API is not hammered",
+    "Double-checked cache read inside the lock callback; lock with block() for stampede protection; forever last-good fallback",
+    "Form Request normalises case in prepareForValidation and validates with alpha:ascii|size:3",
+    "Thorough dashboard tests, including team moves and the raw-update TTL expiry using travel()"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "The 'serves repeat requests from the cache' test uses `not->toContain(closure)` (tests/Feature/DashboardTest.php:74), which never fails: a probe showed it passes even when a matching projects query is in the log, so caching of the dashboard is never really asserted."
+   ],
+   "antipatterns": [
+    "routes/api.php:7: applies the 'web' middleware group to API routes to get session auth, which mixes stateful web middleware into the api group",
+    "Dashboard uses Cache::remember instead of Cache::flexible, although the task explicitly allows up to 5 minutes of stale-while-revalidate (Actions/GetTeamDashboard.php:19)",
+    "app/Models/Team.php:35-64: cache-versioning logic lives on the Eloquent model rather than in the dashboard action, which blurs responsibilities",
+    "Manual successful()/is_array checks instead of ->throw() (Actions/GetExchangeRates.php:81-83); 503 decided by a null return in the controller rather than a renderable exception",
+    "tests/Feature/ExchangeRatesTest.php:9: a global const in the test file could collide with other files"
+   ],
+   "strengths": [
+    "Versioned cache keys bumped in DB::afterCommit: a recompute that started before a change can only write to an abandoned key, and rolled-back writes do not invalidate (verified with a probe)",
+    "Invalidates both the old and new team on reassignment by reading getOriginal in `saved` (verified with a probe for a project moving team inside a transaction)",
+    "Uses invokable single-purpose Actions with thin controllers, `?? abort(403)`, and Form Request normalisation with validated()",
+    "Lock with block() and a double-checked read inside the lock, a failure backoff, 3s timeout and connectTimeout, and 30-day last-known stale fallback",
+    "Modern attributes (#[Scope], #[ObservedBy], #[Fillable]), table-qualified scopes, an enum cast, and a factory done() state",
+    "Http::preventStrayRequests globally in Pest.php; tests cover the held lock (assertNothingSent), stale on 500 and on timeout, 503, malformed payload, backoff, and TTL with travel()",
+    "Lean: no superfluous exception classes, and tunables live in config/services.php"
+   ]
+  },
+  "rationale": "I read every added or changed file in both implementations and ran both suites: impl-2 passes 31 tests, impl-1 passes 30. Probes: dashboard updates when a project moves team inside a transaction, a rolled-back write leaves the cache alone, a 404 from the API returns 503, and lock waiters read the rates the first caller stored. I also checked vendor: with ShouldHandleEventsAfterCommit, saving/creating/updating still run before the write (so impl-1 still stamps completed_at), while saved/deleted wait for commit.\\n\\nThe two are structurally almost the same. Both use a remember-based dashboard with model-observer invalidation, and both fetch exchange rates through a lock with block(), a double-checked read inside the lock, a 3s timeout and connect timeout, a 30s failure cooldown, and a long-lived last-known copy for the stale response. Neither uses Cache::flexible, even though the task hints at it.\\n\\nimpl-2 ranks first. Its versioned cache keys, bumped via DB::afterCommit, cannot be overwritten by a recompute that started before the change. impl-1's forget() approach has that race, and it also clears the old team's key in `saving`, before commit. impl-2 is also leaner, with no extra exception classes and no report() noise, its routes sit properly in routes/api.php, and its tests run quickly.\\n\\nimpl-1 has some genuine strengths: the renderable 503 exception, ->throw() with typed catches, and the after-commit observer interface. Its tests are weaker, though. The stampede test's not->toThrow can never fail, adds 5s to the suite, and the nested call actually ends in a 503. One lock test never exercises the lock, and the apiGoesDown() helper name is misleading.\\n\\nimpl-2's main flaws are a cache-hit test that can never fail (not->toContain with a closure) and putting the 'web' middleware on its api routes."
+ },
+ "cost_usd": 0.9520436
+}

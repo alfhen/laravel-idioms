@@ -1,0 +1,145 @@
+{
+ "key": "statement-batch",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Finalize reads the run's status, then updates it as a separate step (app/Jobs/FinalizeStatementRun.php:17-29). That is harmless because a batch's finally callback fires only once, but the guard is weaker than an atomic conditional update.",
+    "total_accounts is counted at request time (app/Actions/StartStatementRun.php:18), while the fan-out job re-queries active accounts later. If accounts are toggled in between, total_accounts and the processed set can disagree. impl-4 has the same issue."
+   ],
+   "antipatterns": [
+    "app/Jobs/FinalizeStatementRun.php:11 - an invokable batch callback lives in App\\Jobs but is not a job (it has no ShouldQueue), so the namespace misleads",
+    "app/Jobs/GenerateStatement.php:26 and app/Jobs/QueueStatementJobs.php:19 - onQueue is set again in each constructor even though the batch already sets onQueue (minor duplication)",
+    "tests/Feature/StatementRunTest.php:51 - uses StatementRunFactory::new() instead of StatementRun::factory()",
+    "No scheduled queue:prune-batches or queue:prune-failed, so job_batches and failed_jobs keep growing (all impls share this)"
+   ],
+   "strengths": [
+    "The failure count comes from Batch::failedJobs, which is correct after retries, for missing models and for worker crashes or timeouts. A probe crashing the last job still gave completed_with_errors with failed_accounts=1.",
+    "The seeder job runs inside the batch, so the batch cannot finish while work is still being enqueued, and the zero-account case completes correctly",
+    "Uses lazyById plus chunked batch->add, which suits 40k accounts",
+    "Uses modern attributes: #[Tries], #[Backoff], #[Timeout], #[DeleteWhenMissingModels], #[Scope], #[Fillable]",
+    "Idempotent retries: an existing PDF is not regenerated, and the mail attaches the file via fromStorageDisk",
+    "Blade views for the mail bodies, so output is escaped",
+    "Tests drive a real database queue with queue:work and cover retries, failures, the empty run and idempotency"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 6,
+    "architecture_fit": 5,
+    "modern_laravel": 5,
+    "focus_area": 4,
+    "tests": 5,
+    "correctness": 4,
+    "simplicity": 7
+   },
+   "overall": 4,
+   "rank": 4,
+   "tests_pass": true,
+   "bugs": [
+    "Failures are counted only inside try/catch (app/Jobs/GenerateStatement.php:36-38). A job that fails outside handle (worker timeout, OOM or crash, then MaxAttemptsExceeded) is recorded by the batch but failed_accounts is never incremented. The probe confirmed this: one crashed job still gave status 'completed' with failed_accounts=0.",
+    "Catching Throwable with $tries=1 means a transient error (SMTP blip, S3 hiccup) permanently fails an account with no retry",
+    "The StatementReady email has no attachment and no link to the stored PDF, so the owner has no way to get the statement",
+    "Account names are interpolated unescaped into htmlString (app/Mail/StatementReady.php:21, app/Mail/StatementRunSummary.php:23), which is HTML injection in emails"
+   ],
+   "antipatterns": [
+    "app/Models/StatementRun.php:13-17 - string constants instead of a backed enum with an enum cast",
+    "app/Actions/StartStatementRun.php:29 - the finalize logic is an inline serialized closure in the action",
+    "app/Jobs/GenerateStatement.php:36 - a blanket catch(Throwable) that swallows errors and hides failures from the queue's failure tracking",
+    "BillingAccount::where('active', true) is repeated instead of a scope",
+    "app/Actions/StartStatementRun.php:24 - a comment narrates the design",
+    "Tests run only on the sync driver, so retries and real worker behaviour are never exercised"
+   ],
+   "strengths": [
+    "The batch-with-seeder-job fan-out keeps the request fast and the jobs on a dedicated queue",
+    "chunkById with select('id') keeps fan-out memory low",
+    "Simple and small",
+    "Tests cover the happy path, a single failure and the empty run"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 6,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 6,
+    "simplicity": 6
+   },
+   "overall": 6,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "Race in failure counting: CallQueuedHandler::failed records the batch failure, which fires the finally callback when it is the last job, before it calls the job's failed() hook. If the last job dies outside handle (timeout or crash), FinalizeStatementRun reads failed_accounts before the increment. The probe confirmed status 'completed' while failed_accounts later became 1, and the summary email understates failures.",
+    "#[Tries(1)] with catch(Throwable) means there are no retries for transient generator, storage or mail errors",
+    "htmlString interpolates the account name unescaped (app/Mail/StatementReady.php:22)"
+   ],
+   "antipatterns": [
+    "app/Jobs/GenerateStatement.php:34-49 - counts failures twice over, via try/catch and failed(), instead of using the batch's own failedJobs counter",
+    "app/Jobs/GenerateStatement.php:41 - a blanket catch(Throwable) hides failures from failed_jobs and from batch tracking",
+    "app/Actions/FinalizeStatementRun.php - findOrFail followed by a separate update query, then refresh; this is a redundant extra query",
+    "app/Actions/StartStatementRun.php:21 - an explanatory comment",
+    "DeleteWhenMissingModels on QueueStatementJobs but not on GenerateStatement, which is inconsistent"
+   ],
+   "strengths": [
+    "The atomic guarded update (where status=running) in finalize prevents a double summary",
+    "Enum cast, #[Scope], and queue attributes",
+    "lazyById plus chunk fan-out inside the batch; zero accounts handled",
+    "A failed() hook covers most crash cases (verified when the crash is not on the last job)",
+    "Tests cover the queue assertion, the failing account, a storage failure that sends no email, and the empty run"
+   ]
+  },
+  "impl-4": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "total_accounts is counted at request time, but the fan-out job re-queries later, so the two can drift if accounts change in between (minor, same as impl-1)",
+    "htmlString interpolates the account name unescaped (app/Mail/StatementReady.php:26), which is minor HTML injection"
+   ],
+   "antipatterns": [
+    "app/Actions/StartStatementRun.php:13 - the queue name is a hard-coded class constant rather than config, and GenerateStatement depends on the batch's onQueue to pick its queue implicitly",
+    "app/Jobs/QueueStatementJobs.php:14-17 - a docblock explaining the design",
+    "tests/Feature/StatementRunTest.php:168 - ->and(QueueStatementJobs::class)->toBeString() is a no-op assertion",
+    "Each of the 40k jobs serializes the StatementRun model as well as the account; an id would do",
+    "No pruning of job_batches or failed_jobs is scheduled"
+   ],
+   "strengths": [
+    "The failure count comes from Batch::failedJobs and is accurate across retries, crashes and missing models. Probes with a last-job crash and with a deleted account plus 2 failures all gave correct counts.",
+    "The finalize step uses an atomic conditional update (where status=running) and reports only when the update succeeds",
+    "#[Tries(3)], #[Backoff([30,120])], #[Timeout] and #[DeleteWhenMissingModels] give real retry semantics for transient errors",
+    "Idempotent: an existing PDF is not regenerated, a put() returning false raises an error, and the email is sent only after the file exists, with the PDF attached",
+    "Fans out with lazyById and chunked batch->add, keeping the seeder job inside the batch",
+    "The most thorough tests: a real database queue worker, assertions that nothing lands on the default queue, a transient retry that succeeds, idempotency, failure count and the empty run"
+   ]
+  },
+  "rationale": "impl-4 ranks first, ahead of impl-1, then impl-3, then impl-2. All four pass their own test suites. All four use the same overall design: a batch with allowFailures(), a seeder job inside the batch that adds per-account jobs with lazyById/chunk, and a finally callback that closes the run.\n\nWhat separates them is how they count failures:\n- **impl-1 and impl-4** read Batch::failedJobs. The probes confirmed that count is correct when retries run out, when a worker crashes or times out (including on the last job), and when a model has been deleted.\n- **impl-3** increments a counter in a catch block and in failed(). Laravel records the batch failure, and so fires finally, before it calls failed(). So when the last job crashes, the run is marked 'completed' and the summary email says 0 failed. The probe confirmed this.\n- **impl-2** counts only inside catch(Throwable). Any crash or timeout leaves failed_accounts=0 and status 'completed'. The probe confirmed this too. On top of that, impl-2 has no retries, no attachment, string constants instead of an enum, and tests that only use the sync driver.\n\nimpl-4 edges out impl-1 for three reasons. Its finalize step is an atomic guarded update in a sensibly named class, where impl-1 puts a non-job invokable in App\\Jobs. It checks for a failed put(). And its tests are richer: a transient retry, an assertion that nothing reaches the default queue, and a real worker. impl-4's no-op assertion and its hard-coded queue constant are minor.\n\nNone of the four schedules queue:prune-batches or queue:prune-failed, so the job_batches and failed_jobs tables keep growing in every implementation. I deleted all probe test files afterwards."
+ },
+ "cost_usd": 0.8332740000000001
+}

@@ -1,0 +1,108 @@
+{
+ "key": "caching",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.3,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "tests/Feature/ExchangeRatesTest.php:73-92 stampede test is vacuous: nested call actually blocks 5s, throws RatesUnavailableException, yet the test passes; adds 5s to the suite",
+    "app/Dashboard/TeamDashboard.php:26 Cache::remember instead of Cache::flexible despite the brief allowing 5-minute stale-while-revalidate",
+    "routes/web.php:11-14 API routes declared in web.php under an 'api' prefix (web middleware/session) instead of routes/api.php",
+    "app/Exchange/ExchangeRates.php:90-91 connectTimeout redundant with timeout(3); two exception classes split across App\\Exceptions and App\\Exchange",
+    "app/Observers/TaskObserver.php:19-25 completed_at domain logic mixed into the cache-invalidation observer"
+   ],
+   "strengths": [
+    "Clean per-team key, observers on User/Project/Task invalidate both old and new team on moves (saving captures original), verified correct inside transactions",
+    "Exchange rates: lock()->block() with double-checked cache inside lock, forever last-good, 30s failure cooldown, timeout 3s, renderable 503 exception",
+    "Form request normalises and validates currency with alpha:ascii|size:3",
+    "Thin invokable controllers; Scope attributes, enum casts, ObservedBy attributes, HasManyThrough",
+    "Broad test coverage incl. travel() TTL, cross-team moves, malformed payload, backoff, recovery"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 6
+   },
+   "overall": 6.6,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "app/Observers/DashboardCacheObserver.php:40,44 ShouldHandleEventsAfterCommit defers saved() until commit, when getOriginal() already returns the new team/project; moving a project (or task) between teams inside a DB transaction leaves the old team's dashboard stale for up to 5 minutes (verified by probe)"
+   ],
+   "antipatterns": [
+    "app/Actions/BuildTeamDashboard.php:24-34 hand-rolled get + lock + remember + uncached fallback instead of Cache::flexible; lock-timeout path recomputes uncached",
+    "app/Actions/BuildTeamDashboard.php:49 whereHas silently drops projects with zero open tasks from top_projects (undocumented deviation)",
+    "app/Actions/FetchExchangeRates.php:20,46 cache key string duplicated in two methods",
+    "routes/web.php:11-14 API routes in web.php instead of routes/api.php",
+    "tests/Feature/ExchangeRatesTest.php no test that concurrent misses produce only one API call (only a lock-released check)"
+   ],
+   "strengths": [
+    "Single generic DashboardCacheObserver with match(true) covering Task/Project/User, invalidating previous and current team",
+    "Exchange-rates action is compact: double-checked under lock, failing flag backoff, forever last-known, timeout(3), abort_if 503 in controller",
+    "Good Pest style: datasets for failure modes, describe blocks, asserts the 3s timeout option, preventStrayRequests globally",
+    "completed_at maintained via booted saving hook only when status is dirty"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 6
+   },
+   "overall": 7.4,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "routes/api.php:7-10 exchange-rates endpoint placed behind ['web','auth']; guests get 401 although the task specifies no auth (verified by probe)"
+   ],
+   "antipatterns": [
+    "routes/api.php:7 applying the 'web' middleware group to api.php routes (session/cookies on an API)",
+    "app/Models/Team.php:35-64 version-key bump scheme is more machinery than needed (Cache::add+increment, 1-day version TTL) and puts cache concerns on the model",
+    "app/Actions/GetTeamDashboard.php:19 Cache::remember rather than Cache::flexible for the stale-acceptable dashboard",
+    "app/Actions/GetExchangeRates.php:74-83 failures swallowed silently, no report()/logging",
+    "config/services.php rates.url hardcoded instead of env()",
+    "app/Observers/TaskObserver.php:12-21 completed_at logic mixed into cache observer"
+   ],
+   "strengths": [
+    "Invalidation computed eagerly (getOriginal before syncOriginal) and deferred via DB::afterCommit: correct across transactions and skipped on rollback (verified)",
+    "Version bump avoids race where an in-flight recompute writes pre-change data after invalidation",
+    "Lock timeout path re-reads fresh cache before falling back to last-known",
+    "Deterministic lock-contention tests via configurable lock_wait=0; datasets for failure modes",
+    "Uses routes/api.php registered in bootstrap/app.php"
+   ]
+  },
+  "rationale": "All three share a very similar shape: invokable controllers, a FormRequest that upper-cases and validates the currency, enum and Scope attributes, a lock with block() and a re-check inside the lock, a 30s failure backoff, and last-known fallback. None uses Cache::flexible for the dashboard, though the brief explicitly allows stale-while-revalidate. impl-1 had no functional bugs in probing, including team moves inside transactions. Its weaknesses are a vacuous 5-second stampede test and API routes living in web.php. impl-3 has the most robust invalidation (afterCommit, version bump, rollback-safe) and good deterministic lock tests. But it wrongly puts the exchange-rates endpoint behind auth and the web middleware, and the version scheme adds ceremony. impl-2 has a real invalidation bug: ShouldHandleEventsAfterCommit plus getOriginal in saved() misses the old team on moves inside transactions. It also hand-rolls lock/remember for the dashboard and has no stampede test. Rank: impl-1 > impl-3 > impl-2."
+ },
+ "cost_usd": 1.1898520000000001
+}

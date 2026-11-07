@@ -1,0 +1,115 @@
+{
+ "key": "blade-catalogue",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 6,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 5,
+    "simplicity": 7
+   },
+   "overall": 5.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "N+1 on /products: ProductController@index (app/Http/Controllers/ProductController.php:15) never eager-loads category, but product-card.blade.php:4 reads $product->category->name. Probe: 15 queries for 12 products",
+    "Search escaping does not work on SQLite (the configured DB). Product::search (app/Models/Product.php:56) uses addcslashes with backslash, but there is no ESCAPE clause, so ?q=100% finds nothing, even for a product called '100% Wool'. The test 'treats like wildcards in search literally' only checks that nothing matches, so it passes without proving anything",
+    "An unticked is_active checkbox comes back ticked after a failed submit. There is no hidden 0 input, so old('is_active', $product->is_active) falls back to true (admin/products/_form.blade.php:13)",
+    "'Newest' sort uses latest('id') instead of created_at (Product.php:76)"
+   ],
+   "antipatterns": [
+    "Model logic inside a view: $item->setRelation('category', ...) in products/show.blade.php:15",
+    "Uses the default Tailwind pagination view, which needs compiled assets, then patches the SVG size with CSS in layouts/app.blade.php (nav[role=navigation] svg)",
+    "formattedPrice() is a method rather than an Attribute accessor (Product.php:39). related() returns a Builder that the controller has to ->get()",
+    "Inline style attributes in views (products/index.blade.php:22, admin/products/index.blade.php:30)",
+    "product-card checks isOutOfStock() and then renders stock-badge, which has its own in/out-of-stock branch, so the logic is duplicated (product-card.blade.php:6)"
+   ],
+   "strengths": [
+    "Thin controllers with dedicated scopes (search, inCategory, sortedBy) and an IndexProductRequest::sort() helper",
+    "Reusable form.input/select/textarea components using $attributes->merge, @error and old()",
+    "Validates query strings, including page. Uses alpha_dash slug validation and Rule::unique()->ignore",
+    "Thorough Pest datasets for authorisation and validation"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "If the slug is left blank (the label says it is generated) and the name is also blank, prepareForValidation produces an empty slug, so a redundant 'slug field is required' error appears next to the slug as well (ProductRequest.php:14)",
+    "An invalid or stale public filter (for example a bookmarked category that no longer exists) triggers a validation redirect away from /products, to the home page when there is no referrer. Probe: 302 to '/'"
+   ],
+   "antipatterns": [
+    "Hand-rolled LIKE escaping with whereRaw and escape '!' (Product.php:71-75) adds complexity that whereLike plus a helper would avoid",
+    "form/input.blade.php puts $attributes on the <input>, while select and textarea put them on the wrapping div, so the components behave inconsistently",
+    "@forelse with @if($loop->first)<div> to open and close the grid is clever but hard to read (products/index.blade.php:14-18)",
+    "The sort options collection is built inline in the view (products/index.blade.php:9)"
+   ],
+   "strengths": [
+    "Price is entered in euros and stored as cents through productAttributes(). price_input accessor and decimal:0,2 validation",
+    "Hidden is_active=0 input, so the checkbox keeps its old state correctly after a failed submit",
+    "Model::shouldBeStrict, eager loading everywhere, #[Scope] attributes, a ProductSort enum with apply(), and $request->enum()",
+    "Custom asset-free pagination view registered as the default. withQueryString()",
+    "Accessible form components (aria-invalid/aria-describedby, @class has-error) and a shared _form partial",
+    "The most thorough tests: wildcard escaping, all sort variants, the success message when following redirects, and old input next to the errors"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 6.5,
+    "simplicity": 8
+   },
+   "overall": 6.8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "An unticked is_active checkbox comes back ticked after a failed submit. There is no hidden input, so old() falls back to $product->is_active (components/product-form.blade.php:39)",
+    "Search does not escape LIKE wildcards: ?q=% matches every product (Product.php:57)",
+    "Admins must type the price in cents ('Price (cents)'), a poor form experience. The column is named 'price' but holds cents"
+   ],
+   "antipatterns": [
+    "The 'filter' scope mixes searching, category filtering and sorting in one place, and passes the raw validated array (Product.php:52-66)",
+    "isOutOfStock is an Attribute accessor (is_out_of_stock) for a simple boolean check. A method would be clearer",
+    "related() eager-loads category even though the category is already known, and the test assigns an unused $related variable (ProductCatalogueTest.php)",
+    "Route '/' closure left in place instead of Route::view",
+    "Example tests deleted"
+   ],
+   "strengths": [
+    "Clean x-field wrapper component with a slot, @error, and an invalid @class",
+    "x-product-form component shared by create and edit, plus a slot-based x-badge",
+    "Route model binding {product:slug} with abort_unless for inactive products. Eager loading on the index",
+    "Simple asset-free prev/next pagination view. withQueryString()",
+    "whereLike (Laravel 12+), Rule::enum and #[Scope] attributes"
+   ]
+  },
+  "rationale": "impl-2 is the most correct and idiomatic. It is the only one that keeps an unticked checkbox's state after a failed submit (it uses a hidden input). It is also the only one that escapes search wildcards in a way that works on SQLite, lets admins enter the price in euros, and uses strict mode with eager loading. It has the strongest tests. Its remaining issues are cosmetic: a redundant slug error, and invalid filters redirecting away from the page.\n\nimpl-3 is clean and simple, with good component use (an x-field wrapper with a slot, a form component). But it has the checkbox old-input bug, unescaped LIKE wildcards, and a price field entered in cents.\n\nimpl-1 has good structure and tests, but more real bugs. The public catalogue has an N+1 query problem (15 queries per page), and the wildcard escaping does not work on SQLite, which its test fails to catch because it only checks that nothing matches. It shares the checkbox bug, puts setRelation logic in a view, and relies on the default Tailwind pagination view patched with CSS."
+ },
+ "cost_usd": 0.7646438
+}

@@ -1,0 +1,78 @@
+{
+ "key": "sales-report",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.6,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Reports/BuildSalesReport.php:28 whereHas('order', fn => mergeConstraintsFrom($orders())) is roundabout; passing the scope chain directly as the whereHas closure is simpler",
+    "app/Reports/BuildSalesReport.php:20 filters passed as a loosely-typed array shape rather than typed parameters or a DTO",
+    "tests/Feature/SalesReportTest.php:20 dynamic method call ->$state() in the test helper hides which factory state is used",
+    "tests/Feature/SalesReportTest.php:31,271 Http::preventStrayRequests / assertNothingSent tests are ceremony for an endpoint that makes no HTTP calls"
+   ],
+   "strengths": [
+    "Thin invokable controller with a FormRequest exposing typed filters() (CarbonImmutable with startOfDay/endOfDay, enum default Paid)",
+    "'nullable' rules so empty query params (?status=, ?from=) fall back to defaults and don't return 422",
+    "Model scopes use the #[Scope] attribute, #[Fillable] attribute, casts() method, and backed-enum cast",
+    "Aggregations are done in SQL; toBase()->get() avoids hydrating fake models from aggregate rows",
+    "Column names qualified (orders.status, orders.placed_at) so the scopes are safe inside joins",
+    "Expressive factory states (paid/refunded/placedAt/priced/fromCountry) and an index on (status, placed_at)",
+    "Thorough tests: inclusive date boundaries, top-N caps and ordering, historical unit_price vs product price, status leakage into rankings, thousands separators, and a data provider of 422 cases including array input"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 7.9,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Http/Requests/SalesReportRequest.php:25-28 uses 'sometimes' without 'nullable', so empty params (?status=, ?from=, ?country=, ?to=) are turned into null and return 422 when they should fall back to the defaults (e.g. status=paid)"
+   ],
+   "antipatterns": [
+    "app/Reports/BuildSalesReport.php:29 repeats the placedBetween/inCountry/withStatus chain instead of reusing the $orders closure defined on line 24",
+    "app/Reports/BuildSalesReport.php:58,74,96 get() on an Eloquent OrderItem builder hydrates OrderItem models with aggregate columns; toBase() is cleaner",
+    "app/Http/Controllers/SalesReportController.php:13 spreads an associative array into named args, which couples the filters() keys to the __invoke parameter names",
+    "database/factories/OrderItemFactory.php:21 runs an extra findOrFail query per item to copy the price, and breaks when used with make() or an unsaved product",
+    "database/factories/OrderFactory.php:19 factory defaults to Paid while the migration default is 'pending', which is inconsistent",
+    "database/migrations/2026_11_07_072559_create_orders_table.php:15 timestamp column for placed_at (2038 limit on MySQL); dateTime fits better",
+    "database/factories/CustomerFactory.php:6, OrderFactory.php:5-6 stray blank line and unsorted imports (not Pint-clean)",
+    "tests/Feature/SalesReportTest.php:249 mocking the Http client Factory to prove no network calls is pointless ceremony"
+   ],
+   "strengths": [
+    "Same thin controller, FormRequest and service-class split, using typed method parameters on the report builder",
+    "sum(DB::raw(...)) for total revenue is concise",
+    "Scopes use the #[Scope] attribute, #[Fillable] attribute and enum casts",
+    "Tests cover multi-item orders counted once, spend summed across orders, refunded orders excluded from the per-country breakdown, AssertableJson for the customer shape, and a set of 422 cases",
+    "Top customers include id, with a deterministic tie-breaker"
+   ]
+  },
+  "rationale": "Both suites pass (impl-1: 25 tests; impl-2: 24 tests). The two implementations are structurally almost identical: an invokable controller, a SalesReportRequest with filters(), a BuildSalesReport class doing the SQL aggregation, #[Scope] model scopes and Number::currency. My probes found the same correct numbers in both for these cases: multiple items in one order, a paid order with no items while filtering by country, a single-day range, a `to` date without a `from` date, and lowercase country codes. The real behavioural difference is validation. impl-2 uses 'sometimes' without 'nullable', so ?status=, ?from=, ?to= and ?country= all return 422 instead of using the defaults. That breaks the \"status defaults to paid\" behaviour for clients that send blank query params, which is common. impl-1 accepts all of these and applies the defaults. impl-2 also has a few smaller idiom slips: the scope chain is repeated for the order count, Eloquent models are hydrated from aggregate rows, the controller spreads an array into named arguments, the OrderItem factory runs an extra query per item, the factory's default status doesn't match the migration's, and the imports aren't Pint-clean. impl-1 has more expressive factory states, qualified column names and toBase() for aggregate rows. Its tests are somewhat broader (status leakage into rankings, thousands separators, array input). impl-1 ranks first."
+ },
+ "cost_usd": 0.5488676
+}

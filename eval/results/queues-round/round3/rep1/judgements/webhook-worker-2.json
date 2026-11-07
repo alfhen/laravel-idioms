@@ -1,0 +1,117 @@
+{
+ "key": "webhook-worker",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 7,
+    "simplicity": 5
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Jobs/ProcessWebhookEvent.php:59 \u2013 the message reads $this->event->payload['payment_id'] directly. If an event has no payment_id, this throws ErrorException 'Undefined array key' (confirmed by a probe). On a real worker that error is retried with backoff up to MaxExceptions(5) instead of failing permanently, and the stored error text tells you nothing useful.",
+    "app/Enums/WebhookEventStatus.php:12 / ProcessWebhookEvent.php:47 \u2013 isFinished() includes Failed, so running queue:retry on a permanently failed job does nothing and the event stays failed for good (confirmed by a probe). recover-stuck also skips failed events, so there is no way to reprocess them.",
+    "app/Notifications/PaymentReceipt.php:33 \u2013 the receipt currency is hard-coded to EUR.",
+    "Every 10 minutes, webhooks:recover-stuck re-dispatches Received events that are simply waiting behind the rate limiter in a long backlog. That puts duplicate jobs on the queue. They are harmless because of WithoutOverlapping and the isFinished check, but they add load."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/RecoverStuckWebhookEvents.php:1 \u2013 a custom recovery command plus a 10-minute schedule that does work queue retry_after and failed_jobs already do. This is over-engineering.",
+    "app/Jobs/ProcessWebhookEvent.php:51-52 \u2013 sets status and then calls touch() to persist it. That relies on a side effect of touch(); an explicit save or update would be clearer.",
+    "app/Jobs/ProcessWebhookEvent.php:57-60 \u2013 one nested ternary builds two unrelated failure messages.",
+    "app/Jobs/ProcessWebhookEvent.php:65 \u2013 the provider HTTP call is inline in the job, so it is harder to reuse or fake per service.",
+    "app/Models/Order.php:67 \u2013 a hand-rolled transitionFrom state machine using raw conditional updates. It is robust but adds ceremony beyond what the task asks for.",
+    "routes/console.php:12-16 \u2013 dailyAt plus a hard-coded timezone, onOneServer and withoutOverlapping on a simple prune is ceremony."
+   ],
+   "strengths": [
+    "Uses modern queue attributes (#[Backoff], #[MaxExceptions], #[Timeout], #[DeleteWhenMissingModels]) together with retryUntil, so releases from the middleware don't use up a tries budget.",
+    "WithoutOverlapping plus RateLimited middleware; a 429 releases the job using Retry-After.",
+    "The conditional-update order transitions guarantee only one receipt per order; the notification is ShouldQueueAfterCommit.",
+    "Uses createOrFirst on a unique event_id with a wasRecentlyCreated guard; MassPrunable plus a scheduled model:prune.",
+    "The best tests: they run a real database queue worker, assert exact backoff delays (10, then 30), the 429 Retry-After release, the rate limit across 11 jobs, the overlap lock via getLockKey, and duplicate job dispatch.",
+    "A thorough README that covers nested timeouts and warns against passing --tries to the worker."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "app/Http/Requests/StoreWebhookEventRequest.php:14 \u2013 'data' => required|array rejects an empty data object {} with a 422. The provider would keep redelivering it. This is minor and shared by all three implementations.",
+    "README.md \u2013 the Supervisor example passes --tries=3 to the worker. The job's retryUntil overrides it, so it does no harm, but it is misleading next to the job-level retry policy."
+   ],
+   "antipatterns": [
+    "bootstrap/app.php:14 \u2013 registers a separate routes/webhooks.php through then: and Route::group([]). This adds ceremony compared with putting the route in web.php and excluding it from CSRF; it works because the file is loaded without the web group.",
+    "app/Jobs/ProcessWebhookEvent.php:56 \u2013 status is set to Processing outside the transaction and stays Processing while transient retries are pending (acceptable, but not cleaned up)."
+   ],
+   "strengths": [
+    "Clean PaymentProvider service; transient (5xx/429/connection) and permanent (4xx) errors are split, and permanent ones go to PermanentWebhookException and then $this->fail().",
+    "Real idempotency: inside a transaction it re-reads the event with lockForUpdate and locks the order row, on top of WithoutOverlapping. Refunds are deduplicated by provider_refund_id.",
+    "Uses retryUntil, not tries, because releases from RateLimited/WithoutOverlapping count as attempts; this is documented in a single-line comment. Uses #[Backoff], #[MaxExceptions], #[Timeout] and #[DeleteWhenMissingModels].",
+    "Unlike impl-1 and impl-3, failed events can be reprocessed with queue:retry, because only Processed short-circuits.",
+    "ShouldQueueAfterCommit receipt; the #[Scope] withStatus scope is reused in prunable and the index; the form request exposes typed status()/perPage() accessors.",
+    "Excellent tests: a real database queue checks increasing delays, retry exhaustion leading to Failed, 12 jobs held to 10 per second, and a pre-held overlap lock skipping the job; prune and schedule are tested too.",
+    "The README covers Supervisor, the shared cache requirement, queue:restart, the scheduler, the timeout and retry_after relationship, and the retry semantics."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 6,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "app/Models/WebhookEvent.php:56 / ProcessWebhookEvent.php:43 \u2013 isFinished() treats Failed as finished, so queue:retry on a failed job does nothing (confirmed by a probe). The README explicitly says to use queue:retry for such jobs, which contradicts the code.",
+    "app/Jobs/ProcessWebhookEvent.php:25 \u2013 #[Tries(30)] with no retryUntil. Every release from RateLimited or WithoutOverlapping uses an attempt, so a large backlog (hundreds of events at 10 per second) can exhaust 30 attempts. Those events then fail with MaxAttemptsExceeded even though the provider never errored.",
+    "The is-it-processed check and markProcessed don't use a row lock or transactional re-read. Idempotency depends entirely on the cache lock from WithoutOverlapping, which can expire (expireAfter 120)."
+   ],
+   "antipatterns": [
+    "app/Notifications/PaymentReceipt.php:13 \u2013 implements both ShouldQueue and ShouldQueueAfterCommit; the second already extends the first.",
+    "app/Http/Controllers/PaymentWebhookController.php:16 \u2013 stores the whole validated envelope as payload, so id and type are duplicated and the job has to use data_get('data.payment_id').",
+    "tests/Feature/PaymentWebhookTest.php \u2013 some tests are reflection-based (they read attribute arguments) or mock the middleware with Mockery instead of running a real worker. They test configuration, not behaviour.",
+    "database/migrations/2026_11_07_000002_create_orders_table.php \u2013 creates the orders and refunds tables in one migration.",
+    "All tests are in one large file; the end-to-end test relies on the sync queue."
+   ],
+   "strengths": [
+    "Simple, readable job; intent-revealing model methods (markProcessing, markProcessed, markFailed).",
+    "Guards against duplicate receipts by checking alreadyPaid; ShouldQueueAfterCommit inside the transaction.",
+    "Uses Rule::enum and per_page validation, the can: middleware, onOneServer on the prune, and MassPrunable.",
+    "Handles 4xx except 429 as permanent and 5xx as transient; the order lookup happens before the API call so no request is wasted.",
+    "A clear README covering Supervisor, the shared cache and the timeout chain."
+   ]
+  },
+  "rationale": "impl-2 ranks first. It is the only implementation that combines a transactional lockForUpdate re-check, retryUntil instead of a tries count (so middleware releases don't use up the retry budget), permanent failures through a domain exception, and failed events that can be reprocessed with queue:retry. Its tests run a real database queue worker to check backoff, retry exhaustion, the rate limit and the overlap lock. I found no real bugs beyond trivia that all three share.\n\nimpl-1 ranks second. It has the strongest test suite, uses retryUntil correctly, and handles 429 with Retry-After. It loses points for over-engineering (a stuck-event recovery command, a hand-rolled state machine, a timezone-pinned schedule). It also has two bugs confirmed by probes: a missing payment_id causes an ErrorException that gets retried instead of a clean permanent failure, and failed events can never be reprocessed.\n\nimpl-3 ranks third. Its code is simple and clean, but it has the same problem that failed events can't be reprocessed, and its README tells operators to use queue:retry, which then does nothing. Its #[Tries(30)] without retryUntil can wrongly fail events in a large backlog, because every rate-limit or overlap release uses an attempt. Its tests lean on reflection and Mockery more than running a real worker.\n\nAll three test suites pass (impl-2: 31 tests, impl-3: 37, impl-1: 37). I deleted all probe files afterwards."
+ },
+ "cost_usd": 1.0206080000000002
+}

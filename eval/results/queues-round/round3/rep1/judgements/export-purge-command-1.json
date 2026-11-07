@@ -1,0 +1,102 @@
+{
+ "key": "export-purge-command",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.6,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Each expired row is deleted with its own query (`$export->delete()`, app/Console/Commands/PurgeExports.php:89). This works but makes millions of round trips on a backlog. The 2h lock TTL (line 21) could run out during a very large first purge, which would let a second run overlap."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:89 \u2014 deletes one row per query instead of batching each chunk with whereKey(...)->delete()",
+    "database/factories/ExportFactory.php:23 \u2014 inline FQCN `\\DateTimeInterface` in the signature instead of an import",
+    "app/Console/Commands/PurgeExports.php:47 \u2014 hand-rolled Cache::lock where the framework's Isolatable contract would do the same job"
+   ],
+   "strengths": [
+    "Only implementation that wraps disk->delete in try/catch with report(). The probe confirmed that an unexpected exception keeps that row, carries on with the rest and exits 1",
+    "Uses lazyById(500) with select(['id','path']), so memory stays flat on millions of rows",
+    "A shared cache lock is taken inside the command, after confirmation and outside dry-run. This blocks overlap between manual and scheduled runs on both servers, and is released in a finally block",
+    "Scheduled with onOneServer and --force. Confirmation goes through ConfirmableTrait. Invalid --days exits with INVALID (2)",
+    "Modern attributes: #[Signature], #[Description], #[Scope], #[Fillable]; uses $this->components output",
+    "Thorough tests: mocked false/throwing disk, retry on the next run, lock held and released, schedule expression, the --no-interaction refusal, the 'Command cancelled.' output, and a run larger than one page"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 9
+   },
+   "overall": 7.4,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "disk->delete is not guarded (app/Console/Commands/PurgeExports.php:80). The probe threw a RuntimeException from delete: the whole run aborted, later rows were left unprocessed and Artisan::call threw. This breaks 'carry on with the rest' for any failure the adapter does not turn into false. Real permission errors on the local driver are handled correctly.",
+    "Migration cascadeOnDelete on user_id: deleting a user removes export rows but leaves their files orphaned on the exports disk"
+   ],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:79 \u2014 collection filter() callback with a side effect (it deletes the file inside the predicate)",
+    "app/Console/Commands/PurgeExports.php:29,49 \u2014 uses $this->error/$this->info instead of $this->components or $this->fail()",
+    "app/Console/Commands/PurgeExports.php:46 \u2014 hand-rolled Cache::lock instead of Isolatable"
+   ],
+   "strengths": [
+    "chunkById plus a single batched whereKey(...)->delete() per chunk is efficient and memory-safe",
+    "Shared cache lock taken after confirmation and released in a finally block; it guards manual and scheduled runs",
+    "Compact and readable command with a public LOCK_KEY constant that the tests reuse",
+    "Tests cover the default and custom retention, dry-run in production, a partially mocked failing disk, the lock and the schedule"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 7.6,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "disk->delete is not guarded in the partition callback (app/Console/Commands/PurgeExports.php:52). The probe confirmed that an unexpected exception aborts the whole run instead of carrying on.",
+    "Isolatable takes the mutex before handle(). A support engineer's --dry-run during the nightly purge is refused with exit 1 (probe confirmed), and an operator who leaves the production confirmation prompt open keeps the lock and blocks the 03:00 run.",
+    "Migration cascadeOnDelete leaves files orphaned when a user is deleted",
+    "Adds ->timezone('Europe/Copenhagen'), which the task did not ask for"
+   ],
+   "antipatterns": [
+    "tests/Feature/Console/PurgeExportsTest.php:47 \u2014 an anonymous subclass re-declares the command signature to force confirmation; this is heavy ceremony and drifts silently if the real signature changes",
+    "tests/Feature/Console/PurgeExportsTest.php:203 \u2014 test_the_next_run_retries_a_row_kept_after_a_failed_deletion never sets up a failure first, so it tests nothing about retrying",
+    "tests/Feature/Console/PurgeExportsTest.php:242 \u2014 asserts against the framework's internal mutex key 'framework/command-exports:purge'",
+    "app/Console/Commands/PurgeExports.php:52 \u2014 side-effecting predicate inside partition()"
+   ],
+   "strengths": [
+    "Uses the framework idiom for mutual exclusion: Isolatable with $isolated = true by default, isolatedExitCode = FAILURE and isolationLockExpiresAt",
+    "Uses $this->fail() for invalid input, partition() to split deletable and stuck rows, and a batched whereKey delete inside chunkById",
+    "Only suite that tests both an operator answering yes and answering no at the interactive production confirmation; uses a data provider for invalid --days",
+    "Schedule adds appendOutputTo for an audit log as well as onOneServer and --force"
+   ]
+  },
+  "rationale": "All three suites pass (19, 15 and 23 tests). All three correctly keep the row and exit 1 when a real local-disk permission failure occurs (checked by probe with a chmod 0555 directory).\n\n**impl-1 (rank 1)** is the only one that fully meets \"carry on with the rest\". It catches and reports any Throwable from the disk, so the run continues and still exits 1. It uses lazyById with a narrow select, and its explicit shared cache lock blocks real purges while leaving dry-runs free. Its tests are the most complete on failure paths, including a genuine retry on the next run. Its one weakness is a delete query per row.\n\n**impl-3 (rank 2)** has the most idiomatic modern code: Isolatable, fail(), partition, and a batched delete per chunk. But the isolation mutex covers dry-run and the confirmation prompt, so a preview during the nightly run fails and a prompt left open blocks the 03:00 run. An unexpected exception from the disk aborts the whole run. Its tests include a no-op \"retry\" test and an anonymous subclass that re-declares the command signature.\n\n**impl-2 (rank 3)** is clean and simple, with a correct lock and batched deletes. It shares the unguarded-delete abort and puts a side effect inside filter(). Its tests are thinner on production confirmation: there is no interactive yes/no case and the refusal test checks no output."
+ },
+ "cost_usd": 0.47845639999999995
+}

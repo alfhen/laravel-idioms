@@ -1,0 +1,107 @@
+{
+ "key": "sales-report",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.6,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Reports/BuildSalesReport.php:14 \u2014 the constant is named LINE_TOTAL but holds 'SUM(...)', an aggregate. The name doesn't match what it contains.",
+    "app/Reports/BuildSalesReport.php:59,76,99 \u2014 aggregate rows are hydrated as OrderItem models (no toBase()), so the pseudo-rows carry model casts and overhead for nothing",
+    "database/migrations/2026_11_07_080911_create_orders_table.php:15,17 \u2014 the standalone placed_at index adds little next to the composite (status, placed_at) index, and the default is the literal 'pending' rather than the enum",
+    "config/shop.php:4 \u2014 a new config file just for the currency is mild ceremony, though it does beat hardcoding"
+   ],
+   "strengths": [
+    "Thin invokable controller that spreads Form Request filters() into an action with named arguments",
+    "Composable #[Scope] attribute scopes (placedBetween/withStatus/fromCountry) plus a whereIn subquery scope on OrderItem, so no join fan-out double-counting",
+    "Strictest validation of the three: nullable, alpha:ascii, size:2, trim+uppercase, Rule::enum, date_format:Y-m-d with after_or_equal. Empty strings fall back to defaults and non-ASCII countries are rejected",
+    "Currency formatting via Number::currency, with the currency set in config",
+    "Most thorough tests (28): a DataProvider of 11 invalid queries, orders with no items, multi-line orders with no double counting, unit_price vs product price, inclusive date bounds, filters echoed back",
+    "Modern conventions: #[Fillable], casts() method, enum cast, CarbonImmutable"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8.5,
+    "simplicity": 8
+   },
+   "overall": 8.1,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Http/Requests/SalesReportRequest.php:22-25 \u2014 uses 'sometimes' with no 'nullable'. ConvertEmptyStringsToNull turns empty params such as ?status= or ?country= into null, and they then return 422 instead of falling back to the defaults. This is a minor UX issue, and it is defensible."
+   ],
+   "antipatterns": [
+    "app/Reports/BuildSalesReport.php:16-78 \u2014 one long __invoke builds all three grouped queries inline, and the orders\u2192customers join is duplicated (lines 23-24 and 41-42)",
+    "app/Reports/BuildSalesReport.php:18 / app/Models/OrderItem.php:34 \u2014 whereHas('order') re-applies the scope as a correlated EXISTS. A plain whereIn subquery would be simpler",
+    "tests/Feature/SalesReportTest.php:32 \u2014 Http::preventStrayRequests() is ceremony; nothing here makes HTTP calls",
+    "tests/Feature/SalesReportTest.php:19 \u2014 dynamic ->$state() factory call driven by a string"
+   ],
+   "strengths": [
+    "Thin invokable controller that spreads named filters into an action class",
+    "#[Scope] attribute scopes, with the matching filters reused on both Order and OrderItem",
+    "alpha:ascii plus uppercase normalisation, Rule::enum, strict Y-m-d with an inclusive end-of-day bound",
+    "Deterministic tie-break ordering (sku, id) on every grouped query",
+    "Tests check the thousands-separator formatting, AOV rounding, inclusive date boundaries, the exact validation message, and array injection",
+    "restrictOnDelete on product_id protects sales history"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 7.5,
+    "eloquent_idioms": 8.5,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 7.5,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 7.8,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "app/Http/Requests/SalesReportRequest.php:17 \u2014 the 'alpha' rule (Unicode) instead of 'alpha:ascii' accepts ?country=\u00e6\u00f8. strtoupper is not multibyte-safe, so the value isn't uppercased either, and the request returns 200 with country '\u00e6\u00f8' instead of 422",
+    "database/migrations/2026_11_07_000004_create_order_items_table.php:14 \u2014 cascadeOnDelete on product_id. Deleting a product silently erases historical order lines and changes past revenue figures"
+   ],
+   "antipatterns": [
+    "app/Reports/BuildSalesReport.php:20 \u2014 the action takes an untyped array shape instead of named arguments. Typing is only enforced in a docblock",
+    "app/Reports/BuildSalesReport.php:27 \u2014 'clone $orders' is there because the scope mutates the builder via select(). A builder factory closure is less fragile",
+    "database/factories/CustomerFactory.php:22 \u2014 the state is named from(), which reads ambiguously (from what?)",
+    "tests/Feature/SalesReportTest.php:22 \u2014 Http::preventStrayRequests() is ceremony with no HTTP usage"
+   ],
+   "strengths": [
+    "Clean split into private revenuePerCountry/topProducts/topCustomers methods, using toBase() so aggregate rows are not hydrated as models",
+    "Single-purpose #[Scope] scopes and a whereIn subquery for items, with qualified column names",
+    "nullable rules, so empty params fall back to the defaults",
+    "Tests cover a refunded order that must not affect the top customers, array injection, and inclusive date bounds, with explicit names and skus"
+   ]
+  },
+  "rationale": "I ranked impl-1 first, impl-2 second and impl-3 third. All three test suites pass (impl-1: 28 tests, impl-2: 16, impl-3: 14). I deleted the probe tests afterwards.\n\n**How similar they are:** The three implementations share almost the same design:\n- an invokable controller with a Form Request that has a `filters()` method\n- a `BuildSalesReport` action\n- `#[Scope]` attribute scopes and `#[Fillable]`\n- enum casts\n- `Number::currency` for formatting\n- grouped SQL sums with deterministic tie-breaks\n\nIn probes all three handle the core requirements correctly:\n- inclusive end-of-day date bounds\n- `?to=` without `from`\n- rejecting array injection\n- `?status=PAID`\n- orders with no items (they count toward the order total but add no revenue)\n- AOV rounding\n\nThe ranking therefore comes down to validation edge cases, schema choices and test depth.\n\n**impl-1 (rank 1):** The strictest and friendliest validation:\n- `nullable` makes empty params fall back to the defaults\n- `alpha:ascii` rejects `\u00e6\u00f8`\n- it trims and uppercases the country\n\nIt also has the most thorough tests: a DataProvider of invalid inputs, orders with no items, multi-line orders, `unit_price` vs product price, and filters echoed back. Its weaknesses are cosmetic: a `LINE_TOTAL` constant that holds a `SUM`, hydrating models for aggregate rows, and a redundant index.\n\n**impl-2 (rank 2):** Equally correct on real data. It uses `sometimes` without `nullable`, so empty query params return 422 instead of the defaults; that is minor and defensible. The report is one long method with duplicated joins, it uses `whereHas` where a plain `whereIn` would do, and the tests include `Http::preventStrayRequests` ceremony. Its tests are good, including the thousands-separator check.\n\n**impl-3 (rank 3):** Two real issues:\n- **Country validation gap:** `alpha` instead of `alpha:ascii` lets `?country=\u00e6\u00f8` through validation, and since `strtoupper` isn't multibyte-safe it isn't even uppercased.\n- **Lost sales history:** `cascadeOnDelete` on `order_items.product_id` means deleting a product silently rewrites past revenue.\n\nIt also passes an untyped array instead of named arguments, and its tests are slightly thinner. Its `toBase()` usage and method split are nice touches, but they don't outweigh the bugs."
+ },
+ "cost_usd": 0.6968599999999999
+}

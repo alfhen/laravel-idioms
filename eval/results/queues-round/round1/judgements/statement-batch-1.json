@@ -1,0 +1,114 @@
+{
+ "key": "statement-batch",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "QueueStatementJobs has #[Tries(3)] and adds jobs to the batch in chunks. If it fails partway and retries, every account gets enqueued again. GenerateStatement skips regenerating a file that already exists, but it still emails the owner again, and batch totals include the duplicate jobs (app/Jobs/QueueStatementJobs.php:18,27-33).",
+    "#[DeleteWhenMissingModels] on GenerateStatement records a deleted account as a successful batch job. Probe: an account deleted mid-run gave status=completed, failed_accounts=0, but only one of two statements was sent, so the summary over-reports (app/Jobs/GenerateStatement.php:20).",
+    "failed_accounts comes from $batch->failedJobs, so if the loader job fails it is counted as a failed account (app/Actions/FinalizeStatementRun.php:17).",
+    "Nothing schedules queue:prune-batches or queue:prune-failed. With 40k jobs per run, job_batches and failed_jobs grow without limit (routes/console.php is unchanged)."
+   ],
+   "antipatterns": [
+    "tests/Feature/StatementRunTest.php:168 `->and(QueueStatementJobs::class)->toBeString()` is a filler assertion that tests nothing",
+    "app/Actions/StartStatementRun.php:13 hard-codes the queue name as a class constant instead of reading it from config (SQS queue names differ per environment)",
+    "tests/Feature/StatementRunTest.php:26-32 drainQueue loops queue:work five times with time travel: works, but brittle"
+   ],
+   "strengths": [
+    "Uses the batch's own failedJobs as the failure count, so failures outside handle() (timeouts, worker crashes) are counted. Probe: a transient failure was retried and the run finished correctly",
+    "Loader job sits inside the batch, so the finally callback cannot fire before fan-out finishes; lazyById plus chunked batch()->add() scales to 40k accounts",
+    "Finalizer is an idempotent invokable class (guarded status update, mail sent only if a row changed) rather than a serialized closure",
+    "Checks the return value of Storage::put. Probe: when put returned false, no email went out and the run was marked completed_with_errors",
+    "Skips regeneration when the file already exists, so retries are idempotent; Tries/Backoff/Timeout set via modern queue attributes; backed enum cast; #[Scope] and #[Fillable] attributes",
+    "Tests run a real database queue worker and cover default-queue isolation, the failure path, retries, an empty run and idempotency"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 6,
+    "architecture_fit": 6,
+    "modern_laravel": 5,
+    "focus_area": 4,
+    "tests": 6,
+    "correctness": 4,
+    "simplicity": 7
+   },
+   "overall": 4.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "failed_accounts only goes up inside the try/catch in handle(). Failures outside it (worker timeout, OOM, SQS redelivery past tries=1, exceptions before handle) are not counted. Probe: status=completed, failed_accounts=0, but only 2 of 3 statements were sent (app/Jobs/GenerateStatement.php:29-39, app/Actions/StartStatementRun.php:31).",
+    "If QueueStatementJobs fails (tries=1, e.g. a DB blip), finally still runs and marks the run 'completed' with 0 failures even though no statements went out (app/Jobs/QueueStatementJobs.php:14).",
+    "Ignores the return value of Storage::put. The local disk has throw=false, so a failed write returns false and the owner is still emailed. Probe confirmed StatementReady was sent and the run marked completed (app/Jobs/GenerateStatement.php:33-35).",
+    "finally closure is not idempotent: no status guard, so if it runs again it re-sends the summary (app/Actions/StartStatementRun.php:29-38).",
+    "No timeout on GenerateStatement despite slow PDF generation; tries=1 means a single transient error is a permanent failure.",
+    "Nothing prunes job_batches or failed_jobs."
+   ],
+   "antipatterns": [
+    "app/Models/StatementRun.php:13-17 status uses string constants instead of a backed enum cast",
+    "app/Jobs/GenerateStatement.php:36 catch(Throwable) around the whole job hides failures from the queue's own failure handling and from the batch",
+    "app/Actions/StartStatementRun.php:29 business logic sits in a serialized closure in the batch finally callback",
+    "app/Actions/StartStatementRun.php:19 and QueueStatementJobs.php:24 repeat where('active', true) instead of a scope",
+    "tests/Feature/StatementRunTest.php: most tests run on the sync queue, so nothing exercises a real worker or failures outside handle()",
+    "tests/Feature/StatementRunTest.php:88 'has working factories' is a trivial test"
+   ],
+   "strengths": [
+    "Loader job inside the batch with chunkById(1000) and select('id'); jobs carry IDs only, so payloads are small",
+    "Queue name is read from config, keeping work off the default queue",
+    "Simple, short implementation",
+    "Test for a failing account checks files, mails, and the final count"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 5,
+    "simplicity": 7
+   },
+   "overall": 6,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Race in the failure count: when the last job fails outside handle(), CallQueuedHandler::failed records the batch failure (which fires finally) before it calls the job's failed(). FinalizeStatementRun then reads a stale failed_accounts. Probe: status=completed, the summary email said 0 failed, and failed_accounts later became 1 (app/Jobs/GenerateStatement.php:47-50, app/Actions/FinalizeStatementRun.php:23).",
+    "Ignores the return value of Storage::put (local disk throw=false), so the owner is emailed even when the file was not written. Probe: StatementReady was sent and the run marked completed (app/Jobs/GenerateStatement.php:38-40).",
+    "QueueStatementJobs has #[Tries(3)] and adds jobs in chunks, so a partial failure followed by a retry enqueues duplicate jobs and sends duplicate emails (app/Jobs/QueueStatementJobs.php:14).",
+    "#[Tries(1)] means one transient error permanently fails the account, with no retry.",
+    "Nothing prunes job_batches or failed_jobs."
+   ],
+   "antipatterns": [
+    "app/Jobs/GenerateStatement.php:34-50 counts failures twice over: a catch(Throwable) plus a failed() hook, instead of trusting the batch's failedJobs",
+    "app/Jobs/GenerateStatement.php:30 cancelled() check is ceremony, since nothing ever cancels the batch",
+    "tests/Feature/StatementRunTest.php:63-69 checking the ->queue property on new job instances is a shallow test",
+    "app/Actions/StartStatementRun.php:21 comment is long but acceptable"
+   ],
+   "strengths": [
+    "Loader job inside the batch, lazyById/chunk fan-out, ID-only job payloads, queue name from config",
+    "Idempotent invokable finalizer with a guarded status update",
+    "Backed enum cast, #[Scope], #[Fillable], #[Tries]/#[Timeout] attributes",
+    "failed() hook covers most hard failures that impl-2 misses (probe: a failure on a non-last job was counted correctly)",
+    "StatementReady attaches the stored PDF; the test for a storage failure uses Storage::shouldReceive"
+   ]
+  },
+  "rationale": "All three suites pass. Ranking: impl-1, then impl-3, then impl-2.\n\nAll three use the same design: a loader job inside a batch that allows failures, a finally callback, and a dedicated statements queue. They differ in how they count failures, and that is where the real bugs are.\n\n**impl-1** takes the failure count from the batch's own failedJobs, so it counts timeouts and crashes, and it retries with backoff. It checks that Storage::put succeeded, which no other implementation does, and skips regeneration when the file already exists, so retries are safe. Its tests run a real database worker. Probes confirmed it handles hard and transient failures and storage write failures correctly. Remaining issues:\n- Retrying the loader can enqueue duplicate jobs.\n- DeleteWhenMissingModels counts a deleted account as a success.\n\n**impl-3** has the best models and enum, but it counts failures itself with catch plus failed(). Laravel records the batch failure before calling failed(), so when the last job fails hard, the run finishes as 'completed' and the finance email says 0 failed (reproduced). It also emails the owner when the PDF write returns false (reproduced).\n\n**impl-2** only counts failures caught inside handle():\n- A hard failure leaves the run 'completed' with 0 failed even though statements are missing (reproduced).\n- If the loader fails, the run is reported as completed with nothing sent.\n- It emails the owner when the PDF write returns false (reproduced).\n- It uses string constants instead of an enum and puts the finalize logic in a closure that is not idempotent.\n\nNone of the three schedules queue:prune-batches or queue:prune-failed, so the queue tables keep growing in all of them. All probe files were removed afterwards."
+ },
+ "cost_usd": 0.6551562
+}

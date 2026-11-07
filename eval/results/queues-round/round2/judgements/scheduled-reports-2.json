@@ -1,0 +1,137 @@
+{
+ "key": "scheduled-reports",
+ "judge": 2,
+ "v": {
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 9,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Jobs/SyncSupplierStock.php:13 - two-line design-rationale comment above attributes (arguably belongs in PR); acceptable but heavier than file density",
+    "app/Jobs/SyncSupplierStock.php: UniqueFor(3300) bounds only the dispatch lock; a job delayed in the queue >15min then running 40min could overlap the next hour's run (no WithoutOverlapping middleware) - edge case",
+    "tests/Feature/ScheduleTest.php:19 - FQCN Illuminate\\Support\\Carbon inline instead of import",
+    ".env.example not switched to redis cache (database cache is still shared, so not a bug)"
+   ],
+   "strengths": [
+    "All three tasks onOneServer; report and prune pinned to Europe/Copenhagen; prune at 03:00 local avoiding the nonexistent spring-forward hour, with comment explaining why",
+    "withoutOverlapping(120) instead of the default 1440 \u2014 directly addresses the 'blocked for a day after crash' incident; runInBackground for the long prune",
+    "Job uses Laravel 13 queue attributes (Tries/Timeout/FailOnTimeout/UniqueFor) with Timeout < UniqueFor < 3600 and retry_after raised to 3600 on both connections",
+    "Memory-safe batched delete via limit/pluck ids/whereKey delete with indexed updated_at",
+    "#[Scope] attribute scopes, #[Fillable], #[Signature]/#[Description], typed Mailable with text view",
+    "Tests: isDue across winter/summer DST in UTC, 48h boundary with freezeTime, 2500-row multi-batch prune, unique-lock expiry with real database queue, missing-config failure path; Pest.php enables RefreshDatabase globally",
+    "Probes: two schedule:run in same minute queue the job once; killed-worker lock frees before next hourly dispatch"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "routes/console.php:22 - prune scheduled dailyAt('02:00') without ->timezone(): runs 02:00 UTC (03:00/04:00 Copenhagen, shifting with DST) despite the business running on Copenhagen time \u2014 minor, not harmful"
+   ],
+   "antipatterns": [
+    "tests/Feature/SyncSupplierStockTest.php:6-7 - unused imports Bus, Cache",
+    "tests/Feature/SyncSupplierStockTest.php:35-44 - reads job attributes via ReflectionClass; brittle config-mirroring test",
+    "tests/Feature/SyncSupplierStockTest.php:52 - expect(true)->toBeTrue() filler assertion",
+    "tests/Feature/PruneAbandonedCartsTest.php:6 - per-file uses(RefreshDatabase::class) instead of enabling in Pest.php",
+    "tests/Feature/ScheduleTest.php:17 - Carbon::setTestNow instead of $this->travelTo",
+    "app/Console/Commands/ReportUnshippedOrders.php:16 - withoutOverlapping(10) on a weekly task is redundant ceremony (onOneServer already covers it)"
+   ],
+   "strengths": [
+    "Same robust design as impl-2: onOneServer everywhere, bounded withoutOverlapping, Tries(1)/Timeout(2700)/FailOnTimeout/UniqueFor(3300), retry_after 3600, .env.example switched to redis",
+    "Batched pluck/whereKey delete loop with updated_at index; #[Scope] scopes; Mailable with text view and hours parameter",
+    "Schedule referenced by command class; tests include DST isDue checks, 30-day boundary, 2500-row multi-batch, expected output counts, rendered mail body",
+    "Probe: double schedule:run queues the job once"
+   ]
+  },
+  "impl-4": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 6,
+    "modern_laravel": 8,
+    "focus_area": 5,
+    "tests": 6,
+    "correctness": 5,
+    "simplicity": 5
+   },
+   "overall": 5,
+   "rank": 4,
+   "tests_pass": true,
+   "bugs": [
+    "app/Jobs/SyncSupplierStock.php:16 - UniqueFor(3600) equals the schedule interval: if a worker is killed, the orphaned unique lock (acquired a few seconds after :00) is still held at the next hourly dispatch, so that hour's sync is silently skipped (confirmed by probe: dispatch at 10:00:02, schedule:run at 11:00:00 pushes nothing)",
+    "app/Jobs/SyncSupplierStock.php:13-15 - Tries(3) + Backoff and no FailOnTimeout: a slow supplier that hits the 45-min timeout gets re-run up to 3 times, the exact 'ran three times' symptom; retries can extend past the UniqueFor window and overlap the next hourly run"
+   ],
+   "antipatterns": [
+    "app/Console/Commands/PruneAbandonedCarts.php:12-34 - ConfirmableTrait, --force and --dry-run not requested; scheduler must pass --force \u2014 over-engineering",
+    "app/Mail/UnshippedOrdersReport.php:21 - inline htmlString in a Mailable instead of a view",
+    "tests/Feature/ScheduledTasksTest.php:149-157 - 'deletes across several batches' creates 12 rows with BATCH=5000 and asserts a reflected constant > 0; does not test batching",
+    "tests/Feature/ScheduledTasksTest.php:19-22 - reflection helper to read queue attributes",
+    "tests/Feature/ScheduledTasksTest.php:99 - expect(true)->toBeTrue() filler",
+    "routes/console.php:23 - prune at 01:00 UTC rather than Copenhagen time"
+   ],
+   "strengths": [
+    "chunkById over select('id') with whereKey delete is memory-safe and idiomatic (12k-row probe passed)",
+    "Report schedule tested with travelTo in Copenhagen vs UTC; expiresAt bounded below 1440",
+    "Composite (shipped_at, placed_at) index; #[WithoutTimestamps]/#[Fillable]/#[Scope] modern attributes; typed class constants",
+    "describe() grouping in Pest; production --force refusal tested"
+   ]
+  },
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 6,
+    "eloquent_idioms": 6,
+    "architecture_fit": 7,
+    "modern_laravel": 6,
+    "focus_area": 8,
+    "tests": 5,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 6.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Console/Commands/ReportUnshippedOrders.php:25-27 - query inline rather than a model scope; Mail::raw closure instead of a Mailable",
+    "app/Console/Commands/*: protected $signature/$description properties rather than Laravel 13 #[Signature]/#[Description] attributes; app/Models/Order.php:12 $fillable property vs #[Fillable]",
+    "app/Models/Cart.php:10 - missing @use HasFactory<CartFactory> generic docblock; CartFactory has no state for updated_at",
+    "tests/Feature/ScheduledTasksTest.php:34-38 - inspects the Symfony array transport instead of Mail::fake()/assertSent",
+    "tests/Feature/ScheduledTasksTest.php:51,54 - toBase()->update to backdate timestamps instead of a factory state",
+    "tests/Feature/ScheduledTasksTest.php - no isDue/DST test for Copenhagen times, no 48h boundary test, no multi-batch prune test, no lock-expiry test",
+    "tests/Feature/ScheduledTasksTest.php:13 - per-file uses(RefreshDatabase::class)",
+    "app/Jobs/SyncSupplierStock.php:13,20 - explanatory comments on properties (acceptable but borderline)"
+   ],
+   "strengths": [
+    "Correct cross-server design: onOneServer on all three, Copenhagen timezone for report and prune (01:00 local avoids DST gap), withoutOverlapping(120)",
+    "Job: tries=1, failOnTimeout, timeout 2700 < uniqueFor 3000 < 1h, retry_after raised on both redis and database connections",
+    "Prune uses DELETE ... LIMIT loop \u2014 no rows loaded into PHP at all, most memory-efficient; probe with 12,001 rows passed on SQLite",
+    "Probes: summer isDue correct, double schedule:run queues once, killed-worker lock expires before next hour",
+    "Minimal and easy to read"
+   ]
+  },
+  "rationale": "All four implementations pass their suites and share the core design: onOneServer, a ShouldBeUnique job and retry_after raised above the job timeout. That makes the details decide the ranking. impl-2 is the most complete: every recurring task runs at a Copenhagen local time, the prune runs at 03:00 to avoid the spring-forward gap, it has a short withoutOverlapping lock and runInBackground, and its job attributes give Timeout < UniqueFor < 1h. Its tests cover DST due-ness, the 48h boundary, a real multi-batch prune and unique-lock expiry against a real queue. impl-3 is nearly identical but schedules the prune in UTC and has weaker test hygiene (unused imports, reflection, filler assertion). impl-1 is correct, with the leanest and most memory-efficient delete. Its older idioms (property signatures, inline query, Mail::raw) and thin tests (Symfony transport inspection, no DST or batch coverage) put it third. impl-4 has a real bug the task explicitly forbids, confirmed by a probe: UniqueFor(3600) equals the hourly interval, so a killed worker's lock causes the next hour to be skipped. Tries(3) without FailOnTimeout can re-run a 45-minute sync three times. It also adds an unrequested ConfirmableTrait/--force/--dry-run and has a sham 'several batches' test, so it ranks last."
+ },
+ "cost_usd": 0.775081
+}

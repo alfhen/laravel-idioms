@@ -1,0 +1,98 @@
+{
+ "key": "inactive-count",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "tests/Feature/CountInactiveUsersTest.php:14,23,41,48 - expectsOutputToContain(': 1') is a loose substring check: ': 1' would also match ': 10' or ': 12', so a wrong count could still pass",
+    "database/migrations/2026_11_07_130944_add_last_login_at_to_users_table.php:9-11,19-21 - leftover stub docblocks ('Run the migrations.') that only restate the method names",
+    "Accepts --days=0, which counts every user as inactive. This is allowed on purpose, but no test covers it"
+   ],
+   "strengths": [
+    "Uses $this->fail() (Laravel 11+) for the validation failure, which keeps handle() flat",
+    "The #[Signature]/#[Description] attributes and the #[Scope] attribute scope use current Laravel 13 conventions",
+    "The scope wraps the null/older-than check in a closure, so the OR is grouped correctly",
+    "Smallest footprint: no factory state was added because inline attributes are enough",
+    "freezeTime in beforeEach makes the boundary test deterministic",
+    "Schedule test checks both the cron expression and the log output path",
+    "No onOneServer or withoutOverlapping, which is right for a single server"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.3,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "routes/console.php:13 - hardcodes ->timezone('Europe/Copenhagen') although the app timezone is UTC and the task did not ask for it. The job will run at 06:00 Copenhagen time (05:00 or 04:00 UTC), which may not match what ops expect"
+   ],
+   "antipatterns": [
+    "tests/Pest.php:18-19 - adds ->use(RefreshDatabase::class) but leaves the commented-out duplicate line underneath",
+    "app/Console/Commands/CountInactiveUsers.php:26 - prints '1 users have ...' instead of a correctly pluralised message (Str::plural would fix it)",
+    "app/Console/Commands/CountInactiveUsers.php:19 - uses $this->error() instead of $this->components->error() or $this->fail()",
+    "database/migrations/...:12 - ->after() only has an effect on MySQL (harmless)"
+   ],
+   "strengths": [
+    "Strongest tests: they assert the exact output, cover the boundary with travelTo(startOfSecond) to avoid microsecond flakiness, test zero users and all-active users, and use a named dataset of invalid values including 0 and a decimal",
+    "Schedule test checks the cron expression, timezone and log file path",
+    "Clean #[Scope] inactiveFor with a grouped OR, and a datetime cast",
+    "Expressive lastLoggedInAt factory state",
+    "Validates --days as a positive integer and returns FAILURE"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 7.8,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "tests/Feature/InactiveUsersCountTest.php:8-12 - tests the schema with Schema::hasColumn, which adds little because the command tests already exercise the column",
+    "tests/Feature/InactiveUsersCountTest.php:64-70 - schedule test does not check where the output goes (appendOutputTo), and that is the 'shows up in our logs' requirement",
+    "tests/Feature/InactiveUsersCountTest.php:14-40 - time is frozen only in the boundary test; the other tests rely on wide margins (89/91 days) instead of a shared beforeEach freeze",
+    "Accepts --days=0, which counts every user as inactive; no test covers it"
+   ],
+   "strengths": [
+    "Uses $this->components->error() for styled error output and returns FAILURE",
+    "Grouped OR inside the #[Scope] scope, plus a datetime cast",
+    "Tests assert the exact output and include an empty-string --days value in the invalid-input dataset",
+    "Minimal migration without ->after()",
+    "Schedule uses the app timezone, with no extra assumptions"
+   ]
+  },
+  "rationale": "All three implementations are nearly identical in their core logic. Each adds the same #[Scope] inactiveFor with a grouped whereNull/orWhere on '<' now()->subDays, a datetime cast, a nullable timestamp migration, an attribute-based command validated with filter_var, and Schedule::command()->dailyAt('06:00')->appendOutputTo(). None of them adds onOneServer, which is correct for a single server. All test suites pass. I probed each one with these --days values: 0, '', ' 7', '+7', '007', very large numbers, and a future login. Behaviour matched across all three, except that impl-2 rejects 0 while impl-1 and impl-3 accept it. Neither choice is wrong. I found no functional bugs in the counting logic.\n\nThe ranking comes down to test quality and small choices. impl-2 has the most thorough tests: exact output, a deterministic boundary via travelTo(startOfSecond), and checks on the schedule's timezone and output path. Against that, it hardcodes an unrequested Europe/Copenhagen timezone on a UTC app, leaves a duplicate commented line in Pest.php, and prints '1 users'. impl-1 has the leanest and most modern code ($this->fail(), no extra factory state), but its loose ': 1' substring assertions weaken its tests. impl-3 is clean, but its schedule test does not check the log output, it includes a low-value schema test, and it freezes time inconsistently. Overall: impl-2 > impl-1 > impl-3, with small margins between them."
+ },
+ "cost_usd": 0.26017700000000005
+}

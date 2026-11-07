@@ -1,0 +1,118 @@
+{
+ "key": "webhook-worker",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 8.3,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "app/Jobs/ProcessWebhookEvent.php:59 \u2014 a known event type with no data.payment_id: building the failure message reads $this->event->payload['payment_id'] directly, which throws an 'Undefined array key' ErrorException. The job is then retried with backoff (probe: event stays Processing, job re-queued) instead of failing immediately, and the eventual error message is misleading.",
+    "Webhook route is in the web group and bootstrap/app.php does not add webhooks/* to shouldRenderJsonWhen. A malformed but correctly signed payload sent without Accept: application/json gets a 302 redirect instead of a 422 (probe confirmed), and the 401 body is HTML.",
+    "Order::markRefunded allows a transition from Pending/PaymentFailed, so a refund on an unpaid order is accepted silently (questionable business rule)."
+   ],
+   "antipatterns": [
+    "app/Jobs/ProcessWebhookEvent.php:51-52 \u2014 sets status and then relies on touch() to persist the dirty attribute as a side effect; update(['status' => ...]) would be clearer",
+    "routes/web.php:13 \u2014 machine-to-machine webhook runs through the web middleware group (session, cookies), so it needs a CSRF exception in bootstrap/app.php:15",
+    "app/Console/Commands/RecoverStuckWebhookEvents.php \u2014 an extra recovery command and schedule add some ceremony beyond the brief, though it is justified",
+    "WebhookEventStatus::isFinished treats Failed as terminal, so `queue:retry` of a failed job does nothing; there is no documented way to re-drive failed events"
+   ],
+   "strengths": [
+    "Atomic ingestion: createOrFirst on a unique event_id and a dispatch only when wasRecentlyCreated; duplicates return 200 with status 'duplicate'",
+    "Guarded conditional-UPDATE state transitions on Order (transitionFrom) make processing idempotent and stop out-of-order events from regressing state; the receipt is sent only by the call that performed the transition",
+    "Full queue toolkit: WithoutOverlapping keyed by event, RateLimited with Limit::perSecond(10), the Backoff/MaxExceptions/Timeout attributes, retryUntil so middleware releases don't exhaust tries, separate handling for 429 Retry-After, 4xx fails permanently, failed() records the error",
+    "PaymentReceipt is queued with ShouldQueueAfterCommit and its own Tries/Backoff",
+    "MassPrunable with model:prune scheduled onOneServer; a #[Scope] attribute scope; Laravel 13 attributes for console commands and models",
+    "Best README: nested timeouts, no --tries on the worker, Supervisor config, scheduler, stuck recovery",
+    "Tests drive a real database queue worker: they check the exact backoff delays (10, then 30), retry exhaustion into failed_jobs, the 429 release delay, the rate limit across 11 jobs, and the overlap lock held by another worker"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.4,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "database/factories/OrderFactory.php:13-19 \u2014 the definition has no user_id while orders.user_id is NOT NULL; Order::factory()->create() throws an integrity violation (probe confirmed), so every test has to add ->for(User::factory())",
+    "app/Jobs/ProcessWebhookEvent.php:114,127 \u2014 unconditional status updates: a late payment.failed moves a Refunded or Paid order to payment_failed, and a later payment.succeeded marks it Paid again and sends a second receipt (probe: Refunded \u2192 PaymentFailed \u2192 Paid with a receipt)",
+    "README recommends running the worker with `--tries=3`. This is misleading because retryUntil overrides it, and it contradicts the README's own retry description."
+   ],
+   "antipatterns": [
+    "app/Jobs/ProcessWebhookEvent.php:58-68 \u2014 the try/catch-and-fail wrapper and throw_unless in handle make control flow noisier than early returns",
+    "app/Notifications/PaymentReceipt.php:7 \u2014 uses Illuminate\\Foundation\\Queue\\Queueable in a notification instead of Illuminate\\Bus\\Queueable",
+    "app/Jobs/ProcessWebhookEvent.php:44 \u2014 the comment explains framework behaviour",
+    "app/Jobs/ProcessWebhookEvent.php:103-109 \u2014 lockForUpdate on the event and order inside the transaction duplicates the WithoutOverlapping guarantee"
+   ],
+   "strengths": [
+    "Separate routes/webhooks.php registered via `then:` with no web or session middleware, so no CSRF exception is needed; webhooks/* renders JSON, so validation errors return 422",
+    "Missing payment_id, unknown type, unknown order, malformed refund and provider 4xx all fail permanently with clear messages (probe confirmed a clean 'Event has no payment_id.')",
+    "Only Processed is skipped, so `queue:retry` of a failed event re-processes it, which matches the README",
+    "retryUntil and MaxExceptions, with the reasoning that releases count as attempts; RateLimited plus WithoutOverlapping keyed by event; refunds deduplicated by provider_refund_id",
+    "FormRequest with typed accessors status() and perPage(); a #[Scope] scope reused by prunable(); PaymentProvider service is small and focused",
+    "Tests use a real database worker for backoff growth, exhaustion, the rate limit across 12 jobs and the overlap lock, organised with describe blocks"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 7,
+    "architecture_fit": 6,
+    "modern_laravel": 7,
+    "focus_area": 7,
+    "tests": 6,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.4,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "README tells operators to run `queue:retry` for exhausted jobs, but handle() returns early when isFinished() includes Failed, so a retried failed event is a silent no-op (probe confirmed: the order stays Pending and the event stays Failed). Failed events cannot be re-driven.",
+    "app/Jobs/ProcessWebhookEvent.php:25 \u2014 Tries(30) is a fixed attempt budget that RateLimited and WithoutOverlapping releases also consume. Under a backlog well above 10/s, healthy events can hit MaxAttemptsExceeded and be marked failed without ever reaching the API; retryUntil would avoid this.",
+    "app/Jobs/ProcessWebhookEvent.php:83,100 \u2014 unconditional status updates: a late payment.failed regresses a Refunded order to payment_failed (probe confirmed), and payment.succeeded after a refund marks it Paid and sends another receipt"
+   ],
+   "antipatterns": [
+    "database/migrations/2026_11_07_000002_create_orders_table.php:23-29 \u2014 the refunds table is created inside the orders migration",
+    "routes/web.php:17 \u2014 string middleware 'can:viewAny,'.WebhookEvent::class instead of ->can(); the webhook also sits in the web group, which needs a CSRF exception",
+    "app/Http/Controllers/PaymentWebhookController.php:16 \u2014 stores the whole envelope (id/type/data) as payload, duplicating columns and forcing 'data.payment_id' lookups",
+    "app/Models/WebhookEvent.php:13 \u2014 status is left out of fillable and written with forceFill in the mark* helpers",
+    "app/Jobs/ProcessWebhookEvent.php:24 \u2014 the comment explains framework behaviour",
+    "tests/Feature/PaymentWebhookTest.php:230-236 \u2014 asserts the job's attributes by reflection instead of observing behaviour; the rate-limit and overlap tests use Mockery job doubles and call handle() directly instead of running a worker"
+   ],
+   "strengths": [
+    "createOrFirst ingestion with a dispatch only on creation; duplicates return 200 with 'duplicate'; webhooks/* renders JSON",
+    "Clear early-return failure paths using $this->fail(string); 4xx except 429 fails, 5xx rethrows to retry",
+    "WithoutOverlapping keyed by event id, RateLimited with perSecond(10), the Backoff/MaxExceptions/Timeout attributes, a ShouldQueueAfterCommit receipt, and a guard against sending a second receipt to an already-paid order",
+    "Small PaymentProvider service and readable mark* helpers on the model; model:prune scheduled daily onOneServer",
+    "README covers the shared cache, timeout nesting, restarts and the scheduler"
+   ]
+  },
+  "rationale": "I rank impl-1 first, impl-2 second and impl-3 third. All three test suites pass: impl-1 37/37, impl-2 31/31, impl-3 37/37. All three use the same core pattern: createOrFirst on a unique event_id, WithoutOverlapping keyed by the event, RateLimited with perSecond(10), backoff and MaxExceptions attributes, failed() recording the error, MassPrunable plus a scheduled model:prune, and a policy-gated FormRequest index.\n\nimpl-1 is the most complete:\n- Conditional-UPDATE state transitions make processing idempotent and safe when events arrive out of order. The receipt goes out only on a real transition.\n- retryUntil stops middleware releases from using up the retry budget, and 429 responses use Retry-After.\n- A recovery command picks up events whose dispatch was lost or whose worker died.\n- It has the best production README and the strongest tests, which run a real database worker and check exact backoff delays, the rate limit and the lock.\n- Its bugs are minor. A missing payment_id throws an ErrorException and retries instead of failing cleanly. A malformed payload sent without Accept: application/json gets a 302 redirect because the route is in the web group.\n\nimpl-2 is lean and idiomatic:\n- It has its own webhooks routes file without session middleware, and every bad-input case fails cleanly.\n- `queue:retry` works on failed events.\n- Its tests also use a real worker.\n- But OrderFactory leaves out the required user_id, so `Order::factory()->create()` fails.\n- Order status updates are unconditional, so late events can move a refunded order back to payment_failed and then to paid, with a second receipt (probe confirmed).\n\nimpl-3 comes last:\n- It has the same state-regression problem as impl-2.\n- A fixed Tries(30) budget is also used up by rate-limit and overlap releases, so healthy events can fail under load.\n- Its README recommends `queue:retry`, but the job skips Failed events, so a retry does nothing (probe confirmed).\n- The refunds table is created inside the orders migration, and the payload stores the whole envelope.\n- Its tests are the weakest: they check attributes by reflection, use mocked jobs for the middleware, and never run a real worker through backoff."
+ },
+ "cost_usd": 1.2477341999999998
+}

@@ -1,0 +1,78 @@
+{
+ "key": "filament-admin",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 8,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 6,
+    "simplicity": 9
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Changing status to Resolved through the create/edit form does not set resolved_at (probe: create with status=resolved leaves resolved_at null). Those tickets then drop out of the 30-day average because the resolvedSince scope filters on resolved_at \u2014 app/Filament/Resources/Tickets/Schemas/TicketForm.php:21-24",
+    "Reopening a resolved ticket (status back to open/pending) keeps the old resolved_at, and resolved_at is a free editable DateTimePicker that can drift from status \u2014 TicketForm.php:24",
+    "Shared by both: customers cascadeOnDelete tickets, so a non-admin can delete a customer from EditCustomer (or bulk-delete customers) and wipe their tickets, getting round the admin-only ticket delete rule \u2014 database/migrations/2026_11_07_000003_create_tickets_table.php:15 together with app/Filament/Resources/Customers/Pages/EditCustomer.php:15"
+   ],
+   "antipatterns": [
+    "Resolution logic lives only in Ticket::resolve(), which the row action uses, while the form bypasses it, so status and resolved_at have no single invariant \u2014 app/Models/Ticket.php:70",
+    "Import order is unsorted (Filament imports placed after Illuminate attributes) \u2014 app/Models/User.php:7-10",
+    "Stray blank line in the test imports \u2014 tests/Feature/TicketAdminTest.php:18",
+    "Tests repeat uses(RefreshDatabase::class) per file instead of setting it once in Pest.php \u2014 tests/Feature/TicketAdminTest.php:21"
+   ],
+   "strengths": [
+    "Clean Filament 5 layout: Schemas/Tables classes, HasLabel/HasColor enums passed straight to options() and to badges",
+    "#[Scope] attribute scopes (open/urgent/unassigned/resolvedSince) keep the widget and filter readable",
+    "Ticket::resolve() domain method; the widget shows a dash when no data exists instead of a misleading 0",
+    "Concise tests that cover search, sort, all filters, row/bulk actions with TestAction, admin vs non-admin delete, relation manager create and validation, and the widget's 30-day window",
+    "Customer table has a tickets_count column using counts()"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.2,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Shared by both: customers cascadeOnDelete tickets and the customer DeleteAction is unrestricted, so a non-admin can delete a customer and wipe their tickets, getting round the admin-only ticket delete rule \u2014 database/migrations/2026_01_01_000002_create_support_tables.php:23 together with app/Filament/Resources/Customers/Pages/EditCustomer.php:15",
+    "Average resolution stat shows '0.0 h' when nothing was resolved in 30 days, which reads as instant resolution rather than 'no data' \u2014 app/Models/Ticket.php:79 and app/Filament/Widgets/SupportStats.php:16"
+   ],
+   "antipatterns": [
+    "Malformed docblock '@extends resource<Ticket>' (lowercase, and Resource is not generic) \u2014 app/Filament/Resources/Tickets/TicketResource.php:18 and CustomerResource.php:17",
+    "Redundant modifyQueryUsing(with([...])): Filament already eager-loads relationship columns. The probe showed the same query count in both implementations \u2014 app/Filament/Resources/Tickets/Tables/TicketsTable.php:27, RepliesRelationManager.php:31",
+    "Unneeded /** @var User */ ceremony to read auth()->user()->id where auth()->id() would do \u2014 TicketsTable.php:65-67",
+    "Verbose mutateDataUsing closure where a spread would be simpler \u2014 RepliesRelationManager.php:40-44",
+    "A static aggregate helper on the model (averageResolutionHours) mixes a reporting concern into the model; acceptable but borderline"
+   ],
+   "strengths": [
+    "The #[ObservedBy] TicketObserver keeps resolved_at in step with status from every entry point (form, row action, reopen). resolved_at is shown read-only (disabled) in the form",
+    "Resolve action only updates status and relies on that invariant, so it holds wherever status changes",
+    "Tests are thorough: Pest datasets for validation, describe block for the relation manager, assertSchemaStateSet, non-admin bulk delete and header delete both checked as hidden, form resolve/reopen stamping, and admin delete through both the header and bulk actions",
+    "Expressive factory states (status(), priority(), resolvedAfterHours()) make the widget test precise",
+    "RefreshDatabase enabled once in Pest.php; imports tidy; Filament 5 Schemas/Tables structure and HasLabel/HasColor enums used correctly"
+   ]
+  },
+  "rationale": "Both test suites pass (impl-1: 25 tests; impl-2: 40 tests). Both use nearly the same Filament 5 structure: Schemas and Tables classes, HasLabel/HasColor enums, #[Scope] scopes, a policy that limits delete and deleteAny to admins, a replies relation manager that sets the author, and a stats widget.\n\nThe difference that decides the ranking is correctness. I ran throwaway probe tests and deleted them afterwards. In impl-1, setting a ticket to Resolved through the form leaves resolved_at null, so the ticket drops out of the 30-day average. Reopening a ticket in impl-1 also leaves a stale resolved_at. impl-2 prevents both with an observer, and its tests cover it.\n\nBoth share one gap: deleting a customer cascades to their tickets, so a non-admin can wipe tickets through the Customer resource.\n\nimpl-2's weaknesses are smaller:\n- The average shows '0.0 h' when there is no data.\n- The @extends docblocks are malformed.\n- Its eager loading is redundant. The probe showed the same 5 queries in both implementations, because Filament already eager-loads relationship columns.\n\nimpl-2's tests are also more thorough and idiomatic (datasets, describe, assertSchemaStateSet, checking that bulk delete is hidden for non-admins). impl-1 is slightly leaner, but its real bug outweighs that."
+ },
+ "cost_usd": 0.6609871999999999
+}

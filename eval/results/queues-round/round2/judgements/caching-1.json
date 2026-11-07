@@ -1,0 +1,79 @@
+{
+ "key": "caching",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 6,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 7.3,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Dashboard invalidation via Cache::forget is racy: a recompute already in flight when a change commits can write pre-change data back under the same key, which then stays for up to 5 minutes (app/Dashboard/TeamDashboard.php:26 with app/Observers/*Observer.php)",
+    "The lock wait is 5s, longer than the 3s 'slow' threshold, so on a cold miss waiting requests can take up to 5s before falling back (app/Exchange/ExchangeRates.php:23)"
+   ],
+   "antipatterns": [
+    "API routes are put in routes/web.php under Route::prefix('api') instead of routes/api.php with withRouting(api:) (routes/web.php:10-14)",
+    "The stampede test is misleading and slow: the nested call blocks 5s on the lock and then raises RatesUnavailableException, yet the test passes; it never shows the waiter getting fresh data (tests/Feature/ExchangeRatesTest.php:73-92)",
+    "Exception classes are split across App\\Exceptions and App\\Exchange for the same feature (app/Exchange/UnexpectedRatesResponse.php, app/Exceptions/RatesUnavailableException.php)",
+    "Uses Cache::remember instead of Cache::flexible, although the task explicitly allows serving stale data during a slow recompute (app/Dashboard/TeamDashboard.php:26)",
+    "Tests reset the HTTP fake with Http::swap(new Factory) instead of a sequence or closure fake (tests/Feature/ExchangeRatesTest.php:13-16)"
+   ],
+   "strengths": [
+    "Observers use ShouldHandleEventsAfterCommit and #[ObservedBy], so invalidation waits for commit; the old team_id/project_id is captured in saving, which handles moves",
+    "The RatesUnavailableException render() method keeps the controller to one line",
+    "The lock re-checks the cache inside the critical section, and a failure cooldown stops repeated calls to a failing API",
+    "Uses #[Scope] attributes, enum casts, withCount with a constrained alias, and a hasManyThrough for team tasks",
+    "Broad tests: membership changes, moves between teams, TTL fallback for raw writes, malformed payload, recovery"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 7.5,
+    "simplicity": 7
+   },
+   "overall": 7.6,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "GET /api/exchange-rates/{currency} needs authentication (route group ['web','auth']), which the task did not ask for; a guest gets 401 (routes/api.php:7-10)",
+    "The lock wait is 5s, longer than the 3s 'slow' threshold, so on a cold miss waiters can take up to 5s before the stale/503 fallback (config/services.php lock_wait)"
+   ],
+   "antipatterns": [
+    "Cache-versioning logic (Cache and DB facades, afterCommit) lives on the Team Eloquent model instead of the dashboard action or service (app/Models/Team.php:35-64)",
+    "Applies the 'web' middleware group inside routes/api.php (routes/api.php:7)",
+    "The exchange-rates URL is hardcoded in config without env() (config/services.php rates.url)",
+    "Uses Cache::remember instead of Cache::flexible despite the stale-while-revalidate allowance (app/Actions/GetTeamDashboard.php:19)",
+    "Every dashboard request makes an extra cache read for the version key; this is ceremony compared with a plain forget",
+    "Task #[Fillable] includes completed_at but leaves out assignee_id (app/Models/Task.php:17)"
+   ],
+   "strengths": [
+    "Version-bump invalidation, deferred with DB::afterCommit, prevents a recompute already in flight from writing stale data back and skips rolled-back changes",
+    "Collects the old and new team ids with getOriginal in saved and deduplicates them with collect()->filter()->unique()",
+    "Clean action classes; the null-coalescing abort and the 503 mapping keep the controllers thin",
+    "Deterministic lock tests (lock_wait=0) and preventStrayRequests set globally in Pest.php; dataset-driven failure tests for server error and timeout",
+    "HTTP failures are handled without exceptions as control flow (successful() check and ConnectionException), plus a failure backoff"
+   ]
+  },
+  "rationale": "Both implementations are close and pass their suites. Both use remember (not flexible), per-team keys, model observers, a lock with a re-check inside it, a failure cooldown, a forever or 30-day last-known copy, and a 3s timeout. impl-2's version-bump invalidation after commit is more robust than impl-1's plain forget, which can be undone by a recompute already in flight. impl-2's tests are also more deterministic and faster; impl-1's stampede test is misleading and takes 5s. Against that, impl-2 puts the exchange-rate endpoint behind auth without being asked and keeps cache logic on the Team model. impl-1 puts API routes in web.php. Weighing these, impl-2 wins narrowly."
+ },
+ "cost_usd": 0.7420142
+}

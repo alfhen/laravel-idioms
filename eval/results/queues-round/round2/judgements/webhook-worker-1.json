@@ -1,0 +1,161 @@
+{
+ "key": "webhook-worker",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 6,
+    "thin_controllers": 4,
+    "validation_form_requests": 3,
+    "eloquent_idioms": 7,
+    "architecture_fit": 5,
+    "modern_laravel": 5,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 6,
+   "rank": 4,
+   "tests_pass": true,
+   "bugs": [
+    "Fails open when the webhook secret isn't configured: hash_hmac is keyed with (string) null, so an HMAC made with an empty key is accepted (probe returned 200) (app/Http/Controllers/PaymentWebhookController.php:18-20)",
+    "An event with an empty data object ({}) gets a 422 because the rule is 'required' on an array, so a legitimate event with no data would be retried by the provider forever (PaymentWebhookController.php:27)"
+   ],
+   "antipatterns": [
+    "Signature check is done inline in the controller instead of in route middleware (app/Http/Controllers/PaymentWebhookController.php:16-22)",
+    "Uses Validator::make plus a manual 422 response in the controller instead of a FormRequest (PaymentWebhookController.php:24-32)",
+    "Uses try/catch on UniqueConstraintViolationException where createOrFirst would do (PaymentWebhookController.php:36-44)",
+    "Builds the response with JsonResource::collection over arrays from through() instead of a dedicated API Resource (app/Http/Controllers/WebhookEventController.php:25-33)",
+    "Statuses are string constants on the model rather than backed enums with casts (app/Models/WebhookEvent.php:15-19)",
+    "Uses the legacy four-trait job set (Dispatchable, InteractsWithQueue, Queueable, SerializesModels) instead of Foundation\\Queue\\Queueable, and properties instead of queue attributes (app/Jobs/ProcessWebhookEvent.php:23-30)",
+    "Gate::define closure in AppServiceProvider instead of a Policy (app/Providers/AppServiceProvider.php:26)",
+    "The webhook sits in the web group with a withoutMiddleware(PreventRequestForgery) override, so it carries session and cookie middleware (routes/web.php:9-10)",
+    "Empty app/Http/Middleware and app/Http/Resources directories left behind",
+    "Uses a reference variable (&$notify) to get the order out of the transaction closure (app/Jobs/ProcessWebhookEvent.php:101-122)"
+   ],
+   "strengths": [
+    "Strong queue semantics: tries=0 with maxExceptions, so rate-limit releases never fail events; full worker run verified to mark the event failed",
+    "Handles 429 with the Retry-After header via release(); 4xx responses are treated as permanent",
+    "Locks the order with lockForUpdate inside the transaction and dispatches the receipt after commit, so a second succeeded event gets no second receipt",
+    "Uses WithoutOverlapping, RateLimited with Limit::perSecond(10), and MassPrunable with model:prune scheduled daily",
+    "auth.basic on the api route really returns 401 for guests and works for admins (probed)",
+    "README covers worker deployment well: retry_after vs timeout, shared cache, restart on deploy"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "#[Tries(30)] is used up by RateLimited and WithoutOverlapping releases. When a backlog keeps the limiter saturated, a healthy event ends up marked failed with 'attempted too many times' (reproduced through the database queue) (app/Jobs/ProcessWebhookEvent.php:25)",
+    "The admin endpoint uses the session 'auth' middleware and there's no login route, so an unauthenticated non-JSON GET /api/webhook-events returns 500 (RouteNotFound) instead of 401 (routes/web.php:16-17)",
+    "No row lock on the order, and WithoutOverlapping is keyed per event. Two different payment.succeeded events for one order running at once can both see 'not paid' and send two receipts (app/Jobs/ProcessWebhookEvent.php:96-104)",
+    "The event stays in 'processing' between retries, and the status filter doesn't distinguish this from a job that is really running"
+   ],
+   "antipatterns": [
+    "The JSON admin API route is defined in web.php with session auth instead of routes/api.php (routes/web.php:16)",
+    "The order lookup happens outside the transaction, with no lockForUpdate (app/Jobs/ProcessWebhookEvent.php:56)",
+    "Empty app/Exceptions directory left behind",
+    "The ExampleTest from the base scaffold is still there"
+   ],
+   "strengths": [
+    "The thinnest controllers: createOrFirst plus wasRecentlyCreated for idempotent ingest, a FormRequest, a Resource and a Policy via can:viewAny",
+    "Signature middleware rejects requests when the secret is blank and uses hash_equals",
+    "Modern job attributes (#[Tries], #[MaxExceptions], #[Backoff], #[Timeout], #[DeleteWhenMissingModels]), $this->fail(string) for permanent errors, and a failed() hook",
+    "Notification implements ShouldQueueAfterCommit and is sent inside the DB transaction",
+    "Enums cast on the models, plus expressive factory states",
+    "Pruning is scheduled daily with onOneServer",
+    "Thorough Pest tests with datasets, a tampered-body case, the rate-limiter release count, an overlap lock check and the prune boundaries"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 7.5,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "markPaid notifies on every payment.succeeded event with no already-paid check. Two distinct succeeded events for the same order send two receipts (probe: 2 notifications) (app/Jobs/ProcessWebhookEvent.php:125-130)",
+    "OrderFactory leaves out the required user_id foreign key, so Order::factory()->create() throws a QueryException (database/factories/OrderFactory.php:13-20)",
+    "Unauthenticated non-JSON GET /api/webhook-events returns 500 because 'auth' redirects to a login route that doesn't exist (routes/web.php:11)",
+    "The README's supervisor line passes --tries=3, which contradicts the job's design. It's harmless only because retryUntil takes precedence (README.md)"
+   ],
+   "antipatterns": [
+    "Hardcoded 'USD' fallback currency in the job (app/Jobs/ProcessWebhookEvent.php:129,148)",
+    "The JSON admin API route lives in web.php with session auth (routes/web.php:11)",
+    "The order lookup throws a PermanentWebhookException from inside the transaction to get control flow out (ProcessWebhookEvent.php:109-110)"
+   ],
+   "strengths": [
+    "Uses retryUntil instead of a tries count, so rate-limit and overlap releases don't use up attempts; MaxExceptions bounds real errors",
+    "Locks the event row and the order row with lockForUpdate inside the transaction and re-checks the processed status there, which gives a strong exactly-once guarantee",
+    "ShouldQueueAfterCommit notification, the #[Scope] attribute, $request->enum() and integer() helpers, and createOrFirst",
+    "The webhook route is loaded via withRouting then: with no web middleware (no CSRF or session), which is clean",
+    "The best tests: they drive the real database queue to prove increasing backoff delays, exhaustion leading to a failed status, and the 10-per-second limit across 12 jobs",
+    "Signature middleware rejects requests when the secret is empty; 4xx is permanent while 5xx and 429 are retried"
+   ]
+  },
+  "impl-4": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 6
+   },
+   "overall": 7,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "PaymentReceipt is not queued (no ShouldQueue): mail goes out synchronously inside the rate-limited job, and a slow or failing mail server stalls or retries the whole event (app/Notifications/PaymentReceipt.php:10)",
+    "No DB transaction around markPaid, notify, markReceiptSent and markProcessed, so a crash between steps leaves things partly applied (app/Jobs/ProcessWebhookEvent.php:56-70,81-93)",
+    "The provider API is called before checking for an unknown event type or a missing order, which uses up rate-limited requests on events that will fail permanently anyway (probe: 1 HTTP call for an unsupported type) (ProcessWebhookEvent.php:59-68)",
+    "Ingress validation requires data.payment_id for every type, so other provider event types get a 422 and will be redelivered forever instead of being stored and acknowledged (app/Http/Requests/PaymentWebhookRequest.php:18)"
+   ],
+   "antipatterns": [
+    "The extra webhooks:redispatch-stuck command, scheduled every 10 minutes, is ceremony: it re-dispatches events still waiting in a backlog and duplicates jobs (app/Console/Commands/RedispatchStuckWebhookEvents.php)",
+    "The processing_started_at column is written but never read (database/migrations/2026_11_07_000003_create_webhook_events_table.php:19)",
+    "Uses `$this->option('dry-run') || dispatch(...)` short-circuit as control flow (RedispatchStuckWebhookEvents.php:24)",
+    "Calls afterCommit() on a dispatch that isn't inside any transaction (app/Http/Controllers/PaymentWebhookController.php:20)",
+    "The test harness wraps Http::fake in a closure with a mutable $this->providerResponse instead of plain Http::fake/sequence (tests/Feature/ProcessWebhookEventTest.php:19-28)"
+   ],
+   "strengths": [
+    "The FailOnException middleware is the idiomatic way to fail permanent errors immediately; it's paired with retryUntil and MaxExceptions",
+    "Clean route split: api.php with auth.basic (a real 401 for guests) and webhooks.php outside the web group",
+    "Domain methods on the Order model (markPaid, refund) and a receipt_sent_at guard against duplicate receipts",
+    "The FormRequest validates refund fields conditionally with required_if",
+    "Tests drive the real database queue for retry-then-success and the 10-per-second limit; validation is covered with datasets",
+    "The README has the most thorough worker guidance: pcntl, stopwaitsecs, onOneServer"
+   ]
+  },
+  "rationale": "I ran all four suites (all pass) and ran throwaway probes against each, then deleted the probes. impl-3 ranks first. It has the most robust queue design: retryUntil means rate-limit and overlap releases don't use up attempts, and it locks both the event and order rows and re-checks processed status inside the transaction. The receipt is sent with ShouldQueueAfterCommit. Its tests are the strongest: they prove increasing backoff, failure after exhaustion and the 10-per-second limit on a real database queue. Its bugs are minor: a duplicate receipt for distinct succeeded events, a broken OrderFactory default and a 500 for unauthenticated HTML requests. impl-2 is second. It's the cleanest and most idiomatic: FormRequests, Policy, Resource, enums, job attributes, createOrFirst and ShouldQueueAfterCommit. But #[Tries(30)] is consumed by RateLimited releases, which can mark healthy events failed under backlog (reproduced), and it doesn't lock the order row. impl-4 is third. It's modern (FailOnException, auth.basic on api.php, a separate webhooks route file) with good tests, but the receipt notification isn't queued, processing has no transaction, the API is called before cheap permanent-failure checks, and the stuck-event redispatch command is extra ceremony. impl-1 is last. Its queue semantics are solid (tries=0 with maxExceptions, Retry-After handling, lockForUpdate, after-commit receipt), but it accepts empty-key signatures when the secret is missing. It's also the least idiomatic: signature check and Validator::make in the controller, no FormRequest, Resource, Policy or enums, legacy job traits, and empty leftover directories."
+ },
+ "cost_usd": 1.4803732
+}

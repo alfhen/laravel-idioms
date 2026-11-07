@@ -1,0 +1,67 @@
+{
+ "key": "inactive-count",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 6,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 7.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "tests/Pest.php:18-19 \u2013 left the old `// ->use(RefreshDatabase::class)` comment in place and added a duplicate live line under it instead of uncommenting it",
+    "app/Models/User.php:7-8 \u2013 new Scope/Builder imports inserted out of alphabetical order",
+    "app/Models/User.php:36 \u2013 scope reads now() itself and takes an int, so callers can't pass a fixed cutoff; harder to test deterministically",
+    "app/Console/Commands/CountInactiveUsers.php:17-28 \u2013 running a full Validator over a single option is more ceremony than needed, and the value is still cast with (int) after validation",
+    "app/Console/Commands/CountInactiveUsers.php:32 \u2013 prints '1 users' (no plural handling, e.g. Str::plural)",
+    "tests/Feature/CountInactiveUsersTest.php \u2013 the schedule test never checks appendOutputTo, so nothing tests the log requirement; no frozen time and no exact-boundary test; the failure test only checks that the output contains 'days'"
+   ],
+   "strengths": [
+    "The schedule entry appends output to storage/logs/inactive-users.log, so the daily number actually ends up in the logs; that was the stated goal of the schedule",
+    "Uses the Schedule facade in routes/console.php, the #[Signature]/#[Description] attributes and the #[Scope] attribute, which are current Laravel conventions",
+    "Scope wraps whereNull/orWhere in a closure, so the OR stays grouped",
+    "Tests cover the default, the --days option, never-logged-in users, zero users and invalid input (as a dataset), plus a schedule expression test"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 6,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "routes/console.php:11 \u2013 the schedule has no output target (verified: event output is /dev/null), so the count printed at 06:00 is thrown away and never 'shows up in our logs'. This misses the stated reason for the schedule (needs appendOutputTo/sendOutputTo or a Log call in the command)"
+   ],
+   "antipatterns": [
+    "tests/Feature/InactiveUsersCountTest.php:58-64 \u2013 the schedule test checks only the cron expression, which is why the missing output target went unnoticed",
+    "tests/Feature/InactiveUsersCountTest.php:66-72 \u2013 the migration/cast test checks framework behaviour more than app behaviour (minor)"
+   ],
+   "strengths": [
+    "The scope takes a CarbonInterface cutoff (#[Scope] attribute), which keeps it pure and reusable",
+    "filter_var with min_range is a lean way to validate the option, with a clear error and FAILURE exit",
+    "A typed lastLoginAt() factory state makes the tests read cleanly",
+    "Tests freeze time and cover the exact-cutoff boundary, --days=0, an invalid-input dataset, zero users and the schedule expression",
+    "Clean diff: Pest.php was uncommented properly and imports are ordered"
+   ]
+  },
+  "rationale": "Both implementations look almost the same: an attribute-based command, a #[Scope] with a grouped whereNull/orWhere, a nullable timestamp migration with a datetime cast, Schedule::command(...)->dailyAt('06:00') in routes/console.php, and passing Pest suites (12 tests for impl-2, 11 for impl-1). In my probes they behaved the same on edge cases: both reject an empty --days and both reject '+5' and '007', both accept a huge value, and both group the OR correctly. The deciding difference is the requirement to run the command 'so the number shows up in our logs'. Inspecting the scheduled event shows impl-2's output goes to /dev/null, so the daily count disappears. impl-1 appends to storage/logs/inactive-users.log. impl-2 has the better code and tests: a pure cutoff-based scope, a factory state, frozen time, a boundary test and a tidier diff. impl-1 has small flaws: a leftover duplicate comment in Pest.php, unordered imports, '1 users' grammar, a heavier Validator and weaker tests. But a real requirement miss outweighs those, so impl-1 ranks first."
+ },
+ "cost_usd": 0.22455020000000003
+}

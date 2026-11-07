@@ -1,0 +1,22 @@
+{
+ "export-purge-command": {
+  "impl-1": "late",
+  "impl-2": "skill",
+  "impl-3": "prev"
+ },
+ "scheduled-reports": {
+  "impl-1": "skill",
+  "impl-2": "prev",
+  "impl-3": "late"
+ },
+ "inactive-count": {
+  "impl-1": "skill",
+  "impl-2": "late",
+  "impl-3": "prev"
+ },
+ "blog-crud": {
+  "impl-1": "prev",
+  "impl-2": "late",
+  "impl-3": "skill"
+ }
+}
