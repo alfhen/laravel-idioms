@@ -40,7 +40,11 @@ class HiddenTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             runner = Path(tmp) / 'app' / 'vendor' / 'bin' / 'phpunit'
             runner.parent.mkdir(parents=True)
-            runner.write_text('#!/bin/sh\necho started\nsleep 5\n')
+            # Writes a passing report for every expected test, then hangs.
+            passing = ''.join(f'<testcase name="{n}" />' for n in hidden.expected_tests(hidden.REPO / hidden.TASKS[key]['hidden']))
+            runner.write_text('#!/bin/sh\n'
+                              f"for a; do [ \"$prev\" = --log-junit ] && echo '<testsuites><testsuite>{passing}</testsuite></testsuites>' > \"$a\"; prev=$a; done\n"
+                              'echo started\nsleep 5\n')
             os.chmod(runner, 0o755)
             timeout, hidden.TIMEOUT = hidden.TIMEOUT, 1
             try:
@@ -51,6 +55,18 @@ class HiddenTest(unittest.TestCase):
         self.assertTrue(row['tests'])
         self.assertFalse(any(row['tests'].values()))
         self.assertIn('timed out after 1s', row['output_tail'])
+
+    def test_an_unreadable_report_scores_every_hidden_test_as_failed(self):
+        key = next(k for k, t in hidden.TASKS.items() if t.get('hidden'))
+        with tempfile.TemporaryDirectory() as tmp:
+            runner = Path(tmp) / 'app' / 'vendor' / 'bin' / 'phpunit'
+            runner.parent.mkdir(parents=True)
+            runner.write_text('#!/bin/sh\nfor a; do [ "$prev" = --log-junit ] && echo "<testsuites><testcase" > "$a"; prev=$a; done\nexit 1\n')
+            os.chmod(runner, 0o755)
+            row = hidden.run_hidden(Path(tmp) / 'app', key)
+        self.assertEqual(row['exit_code'], 1)
+        self.assertTrue(row['tests'])
+        self.assertFalse(any(row['tests'].values()))
 
     def test_every_hidden_file_exists_and_declares_tests(self):
         tasks = json.loads((REPO / 'eval' / 'tasks.json').read_text())

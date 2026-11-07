@@ -79,10 +79,13 @@ def run_hidden(build_dir, task_key):
         except subprocess.TimeoutExpired as e:
             partial = ''.join(x.decode(errors='replace') if isinstance(x, bytes) else x for x in (e.stdout, e.stderr) if x)
             exit_code, output = None, f'timed out after {e.timeout}s\n{partial}'
-        if report.exists() and report.stat().st_size:
-            tests = parse_junit(report.read_text())
-        else:
-            tests = {}
+        tests = {}
+        # A run that timed out may have left a partial report, which could still count some passes.
+        if exit_code is not None and report.exists() and report.stat().st_size:
+            try:
+                tests = parse_junit(report.read_text())
+            except ET.ParseError:
+                tests = {}
         if not tests:
             tests = {name: False for name in expected_tests(hidden)}
         return {'tests': tests, 'exit_code': exit_code,
