@@ -1,0 +1,100 @@
+{
+ "key": "ship-order",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 9,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Policies/OrderPolicy.php:11 returns $user->is_staff typed bool, but there is no $attributes default. A User instance built in memory without the column (e.g. passed to Sanctum::actingAs straight after create()) makes it return null, which throws a TypeError and a 500 where a 403 is expected. A real request reloads the user from the DB, so production is not affected",
+    "app/Models/Order.php:51 forceFill()+syncOriginal() runs inside the transaction, so if the outer transaction rolls back, the in-memory model still reports Shipped",
+    "app/Models/Order.php:43 the comment mostly describes what the code does"
+   ],
+   "strengths": [
+    "Atomic conditional UPDATE (where status != shipped) claims the order, so concurrent requests cannot both ship it on any database driver",
+    "Points are incremented inside the transaction and the mail is deferred with DB::afterCommit, which is correct for outer rollbacks and for nested savepoint rollbacks (probed)",
+    "Domain exception is mapped to a JSON 409 once in bootstrap/app.php, so the controller is a thin invokable",
+    "Route uses ->can('ship','order') with a policy; FormRequest uses validated()",
+    "Strongest tests: rollback and commit of the outer transaction, shipment-insert failure rolling back points, rounding dataset, validation dataset, mail render contains the tracking number, double-ship test"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 9,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Exceptions/OrderAlreadyShipped.php:7 the domain exception extends Symfony ConflictHttpException, so Order::ship(), which back-office code also calls, depends on an HTTP concept",
+    "app/Policies/OrderPolicy.php:12 same null-to-bool TypeError risk as impl-1 for in-memory users without is_staff loaded (probe returned 500)",
+    "bootstrap/app.php:17-23 redirectGuestsTo and shouldRenderJsonWhen overrides add global config the task did not need",
+    "tests/Feature/ShipOrderTest.php:126 calls DB::rollBack() by hand inside DB::transaction() to simulate a rollback, which is not idiomatic; throwing an exception is",
+    "tests/Feature/ShipOrderTest.php:14 Http::preventStrayRequests() is noise, since no HTTP client is used",
+    "Mail uses a plain HTML view rather than a markdown mailable; this is acceptable"
+   ],
+   "strengths": [
+    "Same atomic conditional-UPDATE claim as impl-1, and points are incremented inside the transaction",
+    "afterCommit is registered after the inner transaction, which is still correct when nested inside an outer transaction (savepoint probe passed)",
+    "Uses syncOriginalAttribute so the in-memory model is not left dirty",
+    "Mail render is tested with assertSeeInHtml; tests cover rounding, existing points, 409 with no repeated side effects, and outer commit/rollback"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Requests/ShipOrderRequest.php:9-12 authorization lives in FormRequest::authorize instead of a policy or Gate, so it cannot be reused for ship() calls outside HTTP",
+    "app/Http/Controllers/OrderShipmentController.php:14-18 try/catch in the controller to build the 409, instead of a renderable exception or an exception handler mapping",
+    "app/Models/Order.php:56 sets $this->status without syncOriginal, which leaves the caller's model dirty, and it remains Shipped in memory after a rollback",
+    "app/Models/Order.php:47 lockForUpdate approach relies on the DB supporting row locks (on SQLite only the unique constraint backs it up); the conditional UPDATE in impl-1/2 is simpler",
+    "Deletes tests/Feature/ExampleTest.php and tests/Unit/ExampleTest.php, which is unrelated churn",
+    "User has no orders() inverse relation"
+   ],
+   "strengths": [
+    "Pessimistic lock plus re-read gives correct concurrency on MySQL/Postgres, and all side effects run in the transaction with mail sent afterCommit",
+    "Calls Mail::to($customer) on the locked, fresh model; the customer() relation name reads well",
+    "Casting (bool) in authorize avoids the null TypeError (non-staff probe returned 403)",
+    "Migrations are separate per table; casts are explicit for total_cents and points",
+    "Tests check the mail tracking number with assertSeeInHtml and cover outer rollback/commit and double ship"
+   ]
+  },
+  "rationale": "I found no real requirement bugs in any of the three. All test suites pass (19/18/12). Each one passed my probes for a savepoint rollback inside a committed outer transaction, a stale second model instance trying to ship again, a non-JSON POST getting 409, array input getting 422, and the mail rendering the tracking number. Rank 1 is impl-1. It pairs an atomic conditional UPDATE with afterCommit mail, maps the domain exception to 409 centrally in bootstrap, wires a route ->can() policy, and has the most thorough Pest tests, including the case where the shipment insert fails. Rank 2 is impl-2. Its core logic matches impl-1, but its exception is an HTTP ConflictHttpException inside a domain model, it adds global bootstrap config the task didn't need, and one rollback test calls DB::rollBack() by hand. Rank 3 is impl-3. Its concurrency handling is correct and it is the only one robust to a null is_staff. It still loses on idioms: authorization sits in FormRequest::authorize instead of a policy, the controller builds the 409 with try/catch, the in-memory model is left dirty, ExampleTests were deleted, and its tests share beforeEach state and cover fewer edge cases. The policies in impl-1 and impl-2 return a nullable is_staff typed as bool. The non-staff probe got a 500 because the user was built in memory without the column. A real Sanctum request reloads the user from the DB, so I counted this as a robustness note, not a bug."
+ },
+ "cost_usd": 0.6026604
+}

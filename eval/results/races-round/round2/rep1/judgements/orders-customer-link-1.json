@@ -1,0 +1,101 @@
+{
+ "key": "orders-customer-link",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 9,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 6
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "database/migrations/2026_11_07_190000_add_customer_id_to_orders_table.php:12-20 branches on the driver, so the test suite never runs the DDL that production uses (the hand-written MySQL path)",
+    "database/migrations/2026_11_07_190000_add_customer_id_to_orders_table.php:27-32 writes SET SESSION foreign_key_checks by hand in try/finally where Schema::withoutForeignKeyConstraints() would do the same job",
+    "app/Models/Order.php:11 adds customer_id to $fillable instead of setting it through $customer->orders()->create()",
+    "app/Http/Controllers/CustomerOrderController.php:14 reads the raw query('status') with no validation (?status[]=x is quietly flattened)",
+    "app/Console/Commands/LinkOrdersToCustomers.php:29 builds the matching subquery as a raw string next to a closure-based whereExists, so the same match is written two ways"
+   ],
+   "strengths": [
+    "Its MySQL DDL is the safest for production: ALGORITHM=INSTANT for the column and INPLACE/LOCK=NONE for the indexes and FK, so MySQL fails loudly instead of locking 20M rows",
+    "Adds two indexes, (customer_id,status,created_at) and (customer_id,created_at), so both the filtered and unfiltered endpoint queries avoid a filesort; adds latest('id') as a tiebreaker for stable pagination",
+    "The backfill walks primary-key ranges with a set-based UPDATE (whereNull plus whereExists) through the query builder, so updated_at is untouched, re-runs are safe and unmatched orders are skipped",
+    "down() is clean and rollback works (checked with a probe)",
+    "Tests cover case and space matching, unmatched orders, re-runs, updated_at, multiple chunks, presence of the indexes, and the GDPR null-on-delete"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 9,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "database/migrations/2026_11_07_200000_add_customer_id_to_orders_table.php:24 down() calls dropConstrainedForeignId but never drops the two composite indexes. On SQLite the rollback fails (probe: 'error in index orders_customer_id_created_at_index after drop column'). On MySQL it leaves mangled (created_at) and (status,created_at) indexes behind"
+   ],
+   "antipatterns": [
+    "database/migrations/2026_11_07_200000_add_customer_id_to_orders_table.php:15 declares constrained() before the indexes, so Laravel emits the FK first. MySQL then builds an implicit FK index on 20M rows and drops it again once the composite index exists, which is wasted online-DDL work",
+    "database/migrations/2026_11_07_200000_add_customer_id_to_orders_table.php:13 does not pin ALGORITHM/LOCK, so it depends on MySQL picking INSTANT/INPLACE on its own",
+    "app/Console/Commands/LinkOrdersToCustomers.php:14 keeps the match SQL as a raw string constant and concatenates it into whereRaw('exists (...)')"
+   ],
+   "strengths": [
+    "Uses Schema::withoutForeignKeyConstraints so the FK is added in place with no table copy",
+    "Both composite indexes fit the endpoint query, with and without a status filter",
+    "Most idiomatic Eloquent of the three: PlaceOrder uses $customer->orders()->create() and the tests use factory for()",
+    "The FormRequest uses nullable, so ?status= still returns every order (tested); arrays and overlong values get a 422",
+    "The backfill uses PK ranges, whereNull/exists guards and a query-builder update, so updated_at is unchanged; an invalid --chunk returns INVALID",
+    "Most thorough tests: ordering, empty filter, auth, 404, chunking, re-run output counts, updated_at on both matched and unmatched orders, presence of the indexes"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 6,
+    "simplicity": 7
+   },
+   "overall": 6,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "app/Http/Requests/CustomerOrdersRequest.php:12 has rules 'sometimes','string' with no nullable. ConvertEmptyStringsToNull turns ?status= into null, so the request now returns a 422 where it used to return every order (confirmed by probe). That breaks the documented `?status=` contract",
+    "database/migrations/2026_11_08_000000_add_customer_id_to_orders_table.php:13 adds only (customer_id,status,created_at). The frequent unfiltered call (customer_id = ? ORDER BY created_at DESC) can't use that index for ordering and falls back to a filesort"
+   ],
+   "antipatterns": [
+    "database/migrations/2026_11_08_000000_add_customer_id_to_orders_table.php:13 uses ->after('customer_email'). Before MySQL 8.0.29 a positioned ADD COLUMN can't use INSTANT and rebuilds the 20M-row table",
+    "app/Http/Controllers/CustomerOrderController.php:15 has no id tiebreaker on latest(), so pagination can be unstable when created_at values collide",
+    "tests/Feature/LinkOrdersToCustomersTest.php:17 and tests/Feature/CustomerOrdersTest.php:18 call Http::preventStrayRequests() in setUp although no code makes HTTP calls, which is pointless ceremony",
+    "Splitting the FK into its own migration adds a file without any benefit, since both migrations ship in the same release"
+   ],
+   "strengths": [
+    "Uses withoutForeignKeyConstraints with nullOnDelete, so the FK is added in place",
+    "matchingCustomer() returns a query Builder used for both whereExists and the update subquery, which avoids raw SQL strings and is the neatest backfill",
+    "PlaceOrder uses $customer->orders()->create()",
+    "down() is clean in both migrations and rollback works",
+    "Tests use a collection-driven assertion for the email variants, cover multiple batches with exact output, and test array-status validation"
+   ]
+  },
+  "rationale": "All three take the same core approach: a nullable customer_id with a nullOnDelete FK added while FK checks are off, a set-based backfill over primary-key ranges, and a switch to the hasMany relation. The differences that decide the ranking are bugs found by probes and how well the indexes fit the queries. Impl-1 had no bugs in my probes. It pins ALGORITHM and LOCK explicitly on MySQL, has both composite indexes and a stable sort, and its rollback works. It loses points for hand-written driver-branching DDL and a $fillable change where the relation would have been more idiomatic. Impl-2 has the most idiomatic Eloquent, a validated request that still handles ?status= correctly, and the strongest tests. Its down() leaves the composite indexes behind, though, so rollback crashes on SQLite and would leave broken indexes on MySQL, and it orders the FK before the indexes, which wastes DDL work. Impl-3 has the cleanest backfill builder, but it breaks the endpoint: ?status= now returns a 422. It also leaves out the (customer_id, created_at) index that the frequent unfiltered call needs, and uses AFTER, which can force a table rebuild on older MySQL 8 versions. All test suites pass (10, 20 and 16 tests). The probe files were deleted afterwards."
+ },
+ "cost_usd": 0.5431622
+}

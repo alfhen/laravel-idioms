@@ -1,0 +1,81 @@
+{
+ "key": "blog-crud",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 9
+   },
+   "overall": 7.8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Guest request to /api/posts without an Accept: application/json header returns 500 (Route [login] not defined) because the 'auth' middleware tries to redirect to a login route the app doesn't have. API guests should always get a 401 (routes/api.php:6, bootstrap/app.php has no redirectGuestsTo).",
+    "Empty query filters (?status=&tag=&per_page=) return 422 because the rules lack 'nullable', so a blank filter can't be treated as 'no filter' (app/Http/Requests/IndexPostRequest.php:14-16).",
+    "Tag names that differ only by case ('PHP' and 'php') become separate tags, even within one request (app/Models/Post.php:54)."
+   ],
+   "antipatterns": [
+    "app/Http/Controllers/PostController.php:36 uses ->response()->setStatusCode(201) by hand; a JsonResource for a model that was just created already returns 201.",
+    "app/Models/Post.php:24-26 sets the $attributes default status to the string 'draft' instead of the enum, which duplicates the database default.",
+    "app/Http/Controllers/PostController.php:43 checks $request->has('tags') instead of $request->safe()->has('tags').",
+    "Only PUT routes are defined (no PATCH), yet the update request treats every field as optional, i.e. a partial update (routes/api.php:9).",
+    "tests/Feature/PostApiTest.php:206 tests a model scope directly inside an HTTP feature test."
+   ],
+   "strengths": [
+    "Thin controller using when() with $request->enum() and $request->integer(), plus latest()->latest('id') as a deterministic tie-breaker.",
+    "Modern Laravel 12/13 attributes: #[Fillable], #[ObservedBy], #[Scope]. Enum cast, Rule::enum validation, and enum default used in the migration.",
+    "Authorization is declared on the routes with ->can(), and the policy uses $post->user()->is($user).",
+    "syncTagNames uses a tidy collection pipeline: trim, filter, uniqueStrict, firstOrCreate.",
+    "Covers the main failure paths: 401, 403 (even with an invalid body), 404, 422, plus pagination and combined filters.",
+    "Index request validation caps per_page at 100."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.6,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "distinct:ignore_case runs before trimming, so ['php', ' php'] is rejected with 'duplicate value' errors on every entry. That's harmless but slightly surprising, and the later unique() in syncTags is now mostly redundant (app/Http/Requests/StorePostRequest.php:21)."
+   ],
+   "antipatterns": [
+    "Deleted the base app's passing tests/Feature/ExampleTest.php, which was unrelated to the task.",
+    "Turned on Model::shouldBeStrict app-wide in AppServiceProvider.php:23, a global behaviour change outside the task's scope.",
+    "app/Http/Controllers/PostController.php:20 calls PostStatus::from($request->validated('status')) where $request->enum() would be more idiomatic, and line 24 uses validated('per_page') ?? 15 (a string) instead of $request->integer().",
+    "The default status lives in two places: the observer's creating hook (PostObserver.php:14) and the migration default (a hard-coded 'draft' string rather than the enum value).",
+    "Only PUT routes are defined (no PATCH) even though updates are partial (routes/api.php:9)."
+   ],
+   "strengths": [
+    "redirectGuestsTo returns null for api/*, so guests always get a JSON 401, and a test covers this.",
+    "The index rules are nullable, so blank filters are ignored, and a test covers this.",
+    "Returning new PostResource from store gives an automatic 201 with no manual status code.",
+    "Uses createOrFirst for tags, which is safe under concurrent requests given the unique index. The policy's delete() delegates to update().",
+    "Routes bind posts by slug ({post:slug}), and authorization is declared with ->can().",
+    "The most thorough tests: mass-assignment protection, unpublishing then republishing keeps the original published_at (using travel()), empty tags clears them, an array passed as tag is rejected, assertModelMissing and assertModelExists.",
+    "Modern attributes: #[Fillable], #[ObservedBy], #[Scope]; enum cast; Rule::enum."
+   ]
+  },
+  "rationale": "The two implementations are almost structurally identical: same enum, attribute-based model, observer, policy wired with ->can() on the routes, and FormRequests. Both test suites pass (impl-1 22 tests, impl-2 23). What separates them came from the probes. In impl-1, a guest request to /api/posts without a JSON Accept header returns a 500 because the auth middleware tries to redirect to a login route that doesn't exist; impl-2 sets redirectGuestsTo for api/* and returns a 401, with a test for it. Impl-1 also rejects empty filter values with a 422, while impl-2 accepts them as no filter, again with a test. Impl-2's tests go further: mass-assignment protection, unpublishing then republishing keeps published_at, and an empty tags array clears the tags. Impl-2 also uses the cleaner approaches of an automatic 201 and createOrFirst. Its weaknesses are scope creep (it deleted ExampleTest and enabled Model::shouldBeStrict app-wide) and slightly less idiomatic reading of the request (PostStatus::from and validated('per_page') instead of $request->enum() and $request->integer()). Impl-1 does read the request more idiomatically. On balance impl-2 has fewer real bugs and better tests, so it ranks first."
+ },
+ "cost_usd": 0.4394098
+}

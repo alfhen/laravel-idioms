@@ -1,0 +1,70 @@
+{
+ "key": "queue-bugfix",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 7.6,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "No functional bugs found. Probes passed: a real database worker retried 3 times, then wrote a failed_jobs row and set crm_last_error; a stale claim was re-dispatched after 16 min; a job for a deleted model was discarded.",
+    "Efficiency issue, not a bug: app/Console/Commands/DispatchCrmSync.php:22 runs lazyById over every unsynced subscriber, including ones already in flight, and issues a claim UPDATE for each one every minute. During a queue backlog, which is exactly the problem scenario, that becomes N no-op write queries per minute."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/DispatchCrmSync.php:22 \u2013 the outer query does not filter on crm_sync_queued_at, so the per-row claim UPDATE runs even for rows it will skip.",
+    "tests/Feature/CrmSyncTest.php:64-71 \u2013 asserts config by reflecting on the Tries/Backoff attributes instead of on behaviour. This is brittle and couples the test to implementation details.",
+    "app/Console/Commands/DispatchCrmSync.php:11 \u2013 a public const CLAIM_TTL_MINUTES exists mainly so a test can read it. A config value would fit the app better."
+   ],
+   "strengths": [
+    "Finds all four root causes: the swallowed exception, re-dispatching rows that are already in flight, withoutOverlapping's default 24h lock expiry, and chunk() paginating over a column it mutates. Fixes them with minimal diffs.",
+    "Uses modern queue attributes (Tries, MaxExceptions, Backoff, DeleteWhenMissingModels), checked against vendor. Sets tries above max exceptions so WithoutOverlapping releases do not use up the retries.",
+    "The job has an idempotency guard (skips if already synced) and a failed() hook that records crm_last_error.",
+    "Uses an atomic conditional UPDATE to claim each row, so concurrent dispatchers cannot both queue the same subscriber.",
+    "Has a test that queues more subscribers than one lazyById chunk."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "No functional bugs found. Probes passed: a real database worker retried 3 times, then wrote a failed_jobs row and set crm_last_error; a stale claim was re-dispatched after 16 min; a job for a deleted model was discarded."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/DispatchCrmSync.php:23 and :28 \u2013 the stale-claim where closure is duplicated between the select and the claim UPDATE. A local scope or variable would remove the duplication.",
+    "config/services.php:26 and DispatchCrmSync.php:18 \u2013 casts to (int) in both places, and the 'crm.url' default is now repeated in the job's config() fallback.",
+    "tests/Feature/CrmSyncTest.php:93 \u2013 the test name says 'bounded retries' but only the middleware properties are asserted.",
+    "app/Console/Commands/DispatchCrmSync.php:12-13 \u2013 switches to the #[Signature]/#[Description] attributes in one command only, while NormalizeSubscriberEmails keeps the properties. The style is inconsistent."
+   ],
+   "strengths": [
+    "Same correct root-cause fixes as impl-1: rethrow plus failed(), claim-based dispatch with stale requeue, withoutOverlapping(5), and chunkById.",
+    "The outer query already excludes rows that are in flight, so a backed-up queue does not trigger per-row UPDATEs every minute.",
+    "Moves the requeue TTL into config/services.php instead of hard-coding it as a constant.",
+    "Adds Timeout(30), which is consistent with the 10s HTTP timeout and the 120s overlap-lock expiry.",
+    "The tests include a dispatch through the sync queue that exercises failed() end to end, and the assertions are behavioural rather than reflection-based."
+   ]
+  },
+  "rationale": "The two implementations are nearly the same. Each fixes all four root causes:\n1. The try/catch swallowed the exception, so the job never retried or failed. Both now rethrow and add failed() and attribute-based retries/backoff.\n2. Every minute the dispatcher re-queued subscribers that were already queued. Both now claim rows atomically on crm_sync_queued_at with a stale TTL, and the job skips subscribers that are already synced.\n3. Scheduler withoutOverlapping() defaults to a 24h lock expiry. Both shorten it.\n4. chunk() paginated over the email_normalized column it was updating. Both switch to chunkById.\n\nBoth suites pass (14 tests each). The same three probes passed on both: a real database worker retried and then wrote failed_jobs, a stale claim was requeued, and a job for a missing model was discarded.\n\nimpl-2 ranks first because its dispatcher filters out in-flight rows in the outer query, so a backed-up queue does not cause N no-op UPDATEs per minute. It also puts the TTL in config, and its tests check behaviour, including failed() through the sync queue, rather than reflecting on attributes. Its weaknesses are a duplicated where closure, inconsistent use of the command attributes, and a test name that overclaims. impl-1's 1100-row chunk-boundary test is a nice addition, but it does not make up for the extra per-row writes and the brittle reflection test."
+ },
+ "cost_usd": 0.3322616
+}

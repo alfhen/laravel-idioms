@@ -1,0 +1,77 @@
+{
+ "key": "caching",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.3,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Status and completed_at can disagree. Setting status=done without completed_at leaves it null, so the task never counts in tasks_completed_last_7_days (probe confirmed). Reopening a task keeps the old completed_at (probe confirmed). app/Models/Task.php:17, no saving hook in app/Observers/TaskObserver.php",
+    "UserObserver::saved clears the team's dashboard cache on every user save, including unrelated changes like remember_token or password. On busy teams this lowers the hit rate (app/Observers/UserObserver.php:13)"
+   ],
+   "antipatterns": [
+    "The test 'reuses the rates a concurrent request stored while waiting for the lock' releases the lock before sending the request, so it only tests a plain cache hit, not lock contention (tests/Feature/ExchangeRatesTest.php:127-137)",
+    "The 'lock_wait' config value is hard-coded and has no env() override (config/services.php)",
+    "Splitting BuildTeamDashboard and TeamDashboardCache into two classes is mild ceremony for a single use (app/Support/BuildTeamDashboard.php)",
+    "Uses array_unique(array_filter(...)) where a collection would read more cleanly (app/Support/TeamDashboardCache.php:34)"
+   ],
+   "strengths": [
+    "Installs Sanctum and protects the route with auth:sanctum, so the API endpoint works for real clients. The guest redirect returns null for api/* routes",
+    "Cache::flexible([60,300]) with a per-team version token rotated by a UUID. Invalidation is atomic and simple, and a recompute that started before a write cannot be served afterwards",
+    "Observers implement ShouldHandleEventsAfterCommit and clear both the old and new team when a project or task moves. UserObserver keeps member_count accurate",
+    "The rates refresh is protected by a lock, with a re-check after acquiring it, a 15s back-off after failures, timeout(3) plus connectTimeout(3), and a last-known copy kept 30 days. The 503 comes from a ServiceUnavailableHttpException subclass",
+    "Strong Pest tests: query-count checks prove cache hits, datasets cover server error, timeout and malformed-body failures, travel() checks TTLs, and pushFailedConnection() and assertSentCount are used",
+    "The lock wait is configurable, so the lock test runs instantly"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.6,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "The dashboard route uses the plain 'auth' middleware, which falls back to the session-based web guard, on an api route group with no StartSession or EncryptCookies. No real client can log in, so every production request gets 401. Tests pass only because actingAs() sidesteps the guard (routes/api.php:7)",
+    "Team membership changes don't clear the cache, so member_count stays stale until the 60s fresh window ends (probe confirmed). The spec allows this, but it is inconsistent with the rest of the invalidation"
+   ],
+   "antipatterns": [
+    "The lock-contention test really blocks for the 4-second LOCK_WAIT_SECONDS because the wait is a hard-coded constant. That slows the suite (tests/Feature/ExchangeRatesTest.php:117)",
+    "Version bumping with Cache::add followed by increment takes two steps. If the key expires between them, the increment can create a key with no TTL on some stores (app/Support/TeamDashboard.php:36-37)",
+    "The cache key format 'rates:{$currency}:v1:last-known' is copied into tests as a string literal (tests/Feature/ExchangeRatesTest.php:61)",
+    "Only timeout() is set, with no connectTimeout() and no retry. Acceptable, but less explicit than it could be (app/Support/FetchExchangeRates.php:62)"
+   ],
+   "strengths": [
+    "The TaskObserver saving hook keeps completed_at consistent with status, setting it when a task is done and clearing it when reopened",
+    "Cache::flexible([60,300]) with a version key, and after-commit observers that clear both the old and new team when a project or task moves",
+    "A single, readable FetchExchangeRates class: re-checks the cache after taking the lock, adds a 10s cooldown after failures, logs warnings, treats malformed bodies as failures, and renders its own 503 exception",
+    "The FormRequest normalises the currency to upper case and exposes a typed currency() accessor",
+    "Good Pest coverage of the caching TTL, the cooldown, separate caches per currency, team isolation, moving a project between teams, and the 7-day window rolling over via travel()"
+   ]
+  },
+  "rationale": "I ran `php artisan test` on both: impl-2 passed 31 tests and impl-1 passed 30. I probed each with throwaway tests and deleted them afterwards.\n\nThe caching designs are nearly the same. Both use Cache::flexible with 60s fresh and 300s stale, a version key per team, after-commit observers, a lock with a re-check after acquiring it, a failure back-off, and a 30-day last-known fallback.\n\nThe ranking comes down to two real bugs. impl-2 protects /api/dashboard with the session-based 'auth' guard on an api route group that has no session middleware, so real clients always get 401 even though tests pass via actingAs(). impl-1 installs Sanctum and works for real clients.\n\nimpl-1's main gap is data consistency: it never ties completed_at to status. A task marked done without completed_at isn't counted in the 7-day total, and reopening a task keeps the old completed_at. impl-2 handles both correctly. That is a domain-integrity issue, not a broken endpoint.\n\nimpl-1 also clears the cache when team membership changes and has stronger tests: query-count checks for cache hits, failure-mode datasets, and a configurable lock wait so the suite stays fast. impl-2's lock test really sleeps for 4 seconds.\n\nOn balance, impl-1 ranks first."
+ },
+ "cost_usd": 0.6206467999999999
+}

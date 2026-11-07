@@ -1,0 +1,71 @@
+{
+ "key": "queue-bugfix",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 7.8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "If a subscriber is deleted while its job is queued, the job lands in failed_jobs with ModelNotFoundException because there is no DeleteWhenMissingModels (my probe confirmed this). It is noise in exactly the table ops now watch.",
+    "The claim UPDATE in app/Console/Commands/DispatchCrmSync.php:27-30 has no whereNull('crm_synced_at') check. A subscriber synced between the outer read and the claim can still be claimed and dispatched. The job's fresh() guard stops the duplicate CRM POST, so the impact is small."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/DispatchCrmSync.php:22 and :29: the stale-claim where closure is copied verbatim in both places instead of being extracted to a local scope or closure.",
+    "app/Jobs/SyncSubscriberToCrm.php:36-49: it keeps a try/catch that logs, updates and rethrows. A failed() hook, or letting the exception propagate, is the idiomatic way to record the error. Here the error is written on every attempt.",
+    "The WithoutOverlapping job middleware was removed outright. ShouldBeUnique covers dispatch-time duplicates, but nothing stops two copies running at the same time once the unique lock expires after 30 minutes.",
+    "tests/Feature/CrmSyncTest.php: the test 'syncs a subscriber again on a later run after an outage' calls travel(), which does nothing here, and only calls handle() twice. It does not prove the subscriber is re-dispatched."
+   ],
+   "strengths": [
+    "Uses modern Laravel 13 queue attributes (#[Tries], #[Backoff], #[UniqueFor]). I checked that they exist in the installed framework (13.40).",
+    "ShouldBeUnique with uniqueId() is the framework-native fix for duplicate jobs while the queue is backed up, and it is paired with an atomic DB claim on crm_sync_queued_at.",
+    "The outer query already filters out claimed rows, so it does not run an UPDATE for every in-flight subscriber every minute.",
+    "All four root causes are fixed: the swallowed exception, the duplicate dispatch, the 24h withoutOverlapping lock (now withoutOverlapping(10)), and chunk-while-mutating (now chunkById).",
+    "Broad tests: a real database-queue failed_jobs test, stale-claim re-queue with travel, a uniqueness check, the schedule lock expiry, and a 250-row normalisation test. In my probes, recovery after an outage, retry-then-success and the backed-up queue all behaved correctly."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 7,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.4,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "The 15-minute claim TTL (DispatchCrmSync::CLAIM_TTL_MINUTES) is short for a 'backed up queue'. If the backlog lasts more than 15 minutes, a second job is queued. The fresh() guard plus WithoutOverlapping->dontRelease() stops a duplicate POST, so this is minor."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/DispatchCrmSync.php:22-28: the outer lazyById() reads every unsynced subscriber and runs one claim UPDATE per row every minute, including in-flight rows. Moving the stale-claim filter into the outer query would avoid N wasted updates.",
+    "app/Jobs/SyncSubscriberToCrm.php:16-22: uses $tries/$backoff/$timeout/$deleteWhenMissingModels properties rather than the Laravel 13 attributes (#[Tries], #[Backoff], #[DeleteWhenMissingModels]) that are available in the installed version.",
+    "tests/Feature/CrmSyncTest.php: the failure test calls $job->failed() by hand with a made-up exception, so it does not show that the framework calls failed(). The database-queue test covers this indirectly."
+   ],
+   "strengths": [
+    "The cleanest fix for symptom 1: the try/catch that swallowed the exception is removed, so the exception propagates, with $backoff for retries and a failed() hook that records crm_last_error only once retries are exhausted.",
+    "Fixes the job-level lock too: WithoutOverlapping now has expireAfter(60) and dontRelease(), so a killed worker cannot hold the per-subscriber lock forever. This mirrors the scheduler fix.",
+    "$deleteWhenMissingModels avoids failed_jobs noise for deleted subscribers; my probe confirmed this, while impl-1 fails that case.",
+    "The atomic claim UPDATE includes whereNull('crm_synced_at') as well as the stale check, so the race is fully closed.",
+    "Small, targeted changes; chunkById and withoutOverlapping(5) are the right minimal fixes.",
+    "Tests include a real database queue run that ends in failed_jobs, the stale-claim re-queue, a schedule expiry check, and a 250-row normalisation test. All my probes passed: backed-up queue, recovery after an outage, retry-then-success and a deleted model."
+   ]
+  },
+  "rationale": "I rank impl-2 first and impl-1 second; it's close.\n\nBoth fixed the same four root causes:\n1. The job's try/catch swallowed the exception, so failed syncs never retried and never reached failed_jobs.\n2. Every scheduler run re-dispatched every unsynced subscriber without checking whether one was already queued, so the CRM got the same subscriber many times.\n3. The scheduled task's withoutOverlapping() lock lasts 24 hours by default, which is why `crm:dispatch-sync` stopped for about a day after the container was killed.\n4. The normalise command used chunk() while updating the column it filters on, which skips about half the rows; both switched to chunkById().\n\nBoth add backoff, an atomic claim on crm_sync_queued_at with a stale timeout, and a fresh() check in the job so a subscriber that is already synced isn't posted again. Both suites pass (impl-2: 12 tests; impl-1: 14 tests).\n\nI probed each with a real database queue:\n- 5 scheduler runs while the queue is backed up: both left one job per subscriber.\n- An outage that used up all retries, then a later run: both re-dispatched and synced the subscriber.\n- One failure, then success on retry: both synced it with nothing in failed_jobs.\n- A subscriber deleted while its job is queued: impl-1 put the job in failed_jobs; impl-2 discarded it cleanly.\n\nWhy impl-2 wins:\n- **Simpler error handling.** It removes the try/catch and uses a failed() hook. impl-1 keeps a log-update-rethrow block that writes the error on every attempt.\n- **Covers a second stuck-lock case.** It gives the per-subscriber job lock an expiry, so a killed worker can't hold it forever. impl-1 removed that lock entirely.\n- **Handles deleted subscribers.**\n- **Tighter claim.** Its claim also checks crm_synced_at; impl-1's doesn't.\n\nWhere impl-1 is stronger:\n- It uses the newer Laravel 13 queue attributes and the framework's built-in unique-job support (ShouldBeUnique).\n- Its main query skips rows that are already claimed, while impl-2 runs one wasted update per in-flight row every minute.\n- It has slightly broader tests, though one of them proves less than its name says.\n\nThose idiom wins don't outweigh impl-1's deleted-subscriber bug, its repeated rethrow block and its duplicated query condition."
+ },
+ "cost_usd": 0.367745
+}

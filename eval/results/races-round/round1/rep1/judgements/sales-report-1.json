@@ -1,0 +1,78 @@
+{
+ "key": "sales-report",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.4,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Empty query params (e.g. ?country= or ?from=) return 422 instead of being treated as absent, because ConvertEmptyStringsToNull plus 'sometimes' without 'nullable' rejects them (impl-2 does the same)"
+   ],
+   "antipatterns": [
+    "tests/Feature/SalesReportTest.php:21 Http::preventStrayRequests() in setUp is unrelated ceremony; the endpoint makes no HTTP calls",
+    "app/Reports/BuildSalesReport.php:40,49,64 orderByRaw('revenue desc') where orderByDesc('revenue') is the idiomatic call",
+    "app/Reports/BuildSalesReport.php:15-75 the whole report is one long __invoke with inline closures; private methods per section would read better",
+    "database/migrations/2026_01_01_000003_create_order_items_table.php:19 redundant index('product_id') next to foreignId()->constrained()",
+    "app/Http/Controllers/SalesReportController.php:9 does not extend the base Controller, unlike the rest of the app"
+   ],
+   "strengths": [
+    "The FormRequest exposes typed accessors (from()/to() as CarbonImmutable start/end of day, status() as the enum, defaulting to Paid), so the controller is a one-liner",
+    "Uses modern features: #[Scope] attribute scopes, #[Fillable], the casts() method, an enum cast, Rule::enum, and Number::currency",
+    "Revenue is aggregated in SQL from order_items.unit_price, not the product price, with deterministic tie-break ordering",
+    "Fillable includes the foreign keys, and casts are declared on Product and OrderItem integer columns",
+    "Factories have expressive states (paid/pending/refunded, fromCountry, placedAt)",
+    "Tests cover inclusive date boundaries, orders without items, case-insensitive country, caps for top 5 and top 3, unit_price versus price, 422s including array input, and a non-JSON Accept header"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Order #[Fillable] omits customer_id and OrderItem omits order_id/product_id, so Order::create(['customer_id' => ...]) silently drops the FK and fails with a NOT NULL integrity error (confirmed by probe); only factories and relation-based creation work",
+    "Empty query params (?country=, ?from=) return 422 instead of being ignored (same as impl-1)"
+   ],
+   "antipatterns": [
+    "app/Models/Order.php:43-44 the scope mutates its Carbon arguments in place ($from->startOfDay(), $to->endOfDay() on mutable Illuminate\\Support\\Carbon), a hidden side effect",
+    "app/Reports/BuildSalesReport.php:21,46-47 filters are passed as an untyped array of raw strings, and the Carbon parsing happens in the report rather than at the request boundary",
+    "app/Models/OrderItem.php / Product.php no integer casts on the money and quantity columns",
+    "tests/Feature/SalesReportTest.php:250-258 test_the_endpoint_makes_no_network_calls is a meaningless test",
+    "database/factories/OrderFactory.php:19 factory defaults to Paid while the migration defaults to Pending, which is inconsistent"
+   ],
+   "strengths": [
+    "The report is split into readable private methods (revenuePerCountry/topProducts/topCustomers) and uses tap($matching) to reuse one filter closure",
+    "Uses orderByDesc, whereHas with a shared closure, #[Scope] attributes, Rule::enum, and Number::currency",
+    "Tests use a DataProvider for invalid queries, sequence() for factories, and include a thousand-separator formatting test",
+    "top_customers also includes country",
+    "The controller extends the base Controller and stays a one-liner"
+   ]
+  },
+  "rationale": "I rank impl-1 first, narrowly.\n\nBoth implementations have nearly the same architecture: a FormRequest, a single-action controller, a BuildSalesReport class, #[Scope] attribute scopes, an enum cast, Number::currency, and SQL aggregation over unit_price. Both test suites pass (17 tests in impl-1, 24 in impl-2). My probes gave identical results on validation edge cases, inclusive day boundaries and the country filter. Both return 422 for empty-string params.\n\nWhat decides it:\n- impl-1's FormRequest returns typed values: CarbonImmutable start and end of day, and the status enum. Its fillable lists include the foreign keys, and it casts the integer columns.\n- impl-2 leaves the FKs out of #[Fillable], so Order::create with customer_id fails with an integrity error (confirmed by probe). Its scope also mutates its Carbon arguments, and it passes an untyped filters array of raw strings into the report.\n\nimpl-2 has some advantages: the report is split into private methods, it uses orderByDesc instead of orderByRaw, and its tests use a DataProvider. They don't outweigh the model-level gotcha. Both include pointless Http stray-request ceremony in their tests."
+ },
+ "cost_usd": 0.49875200000000003
+}

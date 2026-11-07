@@ -1,0 +1,76 @@
+{
+ "key": "orders-api",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 8.7,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "No max on total_cents. The column is unsignedBigInteger, so this only fails at extreme values (minor). Like impl-2, it accepts JSON `true` as total_cents = 1 because the shared `integer` rule allows it"
+   ],
+   "antipatterns": [
+    "bootstrap/app.php:23 registers an unused 'ability' (CheckForAnyAbility) alias",
+    "app/Http/Controllers/OrderController.php:19 takes the route parameter as a raw `string $order` instead of using route model binding (scopeBindings or a policy), which is a valid choice but loses the typed model",
+    "tests/Feature/OrdersApiTest.php:36 builds the bearer token by hand with call(server: ['HTTP_AUTHORIZATION' => ...]) instead of withToken()",
+    "tests/Feature/OrdersApiTest.php:10 declares a global helper function inside the test file, which can collide with other files"
+   ],
+   "strengths": [
+    "The show route scopes the lookup to the token owner with $request->user()->orders()->findOrFail(), so another user's order and a missing order both give the same 404 by construction",
+    "The ability check naturally runs before any database lookup because there is no implicit binding",
+    "store returns the resource and relies on wasRecentlyCreated to send 201, which keeps the controller to one line per action",
+    "Uses modern model conventions: #[Fillable] attribute, a casts() method, a typed HasMany relation, and an OrderResource",
+    "A NotFoundHttpException renderer for api/* hides the 'No query results for model [App\\Models\\Order]' message",
+    "Thorough Pest tests: 401, 403 and 422 without an Accept header, a generic 500 with debug off, an exact 404 body for unknown routes, the 1-cent boundary, mass-assignment of owner, datasets for validation and abilities, and a real bearer token"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 8.4,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "total_cents uses unsignedInteger (max about 4.29 billion) with no max validation rule, so very large totals pass validation and then fail at the database (a 500 on strict MySQL or Postgres). Minor",
+    "Like impl-1, it accepts JSON `true` as total_cents = 1 because the shared `integer` rule allows it"
+   ],
+   "antipatterns": [
+    "bootstrap/app.php:21 changes the middleware priority list to run CheckAbilities before SubstituteBindings. This works, but it is global ceremony that is only needed because of the binding plus policy design; a scoped query avoids it",
+    "app/Policies/OrderPolicy.php plus ->can('view','order') in routes/api.php:13 adds two moving parts (policy and priority tweak) where a relation-scoped findOrFail would do",
+    "app/Http/Controllers/OrderController.php:30 sets 201 explicitly with ->response()->setStatusCode(201), which is redundant because JsonResource already returns 201 for a freshly created model",
+    "tests/Feature/OrdersApiTest.php:13 calls Http::preventStrayRequests(), which is irrelevant noise for this feature",
+    "tests/Feature/OrdersApiTest.php:142 needs app('auth')->forgetGuards() inside a mixed test; that is a sign the test should be split"
+   ],
+   "strengths": [
+    "Uses the canonical policy idiom: Response::denyAsNotFound() turns another user's order into a 404 the same as a missing one",
+    "Its 404 renderer matches any HttpExceptionInterface with status 404, which covers both ModelNotFound and denyAsNotFound without leaking class names",
+    "Explicitly ensures the ability check runs before binding and tests it ('checks the ability before looking up the order')",
+    "Tidy route group with ->controller(); composite (user_id, created_at) index for the newest-first listing",
+    "Uses modern model conventions: #[Fillable], casts(), HasMany, and an API resource",
+    "Good tests: shows the 404 bodies for foreign and missing orders are identical, real bearer token via withToken, a validation dataset, and owner mass-assignment protection"
+   ]
+  },
+  "rationale": "Both test suites pass (impl-2: 20 tests; impl-1: 29). I probed both with throwaway tests that I deleted afterwards: 405 and 422 without an Accept header, a non-numeric id, a foreign order with a real orders:read token, a token with no abilities, a '*' token on a missing order, a generic 500, and boolean total_cents. Both behaved the same on every probe: JSON bodies, correct statuses, identical 404s with no class names, and 'Server Error' for a 500. Neither has a real bug that affects the requirements. The only flaws are minor: neither caps total_cents, and impl-2's unsignedInteger column makes that edge easier to hit. So the ranking comes down to design and tests. impl-1 is simpler: it scopes the lookup through the user's orders() relation, so the 404 for other users' orders happens by construction and the ability check runs first without extra setup. Its tests also cover more of the integration-specific failure paths (403, 422 and 500 without an Accept header, the 1-cent boundary). Its weak points are an unused 'ability' alias and hand-built bearer headers in one test. impl-2 uses the textbook policy plus denyAsNotFound approach and is also correct. But it needs a global middleware-priority change to keep 403 ahead of 404, sets 201 even though the framework already does, and has a little noise in its tests. These are close; impl-1 edges ahead on simplicity and test coverage."
+ },
+ "cost_usd": 0.4167312000000001
+}

@@ -1,0 +1,75 @@
+{
+ "key": "ship-order",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 9
+   },
+   "overall": 8.2,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "The mail is sent synchronously inside a DB::afterCommit callback (app/Models/Order.php:58). If SMTP fails, the commit has already happened, so the order is shipped and points are added, but the API returns 500 and the email is lost with no retry. I confirmed this with a probe: the response was 500 and the order status was shipped."
+   ],
+   "antipatterns": [
+    "app/Models/Order.php:58: sends a non-queued mailable from DB::afterCommit. A ShouldQueue mailable with afterCommit would make the side effect retriable and wouldn't hold up the request.",
+    "app/Policies/OrderPolicy.php:10: the unused `Order $order` parameter is harmless but is noise.",
+    "database/migrations/2026_11_07_194349_create_orders_table.php:14: user_id is constrained but has no delete behaviour. This is a minor inconsistency, since shipments use cascadeOnDelete.",
+    "app/Models/Order.php:17: `user_id` is in Fillable, which allows mass assignment of the order's owner."
+   ],
+   "strengths": [
+    "The atomic conditional UPDATE (`where status != shipped`) claims the order, so stale models and concurrent requests both get a 409 and nothing happens twice. This is backed by a 'shipped by another process after it was loaded' test.",
+    "DB::afterCommit for the mail means Mail::fake() correctly records nothing on rollback, so the mail stays testable with standard fakes.",
+    "Points are incremented inside the transaction, so a rollback discards them.",
+    "It fixes the base app's guest handling (bootstrap/app.php redirectGuestsTo returns null for api/*), so a guest POST without an Accept header gets 401 instead of a 500 from the missing `login` route. A test covers this.",
+    "The `customer()` relation name matches the domain language. It uses a markdown mailable, with an assertSeeInHtml test for the tracking number.",
+    "The tests are thorough and idiomatic: Mail::fake with assertSent/assertNothingSent, a datasets-driven test for rounding, the policy checked before validation (customer with an empty body gets 403), a stale-load conflict, and rollback plus commit inside an outer transaction with Mail::assertNothingSent asserted mid-transaction."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.4,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "A guest POST to /api/orders/{order}/ship without `Accept: application/json` returns 500 (RouteNotFoundException: Route [login] not defined) instead of 401, because guest redirection was never configured for the API. I confirmed this with a probe. The defect is inherited from the base app, but impl-1 fixed it.",
+    "Mail testability: because it uses `Mail::to()->queue($mailable->afterCommit())` (app/Models/Order.php:58), MailFake ignores afterCommit. Under Mail::fake(), an outer-transaction rollback still records OrderShipped as queued, so the standard fake gives a false positive (I confirmed this with a probe). The production behaviour is correct, but the side effect can't be tested with the idiomatic fake."
+   ],
+   "antipatterns": [
+    "tests/Feature/ShipOrderTest.php:12-15,42: works around the fake by reading `Mail::mailer('array')->getSymfonyTransport()->messages()`. This couples the tests to the sync queue and array transport and skips Laravel's Mail::assertSent/assertQueued APIs.",
+    "app/Http/Controllers/ShipOrderController.php:13: double-quoted strings in `validated(\"carrier\")` are inconsistent with the rest of the codebase. This is minor style.",
+    "app/Models/Order.php:57: the comment restates the documented afterCommit behaviour.",
+    "There is no test where the order is shipped after the model was loaded (the stale-model or concurrent path), even though the code handles it."
+   ],
+   "strengths": [
+    "The atomic conditional UPDATE claims the order, which prevents double shipping under concurrency. A stale model gets OrderAlreadyShipped (409). Confirmed with a probe.",
+    "The mailable is a ShouldQueue mailable with afterCommit. With the database queue driver, a rollback leaves zero jobs and a commit leaves one (confirmed with a probe). Delivery is retriable and doesn't block the request.",
+    "The route uses `->can('ship', 'order')` with a policy, and the guard runs before validation.",
+    "Points are incremented within the transaction, so a rollback discards them. A dataset test covers rounding at the edges.",
+    "The migrations are tidy, with cascadeOnDelete on user_id and Fillable kept minimal (no user_id or order_id).",
+    "It tests both rollback and commit inside an outer transaction."
+   ]
+  },
+  "rationale": "The two implementations share the same core: an atomic conditional UPDATE to claim the order, points incremented inside the transaction, and mail deferred until commit. Both pass their suites (impl-1: 20 tests, impl-2: 19), and both handle stale-model double shipping correctly. The differences are at the edges. impl-1 uses DB::afterCommit with a synchronous send, so standard Mail::fake assertions behave correctly on rollback. Its tests are more idiomatic and cover more: the stale-load conflict, a mid-transaction assertNothingSent, and the policy running before validation. It also fixes the guest 401 path, which in impl-2 returns 500 when the request has no Accept header. impl-2's queued mailable with afterCommit is the better production design: delivery is retriable, while impl-1 returns 500 after commit if SMTP fails. But under Mail::fake a rollback still shows the mail as queued, so impl-2's tests drop down to array-transport internals. Overall, impl-1's better tests, its 401 fix, and its testable mail outweigh impl-2's better delivery design."
+ },
+ "cost_usd": 0.4729154
+}

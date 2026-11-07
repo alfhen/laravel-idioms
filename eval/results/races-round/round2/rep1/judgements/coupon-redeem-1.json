@@ -1,0 +1,101 @@
+{
+ "key": "coupon-redeem",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.7,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Models/Coupon.php:35,41,48 - copies redeemed_count back onto the route-bound $this as a side channel. This leaves the model dirty, and a later save() would write a stale value",
+    "app/Models/Coupon.php:28 - returns a nullable value to mean 'exhausted' instead of throwing a renderable domain exception, so the controller has to branch on null (RedeemCouponController.php:15)"
+   ],
+   "strengths": [
+    "Locks the coupon row with lockForUpdate inside DB::transaction, then checks for an existing redemption, checks the cap, creates the redemption and increments the count. This serialises concurrent requests across servers, and a unique(coupon_id,user_id) index backs it up",
+    "CouponRedeemed is dispatched inside the domain method after the commit and only when wasRecentlyCreated is true, so the side effect can't be separated from the creation",
+    "Uses route model binding {coupon:code} for the 404, the #[Fillable] attribute and whereBelongsTo",
+    "Invokable controller is very thin and uses wasRecentlyCreated to choose 201 or 200",
+    "Good tests: an exhausted() factory state, an existing redeemer getting 200 on an exhausted coupon, a status sequence over many users, an assertion that the event fires exactly once with the right payload, and a check on the unique index",
+    "Probes passed: a repeat request reports the current count after other users redeem; max_redemptions=0 returns a 409 JSON message; the listener runs after commit"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Controllers/RedeemCouponController.php:16-18 - the CouponRedeemed side effect is dispatched in the controller instead of next to the creation, so any other caller of Coupon::redeemFor would silently skip the event",
+    "tests/Feature/CouponRedemptionTest.php:24 - Http::preventStrayRequests() in setUp is unrelated ceremony",
+    "tests/Feature/CouponRedemptionTest.php:128 - expects a broad QueryException instead of UniqueConstraintViolationException"
+   ],
+   "strengths": [
+    "The renderable CouponExhausted exception (render() returns a 409 JSON response) together with throw_if is an idiomatic way to signal exhaustion",
+    "Locks the row first, then uses firstOrNew, save and increment inside DB::transaction with 3 attempts, which gives deadlock retries on MySQL",
+    "setRelation('coupon', $lockedCoupon) returns the counts from the locked row without another query",
+    "Uses route model binding {coupon:code}, #[Fillable] and a unique index",
+    "Tests cover a repeat on a used-up coupon, a pre-exhausted coupon built with has() factory relationships, the status sequence and the event payload",
+    "Probes passed: the current count is reported on repeat, max=0 returns 409, and the event fires after commit"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 6,
+    "thin_controllers": 4,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 6,
+    "architecture_fit": 6,
+    "modern_laravel": 6,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 7,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Controllers/Api/CouponRedemptionController.php:21-53 - all the transaction, locking and business logic lives in the controller, so nothing is reusable on the model or in an action",
+    "app/Http/Controllers/Api/CouponRedemptionController.php:22-26 - looks up the coupon by hand and calls abort(404) instead of using route model binding {coupon:code}",
+    "app/Http/Controllers/Api/CouponRedemptionController.php:31,41,44 - returns a positional tuple [redemption, coupon, created] from the transaction instead of relying on wasRecentlyCreated",
+    "app/Http/Controllers/Api/CouponRedemptionController.php:35 - uses abort(409) as control flow inside the transaction instead of a domain exception",
+    "app/Models/Coupon.php:15 - redeemed_count is mass-assignable, so the counter can be overwritten by mass assignment; it uses the $fillable property instead of the #[Fillable] attribute that the other implementations use",
+    "tests/Feature/CouponRedemptionTest.php:113 - fully qualified class name written inline instead of a use import; assertStatus(409) instead of assertConflict()"
+   ],
+   "strengths": [
+    "The concurrency logic is correct: it takes a lockForUpdate on the coupon inside a transaction, then checks for an existing redemption, checks the cap, creates the redemption and increments, with a unique index backing it up",
+    "The event is dispatched after commit, and only for a newly created redemption",
+    "Tests cover the main paths: 404, 401, 201 with the event, a repeat returning 200, 409, an existing redeemer on an exhausted coupon, and the unique index",
+    "Probes passed: the current count is reported on repeat, and max=0 returns 409"
+   ]
+  },
+  "rationale": "All three suites pass, and I found no real bugs. Each implementation locks the coupon row with lockForUpdate inside a transaction before it checks for an existing redemption or the cap. This serialises requests across MySQL servers, and a unique(coupon_id,user_id) index backs it up. Each one dispatches the event only after commit and only for the request that created the redemption. My probes passed on all three: a repeat request shows the current count after other users redeem, max_redemptions=0 gives a 409 with a message, an existing redeemer on an exhausted coupon gets 200, and the listener runs after commit. The ranking therefore comes down to idioms. impl-1 keeps the side effect inside the domain method, so creation and event can't be separated, and it has the thinnest controller. It loses a little for copying redeemed_count back onto the bound model and for using null to mean 'exhausted'. impl-2 is about equally clean: a renderable domain exception, firstOrNew/setRelation and transaction retries. But it moves the event dispatch into the controller, so other callers of redeemFor could skip it, and its tests carry some unneeded setup. impl-3 is correct but puts all the logic in a fat controller. It also skips route model binding, returns a tuple, uses abort() as control flow and makes the counter mass-assignable."
+ },
+ "cost_usd": 0.43226719999999996
+}

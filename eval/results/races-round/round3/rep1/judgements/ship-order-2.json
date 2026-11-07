@@ -1,0 +1,110 @@
+{
+ "key": "ship-order",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Models/Order.php:51 `forceFill([...])->syncOriginal()` syncs every attribute, so changes the caller hasn't saved yet are silently marked clean and lost. Probe: set total_cents=5000 on an order stored as 1000, then call ship(). Afterwards isDirty('total_cents') is false and the DB still holds 1000, yet points were awarded from the in-memory 5000.",
+    "Points are calculated from the in-memory `$this->total_cents` rather than the row that was claimed (Order.php:58).",
+    "A non-JSON guest POST to the API returns 500 (Route [login] not defined). This comes from the base app, but this implementation did not handle it."
+   ],
+   "antipatterns": [
+    "database/migrations/2026_11_07_190100_create_orders_table.php:20 creates the order_shipments table in the orders migration (two tables in one file)",
+    "tests/Feature/ShipOrderTest.php:17 declares a global `payload()` function in a Pest file, which can clash with other test files",
+    "bootstrap/app.php: the 409 is mapped by a global render closure, where a render() method on the exception would keep it next to the domain code",
+    "app/Models/User.php: casts `is_staff` but adds no integer cast for `points`"
+   ],
+   "strengths": [
+    "Uses an atomic conditional UPDATE to claim the order, which works the same on every DB driver and prevents double shipping under concurrent requests",
+    "Sends the email in DB::afterCommit, and the points increment sits inside the transaction, so a rollback undoes both",
+    "Route uses `->can('ship', 'order')` with an OrderPolicy, so staff access is checked by middleware and returns 403 before validation runs",
+    "Thin invokable controller and a FormRequest that uses validated()",
+    "Good tests: a dataset for rounding, rollback and commit-ordering tests, a test that a failed shipment insert rolls everything back, and a check that the tracking number appears in the rendered mail"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Points are calculated from the in-memory `$this->total_cents` rather than the claimed row (Order.php:60). This only matters if the instance is stale."
+   ],
+   "antipatterns": [
+    "app/OrderStatus.php: a stray, empty `App\\OrderStatus` enum left over from scaffolding, next to the real App\\Enums\\OrderStatus",
+    "app/Exceptions/OrderAlreadyShipped.php:7 extends Symfony's ConflictHttpException, so a domain exception thrown from the model is tied to HTTP",
+    "app/Models/Order.php:62 has a comment restating standard afterCommit behaviour",
+    "tests/Feature/ShipOrderTest.php:95 asserts a magic number (134) instead of 5 + 129"
+   ],
+   "strengths": [
+    "Uses an atomic conditional UPDATE to claim the order, then `syncOriginalAttribute('status')`, which updates only the status in memory and leaves the caller's other unsaved changes alone",
+    "DB::afterCommit for the email and points inside the transaction. Probes confirmed with the real array mailer that a rollback sends nothing and a commit sends exactly one email",
+    "`can:ship,order` middleware with a policy returns 403 before validation runs, and a test checks that order",
+    "Fixes redirectGuestsTo so non-JSON guest API calls get 401 instead of 500, with a test for it",
+    "Most thorough tests: a validation dataset, a nested savepoint rollback inside a committed outer transaction, 403 before 422, a check that the unique constraint is enforced, mail rendering, and user defaults",
+    "The 409 renders itself because the exception extends ConflictHttpException, so the controller stays a one-liner"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 6,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 7,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "app/Models/Order.php:56 sets `$this->status = Shipped` without syncing the original, so the caller's instance is left dirty after a successful ship (probe: getDirty() == ['status' => 'shipped'])",
+    "Concurrency safety depends on `lockForUpdate`, which SQLite ignores. On SQLite, concurrent requests fail with busy errors instead of a clean 409. MySQL and Postgres are fine.",
+    "A non-JSON guest POST to the API returns 500 (Route [login] not defined) and isn't handled"
+   ],
+   "antipatterns": [
+    "app/Http/Controllers/OrderShipmentController.php:14-18 uses try/catch in the controller to build the 409, where a renderable exception or an exception handler would do",
+    "app/Http/Requests/ShipOrderRequest.php:11 puts the staff check in FormRequest::authorize instead of a policy or the `can` middleware",
+    "app/Models/Order.php:17 / OrderShipment.php:11 make user_id and order_id mass-assignable",
+    "tests/Pest.php:18 has broken indentation",
+    "Deletes the base app's Example tests"
+   ],
+   "strengths": [
+    "Reads the row with a pessimistic lock and computes points from the locked, fresh row, so a stale instance can't award the wrong amount",
+    "DB::afterCommit for the email and points inside the transaction, so a rollback sends nothing and adds no points (confirmed by probe, including nested savepoints)",
+    "The `customer()` relationship name makes the domain clear",
+    "The mail test checks the tracking number with assertSeeInHtml inside assertSent",
+    "Sends a markdown mailable"
+   ]
+  },
+  "rationale": "All three use the same core pattern. Status, shipment and points change inside DB::transaction, the email goes out through DB::afterCommit, and an already-shipped order raises an exception that becomes a 409. All test suites pass. Probes confirmed a stale instance can't ship twice, an outer or nested rollback sends no email and adds no points, a commit sends exactly one email, and a shipped order returns 409.\n\nimpl-2 ranks first. It claims the order with an atomic conditional UPDATE and syncs only the status attribute. It authorises with a policy through the `can` middleware, and also fixes the 500 for non-JSON guests. Its tests are the most thorough: nested savepoint rollback, 403 before validation, and the unique constraint. Its flaws are small: a stray empty enum file and an exception that extends an HTTP class.\n\nimpl-1 is close behind with the same atomic claim, `->can()` and good tests. It loses points because `syncOriginal()` silently discards the caller's unsaved changes (shown by probe), two tables share one migration, and the test file declares a global helper function.\n\nimpl-3 ranks last. It catches the 409 with try/catch in the controller, checks staff access in FormRequest::authorize instead of a policy, and leaves the caller's model dirty. It also relies on lockForUpdate, which SQLite ignores, and its tests are thinner. Its strength is computing points from the locked, fresh row."
+ },
+ "cost_usd": 0.7388689999999999
+}

@@ -1,0 +1,98 @@
+{
+ "key": "document-vault",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 5,
+    "eloquent_idioms": 6,
+    "architecture_fit": 6,
+    "modern_laravel": 6,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 7,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Controllers/DocumentController.php:18 inline $request->validate() instead of a FormRequest",
+    "app/Http/Controllers/DocumentController.php:36 hand-rolled ownership check with strict === on user_id instead of a policy with denyAsNotFound / $document->user()->is(); the strict int comparison breaks if a driver returns the key as a string",
+    "app/Models/Document.php:10 user_id is in #[Fillable] even though creation goes through the relation, which leaves owner reassignment by mass assignment open",
+    "app/Models/Document.php:13 HasFactory has no @use generic docblock",
+    "app/Http/Controllers/DocumentController.php:14 private const DISK constant is ceremony for a single disk name",
+    "tests/Feature/DocumentTest.php:79 test_upload_validation packs seven scenarios into one test and only asserts the error key, not the message"
+   ],
+   "strengths": [
+    "Meets every requirement: private local disk, hashed stored filename, temporarySignedRoute with a 10-minute expiry, 404 for non-owners, 404 for a missing file at both link and download time",
+    "Download uses the original_name, with an RFC 5987 UTF-8 fallback (checked by probe)",
+    "Smallest diff: a single controller and a tight route file",
+    "Tests assert nothing was written to the public disk and cover a link being tampered to point at another document"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 8,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 10,
+    "simplicity": 9
+   },
+   "overall": 9,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Requests/StoreDocumentRequest.php:13 string 'mimes:...|max:5120' rules rather than the fluent File::types()->max() rule",
+    "app/Http/Controllers/DocumentLinkController.php:16 and DocumentDownloadController.php:13 repeat Storage::disk('local') (minor)"
+   ],
+   "strengths": [
+    "DocumentPolicy returns Response::denyAsNotFound() and the controller calls Gate::authorize, the idiomatic way to return 404 to non-owners",
+    "Explicit private 'local' disk, so confidentiality does not depend on FILESYSTEM_DISK",
+    "Creates the document through the relation ($request->user()->documents()->create) and leaves user_id out of fillable",
+    "Thin invokable controllers for link and download, plus a FormRequest using validated('title')",
+    "Download keeps original_name and sends it as an attachment with a UTF-8 filename*",
+    "Tests cover the 100/101 title and 5120/5121 KB boundaries, a PHP file being rejected with nothing left on disk, the 9 vs 11 minute expiry, tampered and unsigned URLs, and a file missing before and after the link was issued"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "DocumentDownloadController.php:16 names the download after Str::slug(title) plus the stored extension and never uses the original_name it stores, so the accountant gets 'aero-kvittering.pdf' instead of the uploaded filename (questionable rather than a hard bug)"
+   ],
+   "antipatterns": [
+    "app/Http/Controllers/DocumentController.php:13 and DocumentDownloadController.php:14 use the implicit default disk (Storage::exists / store without a disk), so privacy depends on FILESYSTEM_DISK staying private; the tests only fake 'local'",
+    "app/Http/Controllers/DocumentController.php:14 abort_if($path === false, 503) is extra ceremony",
+    "tests/Feature/DocumentTest.php:23,280 Http::preventStrayRequests and test_no_real_network_calls_are_made are noise for a feature with no HTTP client"
+   ],
+   "strengths": [
+    "Modern fluent rule File::types([...])->max(5 * 1024) in a FormRequest",
+    "Policy with denyAsNotFound and Gate::authorize, with documents created through the relation",
+    "Most thorough tests: a data provider for each allowed type, a script disguised as a PDF, a tampered signature, an emoji-only title, the expiry boundary, and the file going missing after the link was issued",
+    "Uses assertDownload() and Document::sole() in tests"
+   ]
+  },
+  "rationale": "All three suites pass. All three pass the probes: a PHP file disguised as PDF gets 422, SVG content uploaded as .png gets 422, wrongly typed fields get 422, a non-numeric id gets 404, and an end-to-end Unicode filename download works with nothing written to the public disk. None has a hard functional bug. They all use temporarySignedRoute with 10 minutes, a signed download route outside auth, hashed storage names on the private disk, and 404 for a missing file at both stages. impl-2 ranks first. It is the cleanest idiomatic solution: a policy with denyAsNotFound, an explicit private disk, creation through the relation, thin invokable controllers, original_name used for the attachment, and focused tests that cover the boundaries. impl-3 has the most modern validation (File::types()->max()) and the broadest tests. It drops to second because it relies on the default disk for confidential files, ignores the stored original_name when naming the download, and adds test noise (Http::preventStrayRequests). impl-1 is correct and compact but least idiomatic: inline validation, a hand-rolled strict === ownership check instead of a policy, user_id in fillable, and one test that bundles every validation scenario."
+ },
+ "cost_usd": 0.45909340000000004
+}

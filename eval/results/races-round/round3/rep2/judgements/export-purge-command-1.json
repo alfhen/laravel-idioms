@@ -1,0 +1,73 @@
+{
+ "key": "export-purge-command",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.7,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Lock TTL of 3600s (PurgeExports.php:42) can expire during a very long run over millions of rows, which would let a second run start. impl-2 has the same issue."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:78-79 throws an inline \\RuntimeException just to turn a false return from delete() into a failure, so an exception is doing control flow",
+    "app/Console/Commands/PurgeExports.php:70 the $expired parameter has no type (should be Builder)",
+    "tests/Feature/PurgeExportsTest.php:135-146 uses an anonymous FilesystemAdapter subclass with a fully qualified class name inline; a mock or a disk that has failed to delete would be lighter",
+    "tests/Feature/PurgeExportsTest.php:21 calls Prompt::fallbackWhen(true) globally in setUp"
+   ],
+   "strengths": [
+    "The try/catch covers both deleting the file and deleting the row, so an error on one row is reported and counted, and the run carries on. A probe confirmed this.",
+    "filter_var(FILTER_VALIDATE_INT) rejects input that would overflow, such as --days=99999999999999999999 (exit 2)",
+    "Builds the query once with a fixed cutoff, uses lazyById(500) so memory stays flat, and adds an index on created_at in the migration",
+    "ConfirmableTrait handles the production guard; the dry run runs before the guard and needs no confirmation; the lock is taken only for real runs and released in finally",
+    "Tests cover confirming with both yes and no in production, --force, the dry run, failure on a partial file deletion, a file that is already missing, the lock being held, more rows than one page, and the schedule",
+    "Modern #[Signature], #[Description], #[Scope] and #[Fillable] attributes; the schedule is in routes/console.php with onOneServer"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.2,
+   "rank": 2,
+   "bugs": [
+    "If the row delete ($export->delete(), PurgeExports.php:88) throws, the exception stops the whole run instead of carrying on with the remaining exports. A probe confirmed this: an exception thrown in a deleting hook prevented later rows from being removed.",
+    "--days=99999999999999999999 passes the ctype_digit check, (int) silently clamps it to PHP_INT_MAX, and the command exits 0 instead of rejecting the input (PurgeExports.php:24-30)",
+    "Lock TTL of 3600s (PurgeExports.php:43) can expire during a very long run"
+   ],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:30 wraps the query in a closure that rebuilds it and recomputes now(), which is unnecessary indirection",
+    "app/Console/Commands/PurgeExports.php:42 the comment mostly restates the requirement",
+    "app/Console/Commands/PurgeExports.php:69 the $query parameter has no type",
+    "tests/Feature/PurgeExportsTest.php:101-111 the refusal test never sets an answer to the confirmation, and no test covers an interactive 'yes' that goes on to delete"
+   ],
+   "strengths": [
+    "The file-deletion step handles both a false return and an exception without abusing exceptions for control flow",
+    "lazyById(), an index on created_at, the dry run before confirmation, and the lock acquired after confirmation and released in finally",
+    "Tests are broad: an exception while deleting a file, the lock being released after a run, the disk config, more rows than one chunk, the schedule expression and onOneServer",
+    "Mocks the Filesystem contract for failure tests, which is cleaner than subclassing the adapter",
+    "The createdDaysAgo factory state reads well"
+   ],
+   "tests_pass": true
+  },
+  "rationale": "The two implementations are nearly the same: the same ConfirmableTrait guard, a Cache::lock shared through Redis, lazyById, a #[Scope] model scope, attribute-based signatures, and an onOneServer schedule at 03:00. Each impl's own tests passed (15 for impl-1, 17 for impl-2), and I deleted the throwaway probe tests afterwards. I ranked impl-1 first because its probes passed: one export whose row delete throws does not stop the run, and a --days value too large for an integer is rejected. In impl-2 a row-delete exception aborts the remaining work, and the oversized --days is accepted and the command exits 0. impl-1's tests also cover an interactive 'yes' that goes on to delete. impl-2's tests cover more failure paths, such as an exception during file deletion and the lock being released, and its failure-handling code is cleaner. impl-1 throws an exception just for control flow and its test subclasses the filesystem adapter. Those are style costs; impl-2's are real gaps in robustness."
+ },
+ "cost_usd": 0.29124439999999996
+}

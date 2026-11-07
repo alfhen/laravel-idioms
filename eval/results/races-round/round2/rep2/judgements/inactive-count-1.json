@@ -1,0 +1,67 @@
+{
+ "key": "inactive-count",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.3,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "tests/Feature/CountInactiveUsersTest.php:15,23,38 asserts with substring ': 2' / ': 1' / ': 0'. These are loose checks: ': 2' would also match ': 20', and the full output line is never checked",
+    "tests/Feature/CountInactiveUsersTest.php:48-54 the schedule test does not check the appendOutputTo log target, and the task's 'shows up in our logs' requirement depends on it",
+    "database/factories/UserFactory.php:47 a lastLoginAt() factory state does no more than pass an attribute through, so it is small ceremony over create(['last_login_at' => ...])",
+    "app/Console/Commands/CountInactiveUsers.php:16 FILTER_VALIDATE_INT accepts ' 7' and '+7'. This is harmless leniency"
+   ],
+   "strengths": [
+    "Indexes last_login_at, which is sensible for a count query that runs every day on users",
+    "Uses the modern #[Signature]/#[Description] command attributes and the #[Scope] attribute scope with a Builder generic phpdoc",
+    "Validates with filter_var min_range and uses $this->fail(), which is concise and idiomatic for Laravel 11+",
+    "The boundary test covers both sides: exactly 90 days counts as active, and 90 days plus 1 second counts as inactive. freezeTime keeps it deterministic",
+    "The invalid-input dataset includes the empty string. Probe: --days=0 is accepted and counts every user who has not logged in at the exact current moment, which is a defensible reading",
+    "Schedule entry in routes/console.php uses dailyAt('06:00') with appendOutputTo. It correctly leaves out onOneServer because there is a single server"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "database/migrations/2026_11_07_190122_add_last_login_at_to_users_table.php:12 does not index a column that the daily count query filters on. ->after() only has an effect on MySQL",
+    "app/Models/User.php:37 the scope has no Builder<User> generic docblock, and the closure parameter shadows $query",
+    "app/Console/Commands/CountInactiveUsers.php:19-21 uses manual error() plus return FAILURE where $this->fail() would be more concise. Also accepts ' 7' and '+7' (harmless)",
+    "Rejects --days=0. This is a defensible choice, but it is stricter than the task requires"
+   ],
+   "strengths": [
+    "Tests assert the exact output line with expectsOutput, plus assertSuccessful/assertFailed. These are precise and read idiomatically",
+    "The schedule test also checks the appendOutputTo log path, which verifies the 'shows up in our logs' requirement",
+    "Named datasets for invalid input (zero, negative, text, decimal)",
+    "Covers never-logged-in, mixed ages, the exact boundary, a custom --days value, an empty table and the schedule, all with time frozen",
+    "The minimal diff adds no factory change. It uses modern command attributes and the #[Scope] attribute"
+   ]
+  },
+  "rationale": "The two implementations are nearly identical. Each adds the same #[Scope] inactiveFor (whereNull OR < now()->subDays), the same attribute-based command, the same schedule entry (dailyAt('06:00')->appendOutputTo) and the same style of frozen-time Pest tests. Both test suites pass: impl-1 has 11 tests and impl-2 has 12.\n\nI probed both with --days values of 0, ' 7', '+7', '007' and '1e2', a future login with a very large day count, and schedule:list. Both behaved sensibly, and I found no real bugs in either. The only behavioural difference is that impl-1 accepts --days=0 and impl-2 rejects it.\n\nimpl-1 has slightly better production code: it indexes the column and uses $this->fail(). impl-2 has clearly better tests: it asserts exact output, uses assertSuccessful/assertFailed and named datasets, and checks the log destination that the task's 'in our logs' requirement depends on. impl-1 relies on loose ': N' substring checks. The focus is a small command that is correct, tested and proportionate, so I weighted impl-2's more precise tests and smaller diff slightly above impl-1's index, and ranked impl-2 first by a narrow margin."
+ },
+ "cost_usd": 0.22652699999999998
+}

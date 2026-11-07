@@ -1,0 +1,67 @@
+{
+ "key": "export-purge-command",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 8.4,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "tests/Feature/PurgeExportsTest.php:168 mocks the concrete FilesystemAdapter and wraps the real disk in a closure, which is clumsier than mocking the Filesystem contract",
+    "tests/Feature/PurgeExportsTest.php:32-43 has to subclass the command and redeclare its #[Signature] to test the confirm prompt. The workaround is needed, but the duplicated signature can drift from the real one",
+    "app/Console/Commands/PurgeExports.php:22 uses a fixed 6h lock TTL with no refresh. It is safer than 1h, but a first run over millions of rows could still outlive the lock",
+    "tests/Feature/PurgeExportsTest.php: no test for a throwing disk, a missing file, a batch boundary or an empty run; the throwing-disk path was only checked by my probe"
+   ],
+   "strengths": [
+    "Uses ConfirmableTrait for the production guard, so --force works and a refusal exits with FAILURE",
+    "Uses Cache::lock inside the command, so manual and scheduled runs cannot overlap across servers; onOneServer keeps the nightly run on one host",
+    "Uses lazyById to keep memory flat, adds an index on created_at, and keeps the row when the file delete fails while carrying on with the rest",
+    "Uses Laravel 13 attributes (#[Signature], #[Description], #[Fillable], #[Scope]) and the routes/console.php Schedule facade",
+    "Dry run skips confirmation and the lock, and validates --days with filter_var",
+    "Adds the inverse User::exports relation"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 8.7,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:23 sets LOCK_SECONDS = 3600 with no refresh. A long first run over millions of rows can outlive the lock and let a manual run overlap",
+    "tests/Feature/PurgeExportsTest.php:225 rebuilds the disk by hard-coding Storage::fake's internal path (framework/testing/disks/exports), which is fragile",
+    "tests/Feature/PurgeExportsTest.php:38-46 has to subclass the command and redeclare its signature to test the confirm prompt; the duplicated signature can drift",
+    "tests/Feature/PurgeExportsTest.php:56-62 and 299-305 test config and factory values, which adds little"
+   ],
+   "strengths": [
+    "Has the same solid core design: ConfirmableTrait, Cache::lock around the purge, lazyById(500), the file deleted before the row, rows kept on failure, and a failure exit code",
+    "The scope takes a CarbonInterface cutoff, and one query builder serves both the dry-run count and the purge",
+    "Returns INVALID (2) for a bad --days and checks it strictly with ctype_digit",
+    "Has a broader, sharper test suite: a batch boundary at 501 rows, a missing file still removes its row, a throwing disk alongside a false return from the Filesystem contract mock, retry on the next run, a dry run ignoring the lock, an empty run, and a data provider for invalid days",
+    "Uses current Laravel 13 conventions throughout and the schedule in routes/console.php with onOneServer and --force"
+   ]
+  },
+  "rationale": "The two implementations are nearly identical in design. Both use ConfirmableTrait for the production guard, take a Cache::lock inside the command so manual and scheduled runs cannot overlap, use lazyById to stay memory-safe, delete the file before the row, keep rows whose file failed to delete, report exceptions, and schedule the command with dailyAt('03:00')->onOneServer() and --force. Both suites pass (impl-1: 16 tests, impl-2: 26). My probes passed on both: 1,203 rows across chunk boundaries, a throwing disk alongside a successful one, fractional and whitespace --days values, the exact 30-day boundary, and --dry-run with --force in production. I found no real bugs in either.\n\nThe tests decide the ranking. impl-2's suite covers more failure paths and edge cases: a throwing disk, a file that is already missing, the batch boundary, an empty run, a dry run while the lock is held, and invalid days through a data provider. It also mocks the Filesystem contract instead of the concrete adapter. impl-1 has the more conservative lock TTL (6h against 1h) and adds the User::exports relation, but its tests miss the throw, missing-file and batch paths. impl-2's 1h TTL is a real but small risk on a long first run, and its test that rebuilds the fake disk path is fragile. Neither outweighs its stronger test coverage, so impl-2 ranks first by a narrow margin."
+ },
+ "cost_usd": 0.32003519999999996
+}

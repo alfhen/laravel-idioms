@@ -1,0 +1,75 @@
+{
+ "key": "thread-mentions",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Mention regex `[A-Za-z0-9_]` (app/Actions/StoreReply.php:41) and `strtolower` setter (app/Models/User.php:37) are ASCII-only: a user with username 'j\u00f3zef' is never notified for '@J\u00d3ZEF' (confirmed by probe). Usernames have no defined format, so this is minor.",
+    "Thread has no `$attributes` default for reply_count, so `Thread::factory()->create()->reply_count` is null in memory until refresh (confirmed by probe). The DB default is correct."
+   ],
+   "antipatterns": [
+    "tests/Feature/ThreadReplyTest.php:27 Http::preventStrayRequests() is ceremony here because the feature makes no HTTP calls",
+    "app/Actions/StoreReply.php:28-31 sends mail synchronously inside the request with no queueing. If one send fails, the request returns 500 even though the reply is already stored (same in impl-2)",
+    "'@@bob' still counts as a mention of bob (lookbehind allows a preceding '@'). Debatable, and not covered by a test"
+   ],
+   "strengths": [
+    "A single invokable action wraps the reply insert and counter increment in DB::transaction, then notifies only after commit, so a failed write sends nothing",
+    "Distinct mentions found with `collect()->map(strtolower(...))->unique()`, then one query using whereIn plus whereKeyNot for the author",
+    "Proper markdown Mailable using Envelope/Content and a markdown component view, plus a database-only notification",
+    "The strongest tests: privacy checks (exactly one `to`, no cc/bcc), rollback when the reply insert fails, rollback when the counter increment fails (replies table left empty), and an exact validation message for each rule",
+    "Failure tests use assertServerError instead of try/catch, which is cleaner",
+    "The down migration drops the unique index before the column, so rollback works on SQLite"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 9
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "database/migrations/2026_11_07_190000_add_username_to_users_table.php:18-20: down() drops the column without dropping `users_username_unique` first, so `migrate:rollback` fails on SQLite with 'error in index users_username_unique after drop column' (confirmed by probe)"
+   ],
+   "antipatterns": [
+    "tests/Feature/ThreadReplyTest.php:167-173 uses withoutExceptionHandling plus try/fail/empty catch where assertServerError (or expectException) would be cleaner",
+    "No test covers a failed reply_count increment rolling back the reply, so only half of the transactional guarantee is tested",
+    "Mail privacy test (tests/Feature/ThreadReplyTest.php:108-109) checks count(to) but not cc/bcc",
+    "app/Mail/MentionedInReply.php:21 + resources/views/mail/mentioned-in-reply.blade.php uses a bare HTML view rather than a markdown mail component, which is less conventional",
+    "The test setup calls Mail::fake() globally in setUp, which hides which tests actually rely on it",
+    "Mail is sent synchronously without queueing (same as impl-1)"
+   ],
+   "strengths": [
+    "Clean split: `Thread::addReply()` owns the transactional write and counter, and the NotifyMentionedUsers action runs after it returns, so nothing is sent if the write fails",
+    "Fluent `str()->matchAll()->map()->unique()` pipeline with a Unicode-aware regex and mb_strtolower, so non-ASCII usernames work (confirmed by probe)",
+    "`$attributes = ['reply_count' => 0]` keeps the in-memory model consistent with the DB default",
+    "Regex lookbehind `[\\w@]` rejects email addresses and '@@' noise",
+    "Small, readable controller and form request; overall the least ceremony of the two"
+   ]
+  },
+  "rationale": "The two implementations are nearly identical in design. Both validate with a FormRequest, wrap the reply insert and reply_count increment in a DB transaction, notify only after commit, dedupe mentions case-insensitively, run a single whereIn query that excludes the author, and send one private mail plus one database notification per mentioned user. All tests pass in both (16 each).\n\nProbes found these differences:\n- **impl-2:** the username down migration fails on SQLite because the unique index isn't dropped first. This is a concrete defect.\n- **impl-1:** mention matching and the lowercase setter are ASCII-only, so unicode usernames are missed. The task doesn't define a username format, so this matters less.\n- **impl-1:** a new Thread has a null reply_count in memory until refresh. The DB default is correct, so this is cosmetic.\n\nOn the task's focus area (proving that nothing is sent on failure, counters stay correct, and emails stay private), impl-1's tests are clearly better. It also tests rollback when the counter increment fails, checks that there are no cc/bcc recipients, and uses assertServerError instead of a try/catch with fail(). impl-2 has some nicer touches: the model method, the $attributes default, and the Unicode-aware str()->matchAll pipeline. On balance, impl-1 ranks first for its stronger tests and the absence of a broken migration."
+ },
+ "cost_usd": 0.3962432
+}

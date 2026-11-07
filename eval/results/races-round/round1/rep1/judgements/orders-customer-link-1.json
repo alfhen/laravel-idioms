@@ -1,0 +1,99 @@
+{
+ "key": "orders-customer-link",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 7,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "database/migrations/2026_11_07_190000_add_customer_id_to_orders_table.php:12-34 \u2014 MySQL path is hand-written raw DDL with a separate Schema-builder branch for other drivers. Laravel 13.40 has ->instant(), ->inplace(), ->lock('none') and Schema::withoutForeignKeyConstraints, so the branch isn't needed, and the production MySQL path is never run by the tests",
+    "database/migrations/2026_11_07_190000_add_customer_id_to_orders_table.php:25-34 \u2014 column, two indexes and the FK all sit in one non-transactional migration. If a later ALTER fails, the column already exists and the migration can't simply be re-run",
+    "app/Console/Commands/LinkOrdersToCustomers.php:27-30 \u2014 the matching subquery is written twice: once as whereRaw and once as a DB::raw SQL string, instead of reusing one Builder"
+   ],
+   "strengths": [
+    "The only implementation that keeps the endpoint's existing `?status=` behaviour (an empty status means no filter)",
+    "Correct MySQL release plan: ALGORITHM=INSTANT column, INPLACE/LOCK=NONE indexes, and the FK added INPLACE with foreign_key_checks=0 inside try/finally, with comments explaining why",
+    "Two indexes that fit the queries: (customer_id, status, created_at) for the filtered case and (customer_id, created_at) for the unfiltered case and the FK. latest('id') gives a stable sort for pagination",
+    "The backfill walks primary-key ranges, only touches NULL customer_id with whereExists, and updates through the query builder so updated_at is untouched. Re-runs are safe, and id gaps and deleted customers are handled (both probed)",
+    "Tests check the index shape with Schema::getIndexes, nullOnDelete when a customer is deleted, updated_at preservation, re-runs, and that an order matching only by email is not listed"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 9,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Http/Requests/CustomerOrdersRequest.php:12 \u2014 'sometimes','string' without 'nullable'. ConvertEmptyStringsToNull turns `?status=` into null, so the endpoint now returns 422 'The status field must be a string.' where it used to return all orders. This breaks a heavily used API contract (confirmed with a probe)"
+   ],
+   "antipatterns": [
+    "app/Http/Requests/CustomerOrdersRequest.php \u2014 FormRequest with page/status validation is beyond the task's scope and introduced the regression above",
+    "tests/Feature/CustomerOrdersTest.php:19-24 \u2014 Http::preventStrayRequests() in setUp, although no code under test makes HTTP calls",
+    "tests/Feature/CustomerOrdersTest.php:111-167 \u2014 the backfill command's tests are in the endpoint test class instead of a separate command test",
+    "tests/Feature/CustomerOrdersTest.php:46,115,129 \u2014 passes 'customer_id' => null to factories when that is already the default"
+   ],
+   "strengths": [
+    "Best use of the framework for the schema change: ->instant(), ->inplace()->lock('none') on the indexes and the FK, and Schema::withoutForeignKeyConstraints. These compile to exactly the right MySQL DDL (checked in vendor and by compiling the migrations)",
+    "Column, indexes and FK are split into three migrations, so each step can be retried on its own",
+    "Same correct pair of indexes as impl-1, plus a latest('id') tiebreaker",
+    "Clean backfill with DB::affectingStatement over PK ranges. It only fills NULLs, leaves updated_at alone, and the command takes a --chunk option",
+    "PlaceOrder uses $customer->orders()->create(); the tests use ->for($customer) factories and cover ordering, auth, 404 and re-runs"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "app/Http/Requests/CustomerOrdersRequest.php:12 \u2014 same as impl-2: `?status=` now returns 422 instead of listing all orders, a regression on a heavily used endpoint (confirmed with a probe)",
+    "database/migrations/2026_11_08_000000_add_customer_id_to_orders_table.php:13 \u2014 the only index is (customer_id, status, created_at). The unfiltered `GET /orders` call (customer_id = ? ORDER BY created_at DESC) can't use it for ordering and has to filesort every order the customer has, so not every form of the frequent query is served efficiently"
+   ],
+   "antipatterns": [
+    "database/migrations/2026_11_08_000000_add_customer_id_to_orders_table.php:12-13 \u2014 no explicit algorithm or lock (instant/inplace/lock('none')) on a 20M-row table. ->after('customer_email') adds a positional column, which needs MySQL 8.0.29+ to stay INSTANT, and nothing makes MySQL fail fast if it would fall back to a blocking copy",
+    "database/migrations/2026_11_08_000001_add_customer_foreign_key_to_orders_table.php:15 \u2014 relies on MySQL picking INPLACE implicitly instead of asking for ->inplace()->lock('none')",
+    "database/migrations/2026_11_08_000000_add_customer_id_to_orders_table.php:11-14 \u2014 column and index in one non-transactional migration",
+    "app/Http/Controllers/CustomerOrderController.php:15 \u2014 no id tiebreaker, so pagination order is unstable when created_at values are equal",
+    "tests/Feature/*:15-20 \u2014 Http::preventStrayRequests() ceremony in setUp"
+   ],
+   "strengths": [
+    "Neatest backfill code: one matchingCustomer() Builder reused for both whereExists and the update subquery, walking PK ranges and only filling NULLs",
+    "Disables FK checks while adding the constraint (with a comment saying why) and uses nullOnDelete",
+    "Focused command test file: several batches, messy emails built with collect()->map, updated_at preservation, re-runs that keep existing links, and the empty-table case",
+    "Idiomatic relations: hasMany/belongsTo, and $customer->orders()->create() in PlaceOrder"
+   ]
+  },
+  "rationale": "All three pass their own test suites. All three walk primary-key ranges, fill only NULL customer_id rows, and update through the query builder so updated_at doesn't change. I probed id gaps, chunk size 1, re-running after a customer is deleted, and updated_at preservation, and those all work in every implementation. What separates them is the endpoint and the schema details. A probe of `?status=` (empty value) shows that impl-2 and impl-3 both added a FormRequest with 'sometimes','string' and no 'nullable'. Laravel's ConvertEmptyStringsToNull turns the empty value into null, so the endpoint now returns 422 where the base app returned all orders. That is a regression on the frequently called endpoint, and the task never asked for validation. impl-1 kept the original behaviour. On the schema side, impl-1 and impl-2 both add the column INSTANT, build the two indexes INPLACE/LOCK=NONE (one for the filtered query, one for the unfiltered query and the FK), and add the FK INPLACE with FK checks off. impl-2 does it with Laravel 13's first-class ->instant()/->inplace()/->lock() modifiers in three retryable migrations, which is more idiomatic than impl-1's raw SQL with a separate branch for non-MySQL drivers. impl-3 gives no algorithm or lock guarantees, uses a positional after() column, and has only one index, so the unfiltered listing has to filesort. Ranking: impl-1 first (correct and safe, a bit raw), impl-2 second (best framework idioms but an API regression), impl-3 third (the same regression plus weaker indexing and migration safety). I had no MySQL server to run against, so the MySQL DDL was checked by compiling the migrations, not by executing them. All probe tests were deleted afterwards."
+ },
+ "cost_usd": 0.7255534
+}

@@ -1,0 +1,72 @@
+{
+ "key": "coupon-redeem",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 7,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.4,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Controllers/RedeemCouponController.php:16-18 - the 'exactly once' CouponRedeemed side effect lives in the controller, so any other caller of Coupon::redeemFor() has to remember to dispatch it; the docblock at app/Models/Coupon.php:25 ('check wasRecentlyCreated') admits it leaks out of the model",
+    "app/Models/Coupon.php:39 - throw_if(..., new CouponExhausted) builds the exception on every call; passing the class name (or using if/throw) avoids that",
+    "app/Models/Coupon.php:45 - transaction attempts=3 adds little: the single FOR UPDATE lock makes deadlocks unlikely, and a retry won't help with a unique-violation race",
+    "app/Exceptions/CouponExhausted.php:10-13 - a constructor override just to set the message; a protected $message property does the same job"
+   ],
+   "strengths": [
+    "Locks the coupon row with lockForUpdate() inside a transaction, then checks the per-user rule and the cap in that order. Same-coupon requests are serialised across servers on MySQL, and someone who already redeemed still gets 200 after the coupon is used up",
+    "Uses a separate locked $coupon instance and setRelation, so the response count is the committed, current value, including on the 200 path after other users have redeemed",
+    "Unique (coupon_id, user_id) index as a database backstop, with a test that proves the database enforces it",
+    "Fixes a guest-handling problem in bootstrap/app.php (redirectGuestsTo returns null for api/*). A probe confirmed a guest POST without an Accept header gets 401 instead of a 500 RouteNotFoundException for the missing 'login' route, and a test covers it",
+    "The event fires after the transaction commits (a probe saw transactionLevel 1, which is only the RefreshDatabase wrapper) and only when wasRecentlyCreated",
+    "Good tests: the status sequence [201,201,409,409] with no over-redemption, a pre-exhausted coupon via factory()->for(), assertExactJson, and an event count check"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.9,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "An unauthenticated POST /api/coupons/{code}/redeem without an Accept: application/json header returns 500, not 401. The auth middleware redirects to route('login'), which doesn't exist (a probe confirmed the 500). Bearer-token mobile clients with expired tokens that don't send Accept would see server errors. The issue comes from the base app, but this implementation left the endpoint exposed to it"
+   ],
+   "antipatterns": [
+    "app/Models/Coupon.php:34-37 - setRawAttributes(lockForUpdate()->findOrFail()->getAttributes(), sync: true) is a clever way to re-hydrate $this from the locked row. A plain local $locked = static::lockForUpdate()->findOrFail(...) is clearer and doesn't quietly mutate the route-bound instance",
+    "app/Events/CouponRedeemed.php:11 - SerializesModels on a synchronous, non-broadcast event is harmless but unneeded",
+    "app/Models/Coupon.php:25-28 - the docblock explains the locking design (rationale that belongs in the PR); it's short, though"
+   ],
+   "strengths": [
+    "The CouponRedeemed dispatch is kept inside Coupon::redeem() after the transaction commits, gated on wasRecentlyCreated. The 'exactly once, only for the request that created the redemption' rule can't be bypassed by callers, and the controller stays very thin",
+    "Same correct concurrency core as impl-1: a FOR UPDATE lock on the coupon row, the existing-redemption check before the cap check, and the unique (coupon_id, user_id) backstop",
+    "CouponExhaustedException sets its message through the $message property and renders a 409 JSON response itself",
+    "Tests include a real Sanctum bearer token test, a zero-capacity coupon, a stale-model double redeem that proves no double count, assertDispatchedTimes, and assertExactJson on the repeated response",
+    "A probe confirmed the 200 response reports the current redeemed_count after other users have redeemed"
+   ]
+  },
+  "rationale": "Both use the same correct concurrency design: a transaction, a SELECT ... FOR UPDATE on the coupon row, the existing-redemption check before the cap check, and the unique (coupon_id, user_id) index as a backstop. Both dispatch the event after commit and only for a new redemption. Both test suites pass (impl-2: 12 tests, impl-1: 10). Probes on both confirmed: a 404 for a lowercase code that doesn't match, a current redeemed_count on the repeat 200 path, and the event firing outside the app's transaction. The deciding difference came from a probe: in impl-2, a guest POST without an Accept: application/json header returns 500 because route('login') doesn't exist. impl-1 configured redirectGuestsTo for api/* and tested it, so it returns 401. That matters for bearer-token mobile clients. impl-2 has the better architecture: the event dispatch is kept inside the model, the controller is thinner, and the exception is neater. But it uses a slightly too-clever setRawAttributes(sync: true) re-hydration, while impl-1's separate locked instance is clearer. Weighting the real 500 more heavily than the encapsulation advantage, impl-1 ranks first by a narrow margin."
+ },
+ "cost_usd": 0.3582904
+}

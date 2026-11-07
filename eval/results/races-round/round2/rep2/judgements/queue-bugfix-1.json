@@ -1,0 +1,74 @@
+{
+ "key": "queue-bugfix",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "The atomic claim UPDATE in DispatchCrmSync.php does not re-check whereNull('crm_synced_at'), so a row synced between the lazyById read and the claim can still be claimed and dispatched. The fresh() guard in the job stops the CRM call, so the impact is small.",
+    "The claim window and UniqueFor expire together after 1800s. When the backlog is older than 30 minutes the dispatcher queues a second job (the probe confirmed 2 jobs after 40 minutes). The handle() fresh() check stops the second CRM call, but the job duplication remains."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/DispatchCrmSync.php:22-29: the stale-claim where-closure is copied into both the select and the claim update. A local scope or a shared closure would remove the duplication.",
+    "app/Jobs/SyncSubscriberToCrm.php:32: `$this->subscriber->fresh()` re-queries a model that SerializesModels has already reloaded on the real queue path. This is a small cost for the sync-driver case.",
+    "app/Console/Commands/DispatchCrmSync.php:18: the command depends on the job's CLAIM_SECONDS constant, which couples dispatcher policy to the job class."
+   ],
+   "strengths": [
+    "Finds all four root causes. The catch block swallowed the exception, so it now rethrows after recording the error. Duplicates are handled with crm_sync_queued_at claims plus ShouldBeUnique/UniqueFor. The schedule uses withoutOverlapping(10) instead of the 1440-minute default. Pagination uses chunkById.",
+    "Keeps the existing behaviour: logs and writes crm_last_error on every failed attempt, and only marks the subscriber synced after a successful request.",
+    "Uses modern Laravel 13 queue attributes (#[Tries], #[Backoff], #[UniqueFor]), confirmed in vendor, plus ShouldBeUnique with uniqueId().",
+    "Removes WithoutOverlapping's zero-delay release, which consumed tries. ShouldBeUnique already prevents concurrent runs.",
+    "Thorough Pest tests: a real database-queue run that ends in failed_jobs, stale-claim re-queue with travel(), an idempotency guard, a schedule expiresAt assertion, and a 250-row chunk regression.",
+    "End-to-end probe: after the outage the job lands in failed_jobs, and after the claim expires the dispatcher re-queues it and it syncs."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "The 15-minute claim window (CLAIM_MINUTES = 15) is shorter than a realistic backlog. The probe shows a second job queued after a 20-minute backlog, so symptom 2 can return under exactly the 'queue backed up' condition. There is no ShouldBeUnique as a second line of defence; only the handle() fresh() guard and WithoutOverlapping stop the duplicate CRM call.",
+    "Changes existing behaviour: the per-attempt Log::error call and the per-attempt crm_last_error write were removed. crm_last_error is now only populated in failed() after all retries, so the probe found it still null after a failed first attempt.",
+    "The claim update is correct (it re-checks crm_synced_at), but the dispatcher's selection where-closure is duplicated."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/DispatchCrmSync.php:22-30: the claim where-closure is duplicated between the select and the update.",
+    "app/Jobs/SyncSubscriberToCrm.php:17: #[Tries(8), MaxExceptions(3), Timeout(30)] together with WithoutOverlapping releaseAfter/expireAfter is a lot of tuning knobs for this fix and is harder to reason about than unique jobs.",
+    "tests/Feature/CrmSyncTest.php:7-10: the imports are unsorted (Schedule and RequestException are inserted after Http).",
+    "tests/Feature/CrmSyncTest.php:58: the test overrides config with 'queue.failed.driver' => 'database-uuids', which is the default and not needed. It also passes `--tries 0`, which the attribute overrides, so the flag is misleading.",
+    "tests/Feature/CrmSyncTest.php:44-54: the test calls failed() by hand with a made-up exception instead of letting the worker invoke it, which weakens the test."
+   ],
+   "strengths": [
+    "Finds all four root causes: rethrows exceptions (lets them propagate), claim-based dispatch with lazyById, withoutOverlapping(10) on the schedule, and chunkById.",
+    "Fixes the hidden WithoutOverlapping zero-delay release-loop problem with releaseAfter(30)/expireAfter(60), and uses MaxExceptions so lock releases don't burn retries.",
+    "Adds a failed() hook and #[DeleteWhenMissingModels]. The probe confirmed a deleted subscriber is dropped cleanly instead of polluting failed_jobs.",
+    "The claim update re-checks crm_synced_at, which makes it slightly more race-safe than impl-1's.",
+    "Uses modern queue attributes throughout."
+   ]
+  },
+  "rationale": "I ran `php artisan test` on both: impl-1 passes 14 of 14 and impl-2 passes 11 of 11. Both fix all four root causes in the same way:\n1. **Outages:** the exception is rethrown instead of swallowed, with backoff added.\n2. **Duplicates:** the dispatcher claims each subscriber through crm_sync_queued_at, and the job skips the CRM call if the subscriber is already synced.\n3. **Schedule lock:** withoutOverlapping(10) replaces the default lock, which lasts 1440 minutes (about a day).\n4. **Nightly normalisation:** chunk() becomes chunkById(), so updating the filtered column no longer skips half the rows.\n\nMy probes covered four cases on a real database queue:\n- An outage leads to failed_jobs, and after the claim expires the subscriber is re-queued and syncs.\n- Running the dispatcher twice queues only one job.\n- A deleted subscriber is handled: impl-1 sends the job to failed_jobs, while impl-2 drops it cleanly through DeleteWhenMissingModels.\n- A backlog older than the claim window queues the subscriber again.\n\nimpl-1 ranks first for three reasons:\n- **Keeps existing behaviour.** It still logs and records crm_last_error on every failed attempt. impl-2 removed the logging and only fills crm_last_error once all retries are used up.\n- **Stronger fix for duplicates.** It makes the job unique (ShouldBeUnique) with a 30-minute window. impl-2 relies on a 15-minute claim, and the probe showed a duplicate job after a 20-minute backlog, which is the 'queue backed up' case from the report.\n- **Better tests.** It tests re-queueing of stale claims with travel(), and its failed_jobs test is cleaner. impl-2's test of the failure handler calls failed() by hand.\n\nimpl-2's strong points are DeleteWhenMissingModels, a proper failed() hook, and a sensible WithoutOverlapping configuration. Its claim update is also a little more race-safe. Those are not enough to outweigh the behaviour change and the shorter duplicate window."
+ },
+ "cost_usd": 0.433569
+}

@@ -1,0 +1,72 @@
+{
+ "key": "export-purge-command",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "--days validation via FILTER_VALIDATE_INT accepts '+5', ' 5' and '5 ' but rejects '007' and returns FAILURE (1), not INVALID; only a minor quirk (app/Console/Commands/PurgeExports.php:24-29)",
+    "Cache lock has a fixed 6h TTL and is never refreshed; a very long first purge over millions of rows could outlive it and let a second run start. This is unlikely and much less exposed than a 1h TTL (app/Console/Commands/PurgeExports.php:20,43)"
+   ],
+   "antipatterns": [
+    "Scope olderThan(int $days) calls now() inside the model, so the dry-run and purge paths each work out their own cutoff. Passing the cutoff in is cleaner (app/Models/Export.php:20-23)",
+    "Tests use inline \\Mockery:: with a FilesystemAdapter partial-style mock instead of importing it, and the exception path from delete() is not tested (tests/Feature/PurgeExportsTest.php:168,187)",
+    "The lock-held test checks only the exit code, not the refusal message (tests/Feature/PurgeExportsTest.php:204)",
+    "Invalid --days returns self::FAILURE instead of self::INVALID (app/Console/Commands/PurgeExports.php:29)"
+   ],
+   "strengths": [
+    "Uses the ConfirmableTrait production guard; when it refuses, the command exits with a failure code. --force is used in the schedule",
+    "Dry-run needs no confirmation and skips the lock; it uses count() on an indexed created_at",
+    "Uses lazyById for memory-safe iteration. A failed file keeps its row, the run carries on and the exit code is a failure; delete exceptions are reported",
+    "Uses a Cache::lock with try/finally release to stop a manual run overlapping the scheduled one, plus onOneServer on the schedule",
+    "Uses modern #[Signature]/#[Description]/#[Scope]/#[Fillable] attributes; adds the User::exports HasMany inverse",
+    "Test helper is a neat anonymous subclass carrying a #[Signature] attribute to exercise the real confirmation prompt"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Cache lock has a fixed 1h TTL and is never refreshed. A first purge over millions of rows (one file delete plus one row delete each) could run longer than an hour, letting a manual or second run acquire the lock and overlap (app/Console/Commands/PurgeExports.php:23,47)"
+   ],
+   "antipatterns": [
+    "The test's anonymous subclass redeclares a protected $signature property to override the attribute. It works, but it duplicates the option list (tests/Feature/PurgeExportsTest.php:40)",
+    "The test rebuilds the faked disk by hard-coding storage_path('framework/testing/disks/exports'), which couples the test to Storage::fake internals (tests/Feature/PurgeExportsTest.php:225)",
+    "No inverse User::exports relation was added (minor)"
+   ],
+   "strengths": [
+    "Scope takes a CarbonInterface cutoff, which is computed once and shared by the dry-run and purge paths (app/Models/Export.php:26, Command:35)",
+    "Strict ctype_digit validation of --days, returning self::INVALID",
+    "Runs the confirmation before taking the lock; the lock is released in finally; a dry-run bypasses both the confirmation and the lock",
+    "Uses lazyById(500). A failed or throwing delete is reported, the row is kept, the run continues and the exit code is a failure",
+    "Most thorough tests: a data provider for invalid --days, batch boundary (501 rows), a missing file still removes its row, both the false-return and exception failure paths, retry on the next run, the cancelled message without a TTY in production, disk config, lock held and lock released, a dry-run ignoring the lock, and the schedule",
+    "Uses current attributes throughout and is clean and minimal"
+   ]
+  },
+  "rationale": "I ranked impl-2 first and impl-1 second. The two are almost the same: same migration, factory, ConfirmableTrait guard, the lock wrapped in try/finally, lazyById, report() on failures, and the same onOneServer schedule. Both suites pass (impl-2: 26 tests, impl-1: 16).\n\nMy probes behaved the same on both:\n- Production without --force fails and deletes nothing.\n- An exception thrown during a row delete still releases the lock.\n- An export exactly 30 days old is kept.\n- The purge query is batched by id on an indexed created_at.\n\nThe probes found two small differences in --days validation. impl-1 accepts '+5' and ' 5' but rejects '007', and returns FAILURE instead of INVALID. impl-2 is strict and returns INVALID.\n\nimpl-2 also works out the cutoff once and passes it to the scope as a Carbon value. impl-1 calls now() inside the scope.\n\nBoth lock TTLs are fixed and never refreshed. impl-2's 1h is the riskier one for a first run over millions of rows.\n\nThe deciding factor is the tests. impl-2 covers the exception path from delete(), a row whose file is already gone, the batch boundary, invalid --days values via a data provider, a dry-run while the lock is held, and the 'Command cancelled' message. impl-1 is missing those, though it does add the User::exports relation. Overall, impl-2's tests are clearly better, which outweighs its slightly shorter lock TTL."
+ },
+ "cost_usd": 0.316403
+}

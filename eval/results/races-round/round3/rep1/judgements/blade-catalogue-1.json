@@ -1,0 +1,85 @@
+{
+ "key": "blade-catalogue",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.4,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "An invalid public filter (?category=nope, ?sort=bogus) fails validation in IndexProductRequest, so a public GET page redirects instead of falling back to defaults. Visiting two different invalid filter URLs in a row creates an infinite redirect loop, because url()->previous() points at the other bad URL. Reproduced: following redirects ran out of memory. impl-2 has the same bug.",
+    "Product::search uses whereRaw(\"... escape '\\\\'\"), so the SQL contains escape '\\'. That is a syntax error on MySQL unless NO_BACKSLASH_ESCAPES is set. It works on SQLite only (app/Models/Product.php:77-78)."
+   ],
+   "antipatterns": [
+    "resources/views/products/index.blade.php:16 builds the sort options in the view with collect(ProductSort::cases())->mapWithKeys(...). This belongs in an enum method or the controller.",
+    "resources/views/products/index.blade.php:22-29 opens and closes <ul> through $loop->first/$loop->last inside @forelse. This is fragile; an @if($products->isEmpty()) wrapper is clearer.",
+    "resources/views/products/index.blade.php:5,11 reads request('q')/request('category') in the view instead of passing the validated values.",
+    "app/Http/Controllers/Admin/ProductController.php:31 uses Category::findOrFail(...)->products()->create(...), an extra query just to avoid making category_id fillable, and it differs from the associate() style used in update.",
+    "resources/views/components/product-card.blade.php:7 checks isOutOfStock() and then renders <x-stock-badge>, which branches on stock again. The two components disagree about who owns the condition.",
+    "The policy uses a non-standard 'manage' ability, and can: middleware returns 403 to guests instead of redirecting to login (acceptable because the base has no auth routes)."
+   ],
+   "strengths": [
+    "Thin controllers: query scopes (active/search/inCategory/sortedBy) use the #[Scope] attribute, and paginate(12)->withQueryString() preserves filters.",
+    "FormRequests cover both listing and admin. Rule::enum is used for sort, and prepareForValidation normalises the slug from the name and the is_active boolean. Unique slug uses ignore(route model). productData() converts dollars to cents.",
+    "Full set of reusable form components (input/select/textarea/checkbox/error) built with @props, $attributes->class, @error, @selected, @checked and old() fallbacks. One shared product-form component handles create and edit.",
+    "Layout component with @session flash, an @can link and inline CSS, so nothing depends on compiled assets. Uses a custom pagination view and translatable strings.",
+    "Uses modern Laravel: Fillable attribute, casts() method, Number::currency, to_route, whereBelongsTo, latest('id') for deterministic ordering.",
+    "52 Pest tests organised with describe blocks and datasets. They cover the access matrix, each validation rule with its exact message, old input and errors after redirect, the selected category being kept, slug uniqueness on update, wildcard escaping, pagination query string, the related-products limit and exclusions, and 404 for inactive products."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 7.1,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "An invalid public filter (?category=nope, ?sort=bogus) causes a validation redirect on a public GET page. Two different invalid URLs in a row create an infinite redirect loop; reproduced, following redirects ran out of memory. impl-1 has the same bug.",
+    "IndexProductRequest also validates 'page' as integer|min:1, so a junk ?page=abc redirects (302) instead of simply showing page 1. The paginator already handles that case (verified by probe).",
+    "Admins can never see or edit the slug. It is generated once in a creating hook and never changes on rename. The task lists slug as a product field, and it gets no validation or form handling."
+   ],
+   "antipatterns": [
+    "resources/views/admin/products/_form.blade.php:1 declares @props in a partial pulled in with @include (create.blade.php:3, edit.blade.php:3). This mixes partial and component semantics; it should be an anonymous component like <x-product-form>.",
+    "The is_active checkbox in _form.blade.php:16-22 is hand-rolled instead of reusing the form components. It adds a hidden 0 input even though prepareForValidation already uses boolean(), so the two mechanisms duplicate each other.",
+    "resources/views/products/index.blade.php:4-27 hand-codes the filter form fields instead of reusing the x-form components it already has, and reads request() directly in the view. Line 21 iterates App\\Enums\\ProductSort::cases() inside the view.",
+    "resources/views/products/index.blade.php:29-31 shows only $errors->first() at the top instead of next to the related field.",
+    "app/Models/Category.php:18-23 adds a creating slug hook that nothing uses (over-engineering).",
+    "app/Models/Product.php:106-116 runs a uniqueSlug() loop with N queries inside a model event. It has a race condition and hides slug handling from validation.",
+    "Strings such as 'Product created.' and the labels are hardcoded without __().",
+    "The products table has no cascade or restrict choice for category_id, and the migration includes speculative composite indexes."
+   ],
+   "strengths": [
+    "Model::shouldBeStrict in non-production, Paginator::defaultView and a simple Gate::define('manage-products') together give a clean global setup.",
+    "Thin controllers built on #[Scope] query scopes, whereRelation, withQueryString, and related(4)->load('category') to keep lazy loading out under strict mode.",
+    "The x-form.field wrapper component uses a slot plus @error, and the input/select/textarea components compose it, which is a nice use of slots.",
+    "Search escapes LIKE wildcards with the '!' escape character, which is portable across databases.",
+    "Clear redirect-with-flash pattern, plus a delete confirmation.",
+    "Tests cover access, old input after failed create and update, flash messages, wildcard search, pagination query string, related products and slug uniqueness."
+   ]
+  },
+  "rationale": "Both suites pass: impl-1 has 52 tests, impl-2 has 31. Both builds use the same overall design: FormRequests for listing and admin, #[Scope] query scopes, a ProductSort enum, withQueryString pagination, a layout component with inline CSS, and to_route with flash. They also share one real bug. Because the listing request validates its filters, a bad query string on the public GET page redirects, and two different invalid URLs in a row loop forever. Both probes reproduced this and ran out of memory.\n\nimpl-1 ranks first because its Blade work is more complete and consistent. It has a full set of reusable form components (including checkbox and error), and the shared form is a real component. It uses @session flash, translatable strings, and field-level errors on the filter form too. Admins can edit the slug, with unique-ignore validation, and blank slugs are generated from the name. Its tests are much richer: describe blocks, datasets with exact validation messages, a selected category kept after a failed submit, and an access matrix. Its weak points are a MySQL-unsafe escape '\\\\' in raw SQL, building enum options in the view, and a fragile <ul> opened through $loop.\n\nimpl-2 has good global hygiene (shouldBeStrict, Paginator::defaultView, Gate) and a nice field wrapper built on slots. Against that, its shared form is an @include partial that declares @props. The filter form and the is_active checkbox are hand-written instead of reusing its own components. The slug is hidden from admins and handled through model hooks with a query loop. An unused Category slug hook adds clutter. Strings are hardcoded, filter errors appear only at the top of the page, and validating ?page adds another way to trigger the redirect bug."
+ },
+ "cost_usd": 0.7530880000000001
+}

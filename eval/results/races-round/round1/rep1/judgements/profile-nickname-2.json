@@ -1,0 +1,95 @@
+{
+ "key": "profile-nickname",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 9
+   },
+   "overall": 8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "A guest request to /api/me without an `Accept: application/json` header returns 500 (RouteNotFoundException: Route [login] not defined) instead of 401. This comes from the base app, but the implementation exposes it on the new endpoint and leaves it unfixed."
+   ],
+   "antipatterns": [
+    "tests/Feature/MeTest.php:49-67 \u2013 the null and empty-string clear cases are two copy-paste tests where a Pest dataset would do",
+    "tests/Feature/MeTest.php:93,103,110 \u2013 `assertJsonValidationErrors('nickname')` only checks the key, not which rule failed, so the 31-char test would still pass if a different rule rejected the value",
+    "routes/api.php:11-14 \u2013 repeats '/me' and the controller name instead of grouping them with ->controller()/prefix (minor)"
+   ],
+   "strengths": [
+    "Thin controller with `$user->update($request->validated())` and a FormRequest using present|nullable|string|max:30, so a missing key gets a 422 and null or '' clears the nickname",
+    "Migration uses string('nickname', 30)->nullable()->after('name') with a proper down()",
+    "`MeResource::$wrap = null` returns exactly {id, name, nickname}, which matches the spec literally",
+    "Has the only test that uses a real Sanctum personal access token, plus a 30-multibyte-character boundary test",
+    "Tests cover the guest, mass-assignment and other-user isolation cases"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 9
+   },
+   "overall": 7.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "A guest request to /api/me without an `Accept: application/json` header returns 500 (Route [login] not defined) instead of 401. The base app has this problem and the implementation leaves it unaddressed."
+   ],
+   "antipatterns": [
+    "tests/Feature/MeTest.php:88 \u2013 `email->not->toBe('x@example.com')` is a weaker assertion than checking the email is unchanged",
+    "tests/Feature/MeTest.php:7 \u2013 sends a PATCH body on the GET guest case through a shared dataset row (harmless noise)"
+   ],
+   "strengths": [
+    "Same clean, minimal core as the others: a FormRequest with present|nullable|string|max:30, an `update(validated())` call, and a JsonResource marked @mixin User",
+    "Grouped route with middleware()->prefix()->controller()",
+    "Good use of Pest datasets for guest methods, null/'' clearing and missing/non-string payloads, and validation assertions check the actual error messages",
+    "Exact-JSON assertion on GET, with a second user present to prove isolation"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "bootstrap/app.php:17 \u2013 the redirectGuestsTo closure mixes `is('api/*')` with `! Route::has('login')` in one dense ternary without parentheses. It is correct, but `$request->is('api/*')` alone would cover this API-only app",
+    "tests/Feature/MeTest.php:6-10 \u2013 three guest assertions packed into one test instead of a dataset"
+   ],
+   "strengths": [
+    "The only implementation that fixes the latent 500 for non-JSON guest requests (a missing login route): `redirectGuestsTo` in bootstrap/app.php returns null for API routes, so guests get a proper 401, and a test (`$this->get('/api/me')`) locks this in",
+    "Clean core: FormRequest with present|nullable|string|max:30, thin controller, JsonResource, and a migration with a 30-character nullable column",
+    "Datasets for clearing with null or '' and for missing/non-string payloads, with message-specific validation assertions",
+    "Mass-assignment test asserts the email is unchanged (stronger than impl-2)"
+   ]
+  },
+  "rationale": "I ran `php artisan test` for each: all three suites pass (impl-1: 17 tests, impl-2: 15, impl-3: 14).\n\nThe three implementations share almost the same core:\n- the same FormRequest (present|nullable|string|max:30)\n- the same thin controller using `update($request->validated())`\n- the same JsonResource\n- the same migration and the same `#[Fillable]` change\n\nMy probe tests covered:\n- whitespace-only input (trimmed, then stored as null)\n- an integer value (422)\n- 31 multibyte characters (422)\n- trimming\n- PATCH with a real token\n- PUT (405)\n- a guest request without JSON headers\n\nAll three behave the same on every probe except the last one. There, impl-1 and impl-2 return 500 (Route [login] not defined) and only impl-3 returns 401, because it configured `redirectGuestsTo` and has a test for it. That real robustness difference puts impl-3 first.\n\nimpl-1 vs impl-2 is close. impl-1 adds a real personal-access-token test and a multibyte boundary test, and it unwraps the resource to match the spec literally. Its validation assertions are looser, though, and it has some copy-paste tests. impl-2 makes better use of datasets and asserts the actual error messages, but its mass-assignment email check is weak and it adds no coverage beyond the others. I ranked impl-1 above impl-2 for its broader, more meaningful coverage.\n\nI deleted the probe test file from every implementation after running it."
+ },
+ "cost_usd": 0.3131684
+}

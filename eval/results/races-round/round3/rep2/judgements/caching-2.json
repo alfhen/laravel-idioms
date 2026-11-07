@@ -1,0 +1,78 @@
+{
+ "key": "caching",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Minor: Task has no hook that keeps completed_at in step with status. completed_at is fillable and set by hand, so a task marked done without completed_at never counts toward tasks_completed_last_7_days.",
+    "Minor: the 'last known' rates expire after 30 days (app/Services/ExchangeRates.php:63). After a month without a successful fetch, the endpoint returns 503 even though rates were once known."
+   ],
+   "antipatterns": [
+    "app/Services/TeamDashboard.php:16 uses Cache::remember with a 5-minute TTL. The brief ('stale up to 5 minutes acceptable if recomputing is slow') points at Cache::flexible for stale-while-revalidate, which isn't used.",
+    "app/Services/TeamDashboard.php:27-35: invalidation rotates a version key, which means two cache reads per request and an extra UUID entry. It is sound against the read-during-write race, but it is more machinery than forget plus afterCommit.",
+    "app/Services/ExchangeRates.php:71-72 hardcodes timeout(3) and connectTimeout(2) while the URL comes from config. This is inconsistent, though acceptable.",
+    "app/Http/Controllers/DashboardController.php:15 returns 404 for a user without a team. 403 or an empty dashboard would be clearer."
+   ],
+   "strengths": [
+    "Uses the proper API layer: routes/api.php via withRouting(api:), Sanctum auth, and redirectGuestsTo plus shouldRenderJsonWhen. Plain non-JSON guest requests get 401 and validation failures get 422, both verified by probe.",
+    "Observers implement ShouldHandleEventsAfterCommit and forget each team separately. Moving a task, project or user to an uncached team correctly invalidates the old team (probed). A transaction followed by several updates also invalidates correctly (probed).",
+    "UserObserver only invalidates on team_id changes or creation, which avoids pointless cache busts on profile edits.",
+    "The exchange-rate flow is solid: Cache::lock()->block(5) with release in finally, a re-check of the fresh cache under the lock, a failure cooldown so a down API isn't hammered, and stale or 503 fallback. Http timeout(3) is set.",
+    "The lock tests are excellent: Sleep::fake and whenFakingSleep simulate a concurrent lock holder, either filling the cache or failing, and assert the API is never called. Http::sequence covers several failure modes.",
+    "The 'reflects changes immediately' dataset covers 10 mutation types compactly, plus tests for project and user moves and a query-count check for cache hits."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 6,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 6,
+    "modern_laravel": 7,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 5,
+    "simplicity": 8
+   },
+   "overall": 5.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Support/TeamDashboard.php:44: `$keys->each(Cache::forget(...))`. Collection::each stops when the callback returns false, and Cache::forget returns false for a missing key on the array, redis and file stores. Keys are ordered new-team first, so when a task, project or user moves to a team with no cached dashboard, the OLD team's dashboard is never cleared and stays stale for up to 5 minutes. Probes confirmed this: a task moved to another team still showed open_task_count 1, and a member who switched teams still showed member_count 2. A task-to-other-project move also breaks this way.",
+    "The API routes live in routes/web.php under a prefix with session 'auth' middleware (routes/web.php:11). A plain (non-JSON) guest GET /api/dashboard returns 500 because there is no login route (probed). Invalid-currency requests without JSON headers would also go through web-style redirect handling.",
+    "1 PHPUnit warning in the suite: tests/Feature/ExchangeRatesTest.php:4 has `use Closure;` in the global namespace, which has no effect."
+   ],
+   "antipatterns": [
+    "app/Support/TeamDashboard.php:20 uses Cache::remember with a 5-minute TTL instead of Cache::flexible, despite the brief describing stale-while-revalidate.",
+    "routes/web.php:11 puts JSON API endpoints in the web route file with session auth instead of routes/api.php plus Sanctum or a token guard.",
+    "tests/Feature/ExchangeRatesTest.php:16-20 adds a mutable $this->upstream indirection around Http::fake to work around stub ordering. Http::sequence or re-faking would be simpler.",
+    "tests/Feature/ExchangeRatesTest.php:175-182: the 'three second timeout' test only asserts a config value and the host. It doesn't verify that the timeout is applied.",
+    "The tests for 'another request is refreshing' (tests/Feature/ExchangeRatesTest.php:86-108) rely on lock_wait=0, so the waiting path where a waiter reuses the holder's result is never really exercised."
+   ],
+   "strengths": [
+    "Clean Task model: #[Scope] attributes, enum cast, and a saving hook that keeps completed_at consistent with status.",
+    "Invalidation is deferred with DB::afterCommit, with keys computed eagerly. It handles old and new team ids using getOriginal in saved.",
+    "FetchExchangeRates is well structured: a lock with block(), the callback form auto-releases, a double-check under the lock, a forever 'last-known' key, a failure cooldown, report() on HTTP failures, and timeout plus URL in config/services.php.",
+    "Good test breadth for invalidation scenarios and failure datasets (timeout, 5xx, malformed, empty rates), with travel() used for TTL checks."
+   ]
+  },
+  "rationale": "I rank impl-1 first. Both suites pass (impl-2: 41 tests, impl-1: 42), and the two share very similar structures: invokable controllers, a FormRequest that uppercases the route parameter, #[Scope] scopes, the same HasManyThrough dashboard query, and lock, double-check, cooldown and stale fallback for exchange rates. Neither uses Cache::flexible, the most idiomatic fit for the dashboard brief.\n\nThe decider is a real invalidation bug in impl-2. TeamDashboard::forget clears keys with `$keys->each(Cache::forget(...))`. When the first key (the new team) isn't cached, Cache::forget returns false, `each` stops, and the old team's dashboard stays stale for up to 5 minutes. My probes confirmed this for tasks moving between teams and for users switching teams. That breaks the \"reflected within seconds\" requirement. impl-2 also puts its JSON API in routes/web.php with session auth, so a plain guest request returns 500.\n\nimpl-1 uses routes/api.php with Sanctum and JSON exception rendering, and its after-commit observers forget each team separately. Its versioned keys are a little heavier but correct, and all my probes passed. Its concurrency tests use Sleep::fake to simulate a lock holder, which is clearly stronger than impl-2's lock_wait=0 shortcut."
+ },
+ "cost_usd": 0.7409388000000001
+}

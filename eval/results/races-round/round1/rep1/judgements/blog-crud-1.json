@@ -1,0 +1,75 @@
+{
+ "key": "blog-crud",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.6,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "app/Models/Post.php:53 \u2014 `->filter()` with no callback drops falsy strings, so the tag name \"0\" is silently thrown away (probe: tags ['0','php'] gives ['php'])"
+   ],
+   "antipatterns": [
+    "app/Models/Post.php:55 \u2014 `Tag::firstOrCreate` inside map runs 1\u20132 queries per tag, and two concurrent requests can race on the unique name",
+    "app/Models/Post.php:52 \u2014 trim() repeats what the TrimStrings middleware already does",
+    "routes/api.php:6-11 \u2014 hand-written prefix/controller group where `Route::apiResource('posts', ...)->except('show')` plus `->can()` would do"
+   ],
+   "strengths": [
+    "Authorization runs as route middleware through `->can('update','post')`, so a non-author gets 403 before validation; a test covers this (test_non_author_gets_403_before_validation)",
+    "Uses Laravel 12/13 features: #[Fillable], #[ObservedBy], #[Scope] attributes, enum cast, Rule::enum",
+    "Controller is very thin. The FormRequest has typed accessors (status(), tag(), perPage()) and the model has nullable-aware `when` scopes",
+    "The observer handles both rules: unique slug with a fallback for unsluggable titles, and published_at set on publish when missing",
+    "Thorough test suite: guest 401s, mass-assignment protection, slug collisions, tag dedupe and reuse, partial update keeps tags, empty array clears tags, published_at preserved, 404s, tag filter doesn't leak other users' posts, pagination and query validation"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.9,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Http/Controllers/PostController.php:40 \u2014 Gate::authorize runs inside the action, after UpdatePostRequest has validated. A non-author sending an invalid payload gets 422 with validation details instead of the required 403 (confirmed by probe)"
+   ],
+   "antipatterns": [
+    "app/Http/Controllers/PostController.php:40,50 \u2014 authorization belongs in FormRequest::authorize() or route `->can()` middleware so it runs before validation",
+    "app/Models/Post.php:49 \u2014 array_unique is redundant because the `distinct` rule already rejects duplicates (StorePostRequest.php:21)",
+    "app/Http/Requests/StorePostRequest.php:21 / UpdatePostRequest.php:21 \u2014 rules are duplicated between the Store and Update requests",
+    "tests/Feature/PostApiTest.php:235 \u2014 uses the root `\\DB` alias instead of an imported facade; a query-count threshold test is brittle",
+    "tests/Feature/PostApiTest.php:16-25 \u2014 no test for a non-author sending an invalid payload, which is why the ordering bug went unnoticed"
+   ],
+   "strengths": [
+    "Uses Route::apiResource(...)->except('show'), which is the idiomatic resource routing",
+    "syncTagNames creates tags in bulk with insertOrIgnore + whereIn pluck: constant query count and safe under concurrent requests",
+    "Same modern attribute-based model (#[Fillable], #[ObservedBy], #[Scope]), enum cast, Rule::enum",
+    "Uses $request->whenHas for the conditional tag sync. Validation caps tag count (max:20) and uses `distinct`",
+    "Composite index (user_id, status, created_at) matches the index query",
+    "Tests cover pagination links keeping filters, an N+1 guard, and published_at preserved or not set on unrelated edits"
+   ]
+  },
+  "rationale": "I'd rank impl-1 first. Both implementations pass their own tests (impl-1: 30, impl-2: 28) and are almost the same design: enum status, an observer for the slug and published_at, a policy, form requests, a resource that returns tag names, and the same scopes. The authorization placement decides it. impl-1 attaches the policy as route middleware (`->can()`), so a non-author always gets the 403 the task requires, and it has a test for that. impl-2 calls Gate::authorize inside the controller, after the FormRequest has validated. My probe confirmed that a non-author sending an invalid payload gets 422 with validation messages instead of 403. That breaks the stated '403 otherwise' rule and shows validation details to someone who isn't allowed to edit the post. impl-1's only real bug is minor: the bare `filter()` drops a tag named \"0\". impl-2 is better in a few places: Route::apiResource, bulk insertOrIgnore for tags (fewer queries, safe under concurrency), a composite index, and an N+1 test. Those don't outweigh a broken authorization rule. impl-1's tests are also slightly more thorough on failure paths (403 before validation, the tag filter not leaking other users' posts, partial update keeping tags). All other probes behaved the same in both: whitespace or null tag entries \u2192 422, `tags: null` \u2192 422, `status: null` on update doesn't error, array title \u2192 422, and 'PHP' and 'php' are stored as separate tags. I deleted the probe tests afterwards."
+ },
+ "cost_usd": 0.47191419999999995
+}

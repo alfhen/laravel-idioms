@@ -1,0 +1,75 @@
+{
+ "key": "blog-crud",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.7,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Empty filter params (`?tag=` or `?status=`) return 422. ConvertEmptyStringsToNull turns them into null, and the `sometimes|string` / enum rules have no `nullable` (app/Http/Requests/IndexPostRequest.php:14-16).",
+    "Tags are case-sensitive, so 'PHP' and 'php' become two separate tags (app/Models/Post.php:51-55). This is minor."
+   ],
+   "antipatterns": [
+    "app/Models/Post.php:55 uses `Tag::firstOrCreate` inside a map, which can race against the unique index. `createOrFirst` avoids that.",
+    "app/Http/Requests/IndexPostRequest.php:20-33: the typed accessor methods add some ceremony. `PostStatus::tryFrom((string) ...)` is a roundabout way to handle null.",
+    "app/Observers/PostObserver.php:28: the slug-uniqueness loop does one query per collision and is not race-safe. This is acceptable at this scope."
+   ],
+   "strengths": [
+    "Thin controller. `syncTagNames` lives on the model, and nullable `#[Scope]` attribute scopes wrap `when()` so the index query chain stays clean.",
+    "Authorization is per route with `->can('update','post')` and `->can('delete','post')`, so non-authors get 403 before validation runs.",
+    "Modern Laravel throughout: `#[Fillable]`, `#[ObservedBy]`, `#[Scope]`, `casts()` method, `Rule::enum`, enum cast, `safe()->except()`, `withQueryString`, `latest()->latest('id')` as a tie-breaker.",
+    "Thorough tests (30). They cover guest 401s, mass-assignment protection, slug fallback and dedupe, tag reuse and trimming, partial update, clearing tags with an empty array, exact published_at checks via `freezeSecond`, per_page bounds, a tag filter that doesn't leak other users' posts, and 404s.",
+    "The observer handles slug generation and published_at. published_at is set only when missing, and probes confirmed a client-supplied published_at is ignored."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.4,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "bootstrap/app.php redirects non-API guests with `route('login')`, but no named login route exists. Any future web route behind `auth` would throw RouteNotFoundException. The API is unaffected.",
+    "Tags are case-sensitive, so 'X' and 'x' become two separate tags. This is minor."
+   ],
+   "antipatterns": [
+    "routes/api.php:8 protects destroy with `can:update,post`, so `PostPolicy::delete` is never used by routing. Calling `apiResource` twice to split the middleware is also awkward compared with per-route `->can()`.",
+    "app/Http/Controllers/PostController.php:20-21: the conditional filtering (`when` plus `PostStatus::from`) sits in the controller rather than in the scopes or the request.",
+    "tests/Feature/PostApiTest.php:21: `Http::preventStrayRequests()` is unrelated ceremony, since the feature makes no HTTP calls.",
+    "Some tests are loose, e.g. `assertNotNull(published_at)` on create (tests/Feature/PostApiTest.php:100). Freezing time would allow an exact check."
+   ],
+   "strengths": [
+    "Uses `createOrFirst` for tags, which is race-safe with the unique index.",
+    "Index filters are `nullable`, so empty query params are treated as no filter, and a test covers this.",
+    "Same modern idioms as impl-1: attribute scopes, `#[Fillable]`, `#[ObservedBy]`, enum cast, `Rule::enum`, API resource with `whenLoaded` plus `pluck`.",
+    "Adds a composite index (user_id, status, created_at) that matches the index query.",
+    "Good test coverage, including 403 before validation, published_at kept across draft\u2192published toggles, and partial tag updates."
+   ]
+  },
+  "rationale": "I ranked impl-1 first, but only narrowly: the two implementations are close to identical. Both have a thin controller with the same shape, use an observer for the slug and published_at, and use attribute scopes, an enum cast, FormRequests and an API resource. Both test suites pass (30 and 25 tests), and my edge-case probes found no functional bugs in either. Each probe file was deleted after running.\n\nWhy impl-1 wins:\n- **Authorization:** it wires delete to its own policy ability, where impl-2 reuses `can:update` for destroy and never uses its delete method.\n- **Filtering:** it keeps the conditional filtering inside the scopes.\n- **Tests:** its suite is larger and more precise, with exact time checks via `freezeSecond`, per_page bounds, a check that the tag filter doesn't leak other users' posts, and slug fallback.\n\nWhere impl-2 is better:\n- It uses `createOrFirst` for tags.\n- It accepts empty filter params instead of returning 422, as impl-1 does.\n\nAgainst that, impl-2 has a latent `route('login')` reference to a route that doesn't exist, some ceremony in the tests, and a slightly fatter index action."
+ },
+ "cost_usd": 0.491799
+}

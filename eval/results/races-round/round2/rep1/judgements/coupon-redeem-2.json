@@ -1,0 +1,102 @@
+{
+ "key": "coupon-redeem",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 8,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "A guest request without an Accept: application/json header returns 500 (Route [login] not defined) instead of 401, because the base app's guest redirect was left as it was. Clients that send a missing or invalid bearer token without that header get a server error."
+   ],
+   "antipatterns": [
+    "app/Models/Coupon.php:35,41,48 - redeemFor() writes $this->redeemed_count on the route-bound instance as a hidden side channel so the controller can read the count. That leaves $this dirty and mixes up the locked copy with the caller's copy.",
+    "app/Models/Coupon.php:28,43 - returns null to signal 'exhausted', and the controller turns that into a 409 (RedeemCouponController.php:15). A domain exception would be clearer than a nullable sentinel.",
+    "app/Models/Coupon.php:53-55 - the model dispatches the domain event itself, so a model method also performs side effects."
+   ],
+   "strengths": [
+    "Locks the coupon row with lockForUpdate inside a transaction, which serialises both the per-user check and the cap check across servers. The unique(coupon_id, user_id) index is a backstop.",
+    "Dispatches the event only when wasRecentlyCreated is true, after the transaction has committed.",
+    "Uses route model binding {coupon:code} for the 404, an invokable controller, the #[Fillable] attribute, whereBelongsTo, and an exhausted() factory state.",
+    "Good test coverage: a user who already redeemed still gets 200 on an exhausted coupon, a pre-exhausted coupon has no side effects, the unique index is tested, and factory for() relationships are used."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.7,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Models/Coupon.php:37 - throw_if(..., new CouponExhausted) builds the exception on every call. Passing the class name or a plain if/throw would avoid that (minor).",
+    "app/Models/Coupon.php:31 - the inline comment mostly says what the code does; the docblock on lines 24-27 already covers the contract.",
+    "tests/Feature/CouponRedemptionTest.php:24 - Http::preventStrayRequests() is unnecessary ceremony, since no HTTP client is involved."
+   ],
+   "strengths": [
+    "Coupon::redeemFor() re-reads the coupon with lockForUpdate inside DB::transaction(..., 3), so deadlocks are retried. firstOrNew under the lock keeps the per-user rule and the cap consistent across servers, and the unique index is a backstop.",
+    "A domain exception with render() returns a JSON 409 whether or not the request is JSON. The controller stays a thin invokable that dispatches only when wasRecentlyCreated is true, after commit.",
+    "Returns the locked coupon through setRelation, so redeemed_count is fresh without mutating the route-bound model.",
+    "The only implementation that fixed guests on api/* getting 500 (missing login route): bootstrap/app.php uses redirectGuestsTo, and a test checks this.",
+    "Tests cover 401 for JSON and non-JSON requests, 404, 201 plus the event payload, an idempotent 200 that dispatches no event, 200 for a repeat on an exhausted coupon, 409 with its message, the cap across users, and the unique index."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 6,
+    "thin_controllers": 4,
+    "validation_form_requests": 6,
+    "eloquent_idioms": 6,
+    "architecture_fit": 5,
+    "modern_laravel": 6,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 6.3,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "A guest request without Accept: application/json returns 500 (Route [login] not defined) instead of 401. The base app's guest redirect was not handled."
+   ],
+   "antipatterns": [
+    "app/Http/Controllers/Api/CouponRedemptionController.php:15-54 - the transaction, locking, cap logic and event dispatch all sit in the controller. That is a fat controller, and the logic belongs on the model or in an action.",
+    "app/Http/Controllers/Api/CouponRedemptionController.php:22-26 and routes/api.php:11 - looks up the coupon by hand and calls abort(404) instead of using route model binding {coupon:code}.",
+    "app/Http/Controllers/Api/CouponRedemptionController.php:31,41,44 - returns a positional tuple [$redemption, $coupon, $created] from the transaction instead of relying on wasRecentlyCreated or returning a value object.",
+    "app/Models/Coupon.php:15 - redeemed_count is mass-assignable, so the counter can be set through fill(). It also uses the $fillable property rather than the #[Fillable] attribute that the installed version supports.",
+    "tests/Feature/CouponRedemptionTest.php:113 - uses an inline fully qualified class name instead of an import.",
+    "app/Events/CouponRedeemed.php:12-14 - the empty constructor body is spread over several lines, which does not match the Pint style the other files use (cosmetic)."
+   ],
+   "strengths": [
+    "The locking strategy is correct: the coupon row is locked with lockForUpdate inside a transaction, and there is a unique(coupon_id, user_id) index.",
+    "The event is dispatched outside the transaction and only when the redemption was created.",
+    "Tests cover the main paths: 401, 404, 201 plus the event, idempotent 200, 409, 200 for an existing redeemer on an exhausted coupon, the cap across users, and UniqueConstraintViolationException."
+   ]
+  },
+  "rationale": "All three use the right concurrency design: lock the coupon row with lockForUpdate inside a transaction, check whether the user already has a redemption and whether the cap is reached while holding the lock, add a unique(coupon_id, user_id) index as a backstop, and dispatch the event only for a newly created redemption, after commit. All test suites pass (impl-2: 10, impl-3: 10, impl-1: 11). In my probes all three gave 409 JSON for a plain non-JSON request on an exhausted coupon, 404 for a lowercase code, and 200 with no second event when a client retries after a listener failure. The one behaviour difference: a guest request without Accept: application/json returns 401 only in impl-2, which added redirectGuestsTo in bootstrap/app.php. impl-1 and impl-3 return 500 because the login route is missing. impl-2 also has the cleanest design: a thin invokable controller with route model binding, a model method that retries deadlocks (transaction attempts = 3), a renderable domain exception for the 409, and setRelation to return fresh counts without mutating the bound model. impl-1 has a similar shape but uses a nullable return as the 409 signal, mutates $this->redeemed_count as a side channel, and dispatches the event from the model. impl-3 is correct on concurrency but puts everything in a fat controller, looks the coupon up by hand with abort(404) instead of route model binding, returns a positional tuple, and makes redeemed_count mass-assignable."
+ },
+ "cost_usd": 0.49456100000000003
+}

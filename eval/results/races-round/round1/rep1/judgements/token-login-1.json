@@ -1,0 +1,100 @@
+{
+ "key": "token-login",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.6,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "An `email` sent as an array (e.g. `email[]=x`) returns 500 'Array to string conversion'. The throttle key callback in AppServiceProvider.php:26-28 calls `$request->string('email')` before validation runs. All three implementations share this bug."
+   ],
+   "antipatterns": [
+    "bootstrap/app.php:17-19: the `redirectGuestsTo` closure is correct, but `A || !B ? null : route()` relies on operator precedence and is hard to read. `$request->is('api/*') ? null : route('login')` would be clearer.",
+    "routes/api.php:13: keeps the base `/user` route and moves it into the group. It returns the whole serialized model, which duplicates `/me`."
+   ],
+   "strengths": [
+    "The only implementation that returns JSON 401 for unauthenticated GET /api/me and DELETE /api/auth/token without an Accept header (configured `redirectGuestsTo` in bootstrap/app.php). The other two return 500 'Route [login] not defined'.",
+    "A named rate limiter keyed by lowercased email plus IP, applied with `throttle:token-login` middleware. Validation errors and wrong credentials both count as attempts.",
+    "A FormRequest whose values are read through `validated()`. Invokable MeController uses `only()`.",
+    "Thorough Pest tests using describe blocks and datasets. They cover exact JSON, the window resetting after `travel(61)`, separate limits per IP and per email, case-insensitive email throttling, revocation of only the current token, guests with and without an Accept header, and invalid tokens.",
+    "RefreshDatabase enabled globally in Pest.php."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 7,
+    "modern_laravel": 7,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.4,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "GET /api/me and DELETE /api/auth/token from an unauthenticated client without an `Accept: application/json` header return 500 'Route [login] not defined' instead of 401. Mobile HTTP clients often omit that header.",
+    "An `email` sent as an array returns 500 'Array to string conversion' from the throttle key callback (AppServiceProvider.php:25-27). All three implementations share this bug."
+   ],
+   "antipatterns": [
+    "AuthTokenController.php:16,18,22: passes `$request->string(...)` Stringable objects into the query binding, `Hash::check` and `createToken(string)`. This relies on implicit coercion and ignores the FormRequest's `validated()` data.",
+    "routes/api.php:13: the `/me` route is an inline closure. It works, but it is inconsistent with the controller used for the other endpoints.",
+    "tests/Feature/TokenAuthTest.php:9: `uses(RefreshDatabase::class)` is applied per file instead of being enabled in Pest.php.",
+    "tests/Feature/TokenAuthTest.php:51: `assertJsonValidationErrors([$field])` only checks that the key exists, not the message."
+   ],
+   "strengths": [
+    "Very compact. A single AuthTokenController handles both issuing and revoking, and returns 201 and 204 correctly.",
+    "The rate limiter key uses `mb_strtolower(email)` plus IP.",
+    "Tests cover separate limits per IP and per email, case-insensitive throttling (mixed case across attempts) and revocation of only the current token."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "GET /api/me and DELETE /api/auth/token from an unauthenticated client without an `Accept: application/json` header return 500 'Route [login] not defined' instead of 401.",
+    "An `email` sent as an array returns 500 'Array to string conversion' from the throttle key callback (AppServiceProvider.php:26-27). All three implementations share this bug."
+   ],
+   "antipatterns": [
+    "StoreTokenRequest.php:15: the `email` rule has no `email` format check. A malformed email reaches a database lookup instead of getting a 422.",
+    "tests/Feature/TokenAuthTest.php:93-95,103-105,115-117: the setup loops for the rate-limit tests do not assert the responses, so they would not catch a limiter that was off by one or misconfigured.",
+    "tests/Feature/TokenAuthTest.php:81-86: the case-insensitivity test only varies case on the sixth request, not across the counted attempts.",
+    "routes/api.php: leaves the base `/user` route unchanged next to the new `/me` route."
+   ],
+   "strengths": [
+    "The same clean structure as impl-1: FormRequest values read through `validated()`, an invokable MeController using `only()`, and a named rate limiter applied with throttle middleware.",
+    "Tests check the exact validation messages and the window resetting after `travel()`. The revocation test confirms the other token still authenticates.",
+    "RefreshDatabase enabled in Pest.php."
+   ]
+  },
+  "rationale": "All three use the same core design: a FormRequest, a named RateLimiter keyed on lowercased email plus IP and applied with throttle middleware, `createToken()->plainTextToken` with 201, `currentAccessToken()->delete()` with 204, and `/me` built with `only()`. All tests pass. The probes found one deciding difference. impl-1 configured `redirectGuestsTo` so that unauthenticated API requests without an Accept header get JSON 401. impl-2 and impl-3 return 500 'Route [login] not defined' for those requests, which breaks the 'correct status codes for every client' requirement. All three return 500 when `email` is sent as an array, because the rate-limiter key reads the email before validation. impl-1 also has the most complete tests (window reset, guests with and without an Accept header, invalid token). impl-3 ranks above impl-2 because it reads input through `validated()` and has stronger tests (exact messages, time travel). impl-2 passes Stringable objects into the query, Hash and createToken, and adds RefreshDatabase in each file. impl-3 loses some credit for dropping the email format rule and for leaving the rate-limit setup loops unasserted."
+ },
+ "cost_usd": 0.4107856
+}

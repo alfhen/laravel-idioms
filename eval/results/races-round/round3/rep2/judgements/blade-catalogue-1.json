@@ -1,0 +1,79 @@
+{
+ "key": "blade-catalogue",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Bad filter values on the GET catalogue (IndexProductRequest) trigger a validation redirect back. The previous URL is stored even on the redirect response, so two bad filter URLs in a row redirect to each other. A probe using followingRedirects ran out of memory in a redirect loop. A stale category slug in a shared link can do the same through the Referer header. impl-2 has the same issue."
+   ],
+   "antipatterns": [
+    "resources/views/products/index.blade.php:20 builds the sort options with collect($sorts)->mapWithKeys(...) inside the view. This mapping belongs in the controller or the enum.",
+    "resources/views/products/show.blade.php:10 calls trans_choice with two identical plural forms. It adds nothing.",
+    "app/Http/Requests/IndexProductRequest.php: invalid GET filters are rejected with a redirect when they could just be ignored or fall back to defaults (see the redirect loop above).",
+    "resources/views/pagination/catalogue.blade.php: a full custom pagination view is extra code where a built-in one with a few CSS rules would do. Acceptable because there is no asset build."
+   ],
+   "strengths": [
+    "The form.input, form.select, form.textarea, form.checkbox and form.error components use @props and $attributes->class()->merge(). The same form.select component is reused for the public category and sort filters.",
+    "x-flash uses the @session directive. Messages are wrapped in __() throughout.",
+    "Uses Gate::define('admin') with can:admin middleware and @can in the layout. It is simple and does the job.",
+    "Model uses #[Scope] attribute scopes (active, search, inCategory, sortedBy), a formatted_price Attribute accessor, and a related() method with whereBelongsTo and whereKeyNot. Related products are eager-loaded with category, and lazy loading is avoided under shouldBeStrict.",
+    "The LIKE search escapes wildcards with '!', which is portable across SQLite, MySQL and Postgres. Ordering has a stable id tie-break.",
+    "withQueryString() keeps filters across pages. Slug is generated from the name in prepareForValidation. Uniqueness uses Rule::unique()->ignore() with the route model.",
+    "Pest tests use datasets for sorts, validation, invalid filters and access control. They also cover old input, inline errors, flash messages and the no-compiled-assets check."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 9,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Models/Product.php:58-59 uses whereRaw(\"... like ? escape '\\\\'\"), which produces the SQL escape '\\'. MySQL's default sql_mode treats the backslash inside a string literal as an escape character, so the literal is unterminated and every search fails with a syntax error. It works on SQLite only.",
+    "Bad filter values on the GET catalogue trigger a validation redirect back that can loop between invalid URLs, confirmed with a probe. impl-1 has the same issue."
+   ],
+   "antipatterns": [
+    "app/Policies/ProductPolicy.php: create, update and delete are declared but never called. Only viewAny is used, as route-group middleware. A gate or a single ability would be enough.",
+    "resources/views/products/index.blade.php:9-25 writes the category and sort selects by hand instead of reusing the form.select component. Lines 29-31 dump all errors in one list instead of showing them next to each filter field.",
+    "resources/views/components/layouts/app.blade.php:59-61 uses @if (session('status')) {{ session('status') }} instead of the @session directive.",
+    "app/Enums/ProductSort.php:22-31 puts query-building logic (apply(Builder)) in the enum, so it is coupled to Eloquent. A model scope would be the more usual place.",
+    "app/Models/Product.php:40 makes formattedPrice() a plain method instead of an Attribute accessor. That is a small idiom miss.",
+    "app/Providers/AppServiceProvider.php:25 uses Paginator::useBootstrapFour() without Bootstrap, so it depends on hand-written CSS that mimics Bootstrap's class names.",
+    "resources/views/admin/products/index.blade.php:32 wraps links() in @if ($products->hasPages()), which is redundant because the paginator view already checks this."
+   ],
+   "strengths": [
+    "A shared x-form.field wrapper component with a slot holds the label and @error, and the input, select and textarea components compose it.",
+    "Uses #[Scope] attribute scopes, including a relatedTo scope with whereBelongsTo and whereKeyNot. withQueryString() is used, and safe()->only() supplies the filter values.",
+    "The migration uses restrictOnDelete and composite indexes on (is_active, created_at) and (is_active, price).",
+    "The tests are strong. They use describe blocks and followingRedirects() to check inline errors and old input in the rendered HTML, and assert that the filter values stay selected and that empty filters are ignored. Pagination links are checked for the exact query string."
+   ]
+  },
+  "rationale": "Both implementations are close in structure: the same Form Requests, #[Scope] model scopes, enum-based sort, resource controller with to_route()->with(), shared product-form component, and inline-CSS layout. Both test suites pass (45 tests for impl-1, 44 for impl-2). My probes found the same behaviour in both: an unchecked checkbox stays unchecked after a failed submit, LIKE wildcards are escaped correctly on SQLite, and invalid GET filters can redirect in a loop.\n\nimpl-1 ranks first because:\n- Its Blade use is more idiomatic. The form.select component is reused for the public filters, errors use a dedicated form.error component, flash messages use @session, and strings go through __().\n- Its authorization is simpler: one Gate with can:admin. impl-2 has a policy where three of the four methods are never used.\n- Its search escaping is portable across databases. impl-2's escape '\\' would break every search on MySQL.\n\nimpl-2's tests are a little more thorough (rendered old input via followingRedirects, selected filter values, empty filters). That does not outweigh its latent MySQL bug, the error list that isn't shown next to each filter field, and the extra policy code."
+ },
+ "cost_usd": 0.7235772
+}

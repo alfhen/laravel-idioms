@@ -1,0 +1,75 @@
+{
+ "key": "shipment-sync",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Non-retryable 4xx codes other than 422 and 429 (for example 401 or 404) are thrown and retried up to MaxExceptions(6), which hits the partner several more times for errors that won't go away (minor). Probe confirmed."
+   ],
+   "antipatterns": [
+    "app/Jobs/SendOrderToWarehouse.php:142-148: hand-rolled claim/rollback of shipment_notified_at around a synchronous Mail::send, plus an extra column the task didn't ask for. It is correct, but it's ceremony compared with sending a queued mailable.",
+    "app/Jobs/SendOrderToWarehouse.php:112: FQCN \\UnexpectedValueException inline instead of a use import.",
+    "app/Models/Order.php:15: #[Fillable] includes the shipment_* system fields, so those columns can be mass-assigned from user input.",
+    "app/Jobs/SendOrderToWarehouse.php:97: the raw JSON body is stored as the reason (`{\"message\":\"Bad zip\"}`) rather than the message being pulled out of it."
+   ],
+   "strengths": [
+    "The job re-fetches the order with fresh() (no scopes applied) and checks trashed, paid status and an already-failed status, so cancelled or unpaid orders are never shipped. A probe that serialised the job and soft-deleted the order before handle() confirmed this.",
+    "Atomic conditional UPDATE inside DB::transaction plus dispatch()->afterCommit() means only one job is queued, and the test for that uses a stale second model instance.",
+    "Throttling is account-wide: RateLimiter::for('warehouse') at 5 per second, the RateLimited middleware, a per-order WithoutOverlapping lock, and retryUntil, which allows for the fact that releases count as attempts.",
+    "On 429 the job is released for the Retry-After value, capped at 120 seconds with a 30-second default. 5xx and timeouts throw into backoff, and it sends an Idempotency-Key header and sets connect/request timeouts.",
+    "failed() only marks Failed when no shipment_reference exists, so a shipment that was created is never shown as failed. If the email fails, a retry sends only the email and doesn't re-POST, so the customer still gets exactly one message.",
+    "Uses the modern queue attributes (#[Backoff], #[DeleteWhenMissingModels], #[MaxExceptions], #[Timeout]) and the Eloquent #[Fillable] attribute, all checked to exist in Laravel 13.40.",
+    "Thorough Pest suite (23 tests) covering 422, 429 with Retry-After variants, 5xx, connection failure, failed() edge cases, the rate limiter actually holding back the sixth and seventh jobs, and mail rendering. Http::preventStrayRequests and Sleep::fake are set globally."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 9
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "failed() (app/Jobs/SendOrderToWarehouse.php:78-84) unconditionally sets shipment_status=failed even after a shipment_reference exists. Probe: when failed() runs on a sent order, the result is status 'failed' with reference SHP-1, which tells ops a created shipment failed and could lead to a manual re-ship.",
+    "If Mail::send (queueing the ShouldQueue mailable) throws after the shipment is saved, the retry returns early on `shipment_reference !== null` (line 47) and the customer never gets the email. The 'exactly once' guarantee is really 'at most once'.",
+    "handle() never checks that status is paid, so a job run against a pending order POSTs a shipment. A probe confirmed the request was sent. This is minor because only markAsPaid dispatches the job.",
+    "There is no DeleteWhenMissingModels, so a force-deleted order makes the job fail during deserialisation, and failed() cannot record anything useful."
+   ],
+   "antipatterns": [
+    "app/Jobs/SendOrderToWarehouse.php:47: relies on the model state captured when the job was deserialised, before the WithoutOverlapping lock is taken, instead of re-reading the order after the lock is held.",
+    "app/Jobs/SendOrderToWarehouse.php:54: `min((int) $response->header('Retry-After') ?: 30, 120)` is dense precedence-dependent inline logic.",
+    "app/Jobs/SendOrderToWarehouse.php:103: chained `?? ... ?:` relies on operator precedence that readers have to work out.",
+    "app/Jobs/SendOrderToWarehouse.php:40: \\DateTimeInterface uses an inline FQCN.",
+    ".env.example not updated with the WAREHOUSE_* variables."
+   ],
+   "strengths": [
+    "Lean, readable job: 422 goes through $this->fail(new InvalidShippingAddress(...)), so failed() is the single place that records the reason, and the reason is extracted from the JSON message.",
+    "The queued ShipmentCreated mailable (ShouldQueue, markdown) keeps the job fast, and the job keeps the same rate-limit, WithoutOverlapping, retryUntil, Backoff and MaxExceptions setup with an Idempotency-Key header and timeouts.",
+    "Fillable excludes the shipment_* fields and uses forceFill for system updates. The atomic conditional update in markAsPaid plus afterCommit dispatch matches the other implementation.",
+    "Tests use the modern withFakeQueueInteractions()/assertReleased/assertFailedWith helpers, include an end-to-end markAsPaid run through the sync queue, and expect() higher-order property chains."
+   ]
+  },
+  "rationale": "Both implementations share the same core design: atomic pending\u2192paid UPDATE with afterCommit dispatch, a 5/s account-wide RateLimiter, WithoutOverlapping, retryUntil, Retry-After handling on 429, Idempotency-Key, timeouts, and modern queue attributes. impl-1 is more robust where it counts. It re-reads the order with fresh() and checks trashed, paid and already-failed status. Its failed() won't mark a created shipment as failed. Its email-claim column means a retry after a mail failure sends only the email, so the customer gets exactly one. It also has the broader test suite, including a real rate-limit hold-back test. impl-2 is simpler and has nicer touches: a queued markdown mailable, fail() with a domain exception for 422, and the fake-queue-interaction test helpers. But probes showed that its failed() marks a sent shipment as failed, a mail-dispatch failure loses the email for good, and unpaid orders can be POSTed. impl-1's extra ceremony (the notified_at claim/rollback) costs some simplicity, but impl-2's correctness gaps on the task's explicit 'exactly once' and 'ops see failed' requirements decide the ranking."
+ },
+ "cost_usd": 0.5286366
+}

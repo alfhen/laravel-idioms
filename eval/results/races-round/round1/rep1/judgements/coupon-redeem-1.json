@@ -1,0 +1,101 @@
+{
+ "key": "coupon-redeem",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 9,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Models/Coupon.php:35,41,48 redeemFor() quietly sets $this->redeemed_count from the locked copy so the controller can read it. Returning a small result object would make that state handoff visible.",
+    "app/Models/Coupon.php:28 returns null to mean 'used up', and callers must check wasRecentlyCreated to tell 201 from 200. Signalling outcomes through a nullable return plus a model flag is easy to misuse; a domain exception would be clearer.",
+    "app/Http/Controllers/RedeemCouponController.php:16 builds the 409 response inline rather than letting a renderable exception produce it (minor)."
+   ],
+   "strengths": [
+    "SELECT ... FOR UPDATE on the coupon row runs the per-user check, cap check, insert and increment one at a time. That holds across several app servers on MySQL, and because the parent row's X lock is taken first, the FK S-lock deadlock cannot happen.",
+    "A unique (coupon_id, user_id) index backs up the per-user once rule.",
+    "The event is dispatched after the transaction commits and only when wasRecentlyCreated is true. A probe confirmed the dispatch happens outside the transaction, and that a listener failure leaves the redemption in place.",
+    "Implicit {coupon:code} route binding gives the 404. The controller is a thin invokable; the model uses the #[Fillable] attribute, whereBelongsTo, and a factory exhausted() state.",
+    "Tests cover guest, 404, 201 + event payload, idempotent 200 with no new event, 409 without side effects, an existing redeemer on a used-up coupon, the cap across many users, and the DB unique index."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 6,
+    "tests": 9,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "Deadlock on MySQL/InnoDB when different users redeem the same coupon at the same moment. Each transaction inserts a coupon_redemptions row first, and the coupon_id FK check takes a shared lock on the parent coupons row. Each then runs UPDATE coupons ... increment, which needs an exclusive lock on that row, so two concurrent transactions wait on each other. InnoDB kills one (1213). DB::transaction defaults to 1 attempt, so that request returns a 500 in exactly the high-concurrency case the task describes (app/Models/Coupon.php:33-42). The cap and per-user rule still hold, but the request fails instead of returning 201/409."
+   ],
+   "antipatterns": [
+    "app/Models/Coupon.php:33 DB::transaction() has no retry attempts, even though the design is optimistic and contention-prone.",
+    "app/Http/Controllers/Api/RedeemCouponController.php:18 $coupon->refresh() costs an extra query after commit, and the count it returns can include other users' redemptions made after this one (probe confirmed; arguably acceptable).",
+    "database/migrations/2026_11_07_200000_create_coupons_table.php creates two tables in one migration (minor)."
+   ],
+   "strengths": [
+    "Uses createOrFirst, which wraps the insert in a savepoint, plus a guarded conditional UPDATE (whereColumn redeemed_count < max_redemptions) to enforce the per-user rule and the cap without explicit locks. The idea is elegant and modern.",
+    "CouponExhausted is a renderable exception that returns the 409 cleanly, and the controller is a 3-line invokable.",
+    "The event is dispatched after commit, only for wasRecentlyCreated.",
+    "Strongest test suite: it uses Coupon::retrieved hooks to simulate 'the last slot was taken between check and write' and a 'concurrent double submit', and it covers the plain (non-JSON) 401 and the unique index."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 6,
+    "thin_controllers": 4,
+    "validation_form_requests": 6,
+    "eloquent_idioms": 6,
+    "architecture_fit": 6,
+    "modern_laravel": 6,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Controllers/Api/CouponRedemptionController.php:21-53 puts all of the transaction, locking, business rules and event dispatch in the controller instead of the model or an action.",
+    "app/Http/Controllers/Api/CouponRedemptionController.php:22-26 looks the coupon up by hand and calls abort(404) instead of using {coupon:code} route model binding (needed for the locked read, but the lookup could be bound and then re-locked).",
+    "app/Http/Controllers/Api/CouponRedemptionController.php:31,41,44 returns a positional tuple [$redemption, $coupon, $created] from the transaction instead of relying on wasRecentlyCreated or a value object.",
+    "app/Http/Controllers/Api/CouponRedemptionController.php:35 calls abort(409) inside the transaction closure, using an HTTP exception to signal a domain outcome.",
+    "app/Models/Coupon.php:15 uses a legacy $fillable property instead of the #[Fillable] attribute, and makes redeemed_count mass-assignable.",
+    "tests/Feature/CouponRedemptionTest.php:113 uses an inline FQCN instead of an import; tests use assertStatus(409) instead of assertConflict()."
+   ],
+   "strengths": [
+    "Its concurrency strategy is correct: lockForUpdate on the coupon row covers the existence check, cap check, insert and increment, so there is no FK deadlock and the cap holds across servers.",
+    "A unique (coupon_id, user_id) index enforces the per-user rule in the database.",
+    "The event is dispatched after commit and only when the redemption was created (probe verified).",
+    "Tests cover the main status codes, idempotency, no repeated event, the cap across users, and the unique index."
+   ]
+  },
+  "rationale": "I ranked impl-1 first, impl-3 second and impl-2 third.\n\nAll three pass their own suites (impl-1: 11 tests, impl-2: 12, impl-3: 10). I also ran six throwaway probes against each one, then deleted them: max_redemptions=0 returns 409, the event fires after commit, a listener failure keeps the redemption, a repeat request reflects other users' redemptions in the count, an existing redeemer on a used-up coupon gets 200, and a non-JSON request to an unknown code gets 404. All three passed every probe. The suites run on SQLite, so the MySQL behaviour below comes from reading the code, not from a test.\n\n**impl-1 (rank 1).** It locks the coupon row first, then checks the per-user rule and the cap, inserts and increments. That runs correctly one at a time on MySQL across several servers, with no deadlock risk. It uses idiomatic route binding, a thin invokable controller, the logic in a model method, #[Fillable], whereBelongsTo, and dispatches the event after commit. Its only weaknesses are small API-shape issues: a nullable return value and quietly updating its own redeemed_count.\n\n**impl-2 (rank 3).** It is the most idiomatic and best tested: createOrFirst, a guarded conditional increment, a renderable exception, and tests that simulate races with retrieved hooks. But on MySQL it inserts the child row first, and the FK check takes a shared lock on the coupon row. It then updates that same coupon row, so two different users racing on one coupon can deadlock. With a single transaction attempt, one of them gets a 500. That is the exact concurrency scenario the task describes, so I weighted it heavily even though the cap and per-user rule still hold.\n\n**impl-3 (rank 2).** It uses the same correct locking strategy as impl-1, but all the logic sits in a fat controller. It also looks the coupon up by hand instead of using route binding, returns a tuple from the transaction, calls abort() inside it, uses a legacy $fillable that includes redeemed_count, and has slightly weaker tests. It is correct but less idiomatic, so it ranks above impl-2 because of that bug and below impl-1."
+ },
+ "cost_usd": 0.5155746
+}

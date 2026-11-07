@@ -1,0 +1,108 @@
+{
+ "key": "ship-order",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Non-JSON guest POST to /api/orders/{id}/ship returns 500 (Route [login] not defined): shouldRenderJsonWhen in bootstrap/app.php doesn't stop the Authenticate middleware redirect",
+    "app/Policies/OrderPolicy.php:11 returns $user->is_staff from a bool method; on a user instance without the attribute loaded (e.g. freshly factory-created in tests) it throws TypeError -> 500 instead of 403"
+   ],
+   "antipatterns": [
+    "tests/Feature/ShipOrderTest.php:37 str_contains($mail->render(), ...) instead of $mail->assertSeeInHtml()",
+    "app/Models/Order.php:43 comment restates what the code does ('Atomic claim')",
+    "app/Models/Order.php:51 forceFill()->syncOriginal() syncs all attributes when only status changed"
+   ],
+   "strengths": [
+    "Atomic conditional UPDATE claim (whereKey + status != shipped) gives race-free 409 without relying on row locks",
+    "Domain exception OrderAlreadyShipped rendered to 409 centrally via $exceptions->render in bootstrap/app.php; model stays HTTP-agnostic",
+    "Points and shipment inside the transaction, mail via DB::afterCommit, so outer rollback leaves no side effects",
+    "Route uses fluent ->can('ship', 'order') with a policy; invokable controller is lean",
+    "user_id kept out of #[Fillable]; migration default uses the enum value",
+    "Best tests: datasets for rounding and validation, 404, guests, existing-shipment 409, outer rollback/commit, and rollback when the unique shipment insert fails"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Policies/OrderPolicy.php:12 returns $user->is_staff from a bool method; a user instance without the attribute loaded throws TypeError -> 500 instead of 403"
+   ],
+   "antipatterns": [
+    "app/Exceptions/OrderAlreadyShipped.php:7 extends ConflictHttpException, which puts an HTTP status inside the domain model; back-office callers of Order::ship() get an HTTP exception",
+    "tests/Feature/ShipOrderTest.php:126 calls DB::rollBack() manually inside a DB::transaction closure, which is an unusual way to test rollback",
+    "tests/Feature/ShipOrderTest.php:14 Http::preventStrayRequests() is unrelated noise",
+    "routes/api.php:12 string middleware 'can:ship,order' rather than fluent ->can()",
+    "app/Policies/OrderPolicy.php:10 unused $order parameter"
+   ],
+   "strengths": [
+    "Atomic conditional UPDATE claim prevents double shipping under concurrency",
+    "Points incremented with a query-level increment inside the transaction; mail deferred with DB::afterCommit",
+    "In-memory model synced with syncOriginalAttribute('status')",
+    "Only implementation that fixes guest redirects for API (redirectGuestsTo returns null for api/*), so non-JSON guests get 401",
+    "Tests are tight Pest style with datasets for rounding, mail rendering via assertSeeInHtml, outer commit and rollback, and 409 for both paths"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 6,
+    "modern_laravel": 7,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 6.8,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "Non-JSON guest POST returns 500 (Route [login] not defined) instead of 401",
+    "app/Models/Order.php:56 sets $this->status without syncing the original, so the caller's model is dirty after ship() (probe: isDirty() true)",
+    "lockForUpdate is a no-op on SQLite; concurrent ships there fail with a busy/unique error rather than a clean 409 (correct on MySQL/Postgres)"
+   ],
+   "antipatterns": [
+    "app/Http/Controllers/OrderShipmentController.php:14-18 try/catch mapping a domain exception to 409 in the controller instead of a central exception render",
+    "app/Http/Requests/ShipOrderRequest.php:9-12 role check in FormRequest::authorize rather than an OrderPolicy and route ->can()",
+    "app/Models/Order.php:50 mutating $this->status in the already-shipped branch before throwing",
+    "tests/Feature/ShipOrderTest.php:13-16 heavy beforeEach shared state; no datasets for rounding or validation; no 404 test"
+   ],
+   "strengths": [
+    "Pessimistic lock with lockForUpdate()->findOrFail and recheck inside the transaction is a valid concurrency guard on real databases",
+    "customer() relationship name expresses the domain (user_id = customer)",
+    "total_cents and points cast to integer; separate migrations per table; unsignedBigInteger for totals",
+    "Mail deferred via DB::afterCommit inside the transaction; outer rollback and commit both tested",
+    "Markdown mailable; test asserts tracking number via assertSeeInHtml"
+   ]
+  },
+  "rationale": "All three put points and the shipment inside a transaction and send the mail with DB::afterCommit, so outer rollbacks leave no side effects and all pass their suites. impl-1 and impl-2 use the same atomic conditional-UPDATE claim. impl-1 ranks first because it keeps the domain exception HTTP-agnostic and renders the 409 centrally, uses fluent ->can() with a policy, guards user_id against mass assignment, and has the broadest tests (rounding datasets, validation messages, rollback on a failed shipment insert). Its probe flaws are minor: 500 for a non-JSON guest, and a policy TypeError on a user without is_staff loaded. impl-2 is nearly as good and is the only one that handles non-JSON guests correctly. It loses ground because its exception extends ConflictHttpException, putting HTTP inside the model that back-office code calls, and because of an odd manual DB::rollBack in its test; it shares the policy null-bool issue. impl-3 ranks third: its lockForUpdate approach is valid on real databases, but it catches the 409 in the controller, checks staff in FormRequest::authorize instead of a policy, leaves the caller's model dirty after ship(), returns 500 for non-JSON guests, and has thinner tests."
+ },
+ "cost_usd": 0.7209891999999998
+}

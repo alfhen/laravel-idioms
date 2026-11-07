@@ -1,0 +1,2621 @@
+{
+ "carrier-quote-draft-1": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 1,
+  "task": "carrier-quote",
+  "tests": {
+   "A carrier that does not answer gets the fallback": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "It returns the carriers rates": true,
+   "Transient errors are retried": true
+  }
+ },
+ "carrier-quote-draft-2": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 2,
+  "task": "carrier-quote",
+  "tests": {
+   "A carrier that does not answer gets the fallback": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "It returns the carriers rates": true,
+   "Transient errors are retried": true
+  }
+ },
+ "carrier-quote-draft-3": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 3,
+  "task": "carrier-quote",
+  "tests": {
+   "A carrier that does not answer gets the fallback": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "It returns the carriers rates": true,
+   "Transient errors are retried": true
+  }
+ },
+ "carrier-quote-mid-1": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 1,
+  "task": "carrier-quote",
+  "tests": {
+   "A carrier that does not answer gets the fallback": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "It returns the carriers rates": true,
+   "Transient errors are retried": true
+  }
+ },
+ "carrier-quote-mid-2": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 2,
+  "task": "carrier-quote",
+  "tests": {
+   "A carrier that does not answer gets the fallback": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "It returns the carriers rates": true,
+   "Transient errors are retried": true
+  }
+ },
+ "carrier-quote-mid-3": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 3,
+  "task": "carrier-quote",
+  "tests": {
+   "A carrier that does not answer gets the fallback": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "It returns the carriers rates": true,
+   "Transient errors are retried": true
+  }
+ },
+ "carrier-quote-plain-1": {
+  "arm": "plain",
+  "exit_code": 0,
+  "run": 1,
+  "task": "carrier-quote",
+  "tests": {
+   "A carrier that does not answer gets the fallback": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "It returns the carriers rates": true,
+   "Transient errors are retried": true
+  }
+ },
+ "carrier-quote-prev-1": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 1,
+  "task": "carrier-quote",
+  "tests": {
+   "A carrier that does not answer gets the fallback": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "It returns the carriers rates": true,
+   "Transient errors are retried": true
+  }
+ },
+ "carrier-quote-prev-2": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 2,
+  "task": "carrier-quote",
+  "tests": {
+   "A carrier that does not answer gets the fallback": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "It returns the carriers rates": true,
+   "Transient errors are retried": true
+  }
+ },
+ "carrier-quote-prev-3": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 3,
+  "task": "carrier-quote",
+  "tests": {
+   "A carrier that does not answer gets the fallback": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "It returns the carriers rates": true,
+   "Transient errors are retried": true
+  }
+ },
+ "carrier-quote-skill-1": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 1,
+  "task": "carrier-quote",
+  "tests": {
+   "A carrier that does not answer gets the fallback": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "It returns the carriers rates": true,
+   "Transient errors are retried": true
+  }
+ },
+ "carrier-quote-skill-2": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 2,
+  "task": "carrier-quote",
+  "tests": {
+   "A carrier that does not answer gets the fallback": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "It returns the carriers rates": true,
+   "Transient errors are retried": true
+  }
+ },
+ "carrier-quote-skill-3": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 3,
+  "task": "carrier-quote",
+  "tests": {
+   "A carrier that does not answer gets the fallback": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "It returns the carriers rates": true,
+   "Transient errors are retried": true
+  }
+ },
+ "coupon-redeem-draft-1": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 1,
+  "task": "coupon-redeem",
+  "tests": {
+   "test_a_double_submit_that_lands_mid_request_returns_the_existing_redemption": true,
+   "test_a_used_up_coupon_returns_409_and_stays_at_its_cap": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_redeeming_twice_returns_the_same_redemption_and_dispatches_once": true,
+   "test_the_cap_holds_when_another_server_redeems_the_last_one_mid_request": true,
+   "test_the_database_rejects_a_second_redemption_by_the_same_user": true
+  }
+ },
+ "coupon-redeem-draft-2": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 2,
+  "task": "coupon-redeem",
+  "tests": {
+   "test_a_double_submit_that_lands_mid_request_returns_the_existing_redemption": true,
+   "test_a_used_up_coupon_returns_409_and_stays_at_its_cap": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_redeeming_twice_returns_the_same_redemption_and_dispatches_once": true,
+   "test_the_cap_holds_when_another_server_redeems_the_last_one_mid_request": true,
+   "test_the_database_rejects_a_second_redemption_by_the_same_user": true
+  }
+ },
+ "coupon-redeem-draft-3": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 3,
+  "task": "coupon-redeem",
+  "tests": {
+   "test_a_double_submit_that_lands_mid_request_returns_the_existing_redemption": true,
+   "test_a_used_up_coupon_returns_409_and_stays_at_its_cap": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_redeeming_twice_returns_the_same_redemption_and_dispatches_once": true,
+   "test_the_cap_holds_when_another_server_redeems_the_last_one_mid_request": true,
+   "test_the_database_rejects_a_second_redemption_by_the_same_user": true
+  }
+ },
+ "coupon-redeem-mid-1": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 1,
+  "task": "coupon-redeem",
+  "tests": {
+   "test_a_double_submit_that_lands_mid_request_returns_the_existing_redemption": true,
+   "test_a_used_up_coupon_returns_409_and_stays_at_its_cap": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_redeeming_twice_returns_the_same_redemption_and_dispatches_once": true,
+   "test_the_cap_holds_when_another_server_redeems_the_last_one_mid_request": true,
+   "test_the_database_rejects_a_second_redemption_by_the_same_user": true
+  }
+ },
+ "coupon-redeem-mid-2": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 2,
+  "task": "coupon-redeem",
+  "tests": {
+   "test_a_double_submit_that_lands_mid_request_returns_the_existing_redemption": true,
+   "test_a_used_up_coupon_returns_409_and_stays_at_its_cap": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_redeeming_twice_returns_the_same_redemption_and_dispatches_once": true,
+   "test_the_cap_holds_when_another_server_redeems_the_last_one_mid_request": true,
+   "test_the_database_rejects_a_second_redemption_by_the_same_user": true
+  }
+ },
+ "coupon-redeem-mid-3": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 3,
+  "task": "coupon-redeem",
+  "tests": {
+   "test_a_double_submit_that_lands_mid_request_returns_the_existing_redemption": true,
+   "test_a_used_up_coupon_returns_409_and_stays_at_its_cap": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_redeeming_twice_returns_the_same_redemption_and_dispatches_once": true,
+   "test_the_cap_holds_when_another_server_redeems_the_last_one_mid_request": true,
+   "test_the_database_rejects_a_second_redemption_by_the_same_user": true
+  }
+ },
+ "coupon-redeem-plain-1": {
+  "arm": "plain",
+  "exit_code": 1,
+  "run": 1,
+  "task": "coupon-redeem",
+  "tests": {
+   "test_a_double_submit_that_lands_mid_request_returns_the_existing_redemption": true,
+   "test_a_used_up_coupon_returns_409_and_stays_at_its_cap": true,
+   "test_guest_without_accept_header_gets_json_401": false,
+   "test_redeeming_twice_returns_the_same_redemption_and_dispatches_once": true,
+   "test_the_cap_holds_when_another_server_redeems_the_last_one_mid_request": true,
+   "test_the_database_rejects_a_second_redemption_by_the_same_user": true
+  }
+ },
+ "coupon-redeem-prev-1": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 1,
+  "task": "coupon-redeem",
+  "tests": {
+   "test_a_double_submit_that_lands_mid_request_returns_the_existing_redemption": true,
+   "test_a_used_up_coupon_returns_409_and_stays_at_its_cap": true,
+   "test_guest_without_accept_header_gets_json_401": false,
+   "test_redeeming_twice_returns_the_same_redemption_and_dispatches_once": true,
+   "test_the_cap_holds_when_another_server_redeems_the_last_one_mid_request": true,
+   "test_the_database_rejects_a_second_redemption_by_the_same_user": true
+  }
+ },
+ "coupon-redeem-prev-2": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 2,
+  "task": "coupon-redeem",
+  "tests": {
+   "test_a_double_submit_that_lands_mid_request_returns_the_existing_redemption": true,
+   "test_a_used_up_coupon_returns_409_and_stays_at_its_cap": true,
+   "test_guest_without_accept_header_gets_json_401": false,
+   "test_redeeming_twice_returns_the_same_redemption_and_dispatches_once": true,
+   "test_the_cap_holds_when_another_server_redeems_the_last_one_mid_request": true,
+   "test_the_database_rejects_a_second_redemption_by_the_same_user": true
+  }
+ },
+ "coupon-redeem-prev-3": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 3,
+  "task": "coupon-redeem",
+  "tests": {
+   "test_a_double_submit_that_lands_mid_request_returns_the_existing_redemption": true,
+   "test_a_used_up_coupon_returns_409_and_stays_at_its_cap": true,
+   "test_guest_without_accept_header_gets_json_401": false,
+   "test_redeeming_twice_returns_the_same_redemption_and_dispatches_once": true,
+   "test_the_cap_holds_when_another_server_redeems_the_last_one_mid_request": true,
+   "test_the_database_rejects_a_second_redemption_by_the_same_user": true
+  }
+ },
+ "coupon-redeem-skill-1": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 1,
+  "task": "coupon-redeem",
+  "tests": {
+   "test_a_double_submit_that_lands_mid_request_returns_the_existing_redemption": true,
+   "test_a_used_up_coupon_returns_409_and_stays_at_its_cap": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_redeeming_twice_returns_the_same_redemption_and_dispatches_once": true,
+   "test_the_cap_holds_when_another_server_redeems_the_last_one_mid_request": true,
+   "test_the_database_rejects_a_second_redemption_by_the_same_user": true
+  }
+ },
+ "coupon-redeem-skill-2": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 2,
+  "task": "coupon-redeem",
+  "tests": {
+   "test_a_double_submit_that_lands_mid_request_returns_the_existing_redemption": true,
+   "test_a_used_up_coupon_returns_409_and_stays_at_its_cap": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_redeeming_twice_returns_the_same_redemption_and_dispatches_once": true,
+   "test_the_cap_holds_when_another_server_redeems_the_last_one_mid_request": true,
+   "test_the_database_rejects_a_second_redemption_by_the_same_user": true
+  }
+ },
+ "coupon-redeem-skill-3": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 3,
+  "task": "coupon-redeem",
+  "tests": {
+   "test_a_double_submit_that_lands_mid_request_returns_the_existing_redemption": true,
+   "test_a_used_up_coupon_returns_409_and_stays_at_its_cap": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_redeeming_twice_returns_the_same_redemption_and_dispatches_once": true,
+   "test_the_cap_holds_when_another_server_redeems_the_last_one_mid_request": true,
+   "test_the_database_rejects_a_second_redemption_by_the_same_user": true
+  }
+ },
+ "document-vault-draft-1": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 1,
+  "task": "document-vault",
+  "tests": {
+   "test_a_file_over_5_mb_is_rejected": true,
+   "test_a_file_that_only_claims_to_be_an_image_is_rejected": true,
+   "test_a_link_to_a_missing_file_answers_404": true,
+   "test_a_tampered_link_is_refused": true,
+   "test_an_upload_is_stored_privately_under_a_generated_name": true,
+   "test_another_user_cannot_get_a_link": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_the_link_downloads_the_file_without_logging_in": true,
+   "test_the_link_stops_working_after_10_minutes": true
+  }
+ },
+ "document-vault-draft-2": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 2,
+  "task": "document-vault",
+  "tests": {
+   "test_a_file_over_5_mb_is_rejected": true,
+   "test_a_file_that_only_claims_to_be_an_image_is_rejected": true,
+   "test_a_link_to_a_missing_file_answers_404": true,
+   "test_a_tampered_link_is_refused": true,
+   "test_an_upload_is_stored_privately_under_a_generated_name": true,
+   "test_another_user_cannot_get_a_link": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_the_link_downloads_the_file_without_logging_in": true,
+   "test_the_link_stops_working_after_10_minutes": true
+  }
+ },
+ "document-vault-draft-3": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 3,
+  "task": "document-vault",
+  "tests": {
+   "test_a_file_over_5_mb_is_rejected": true,
+   "test_a_file_that_only_claims_to_be_an_image_is_rejected": true,
+   "test_a_link_to_a_missing_file_answers_404": true,
+   "test_a_tampered_link_is_refused": true,
+   "test_an_upload_is_stored_privately_under_a_generated_name": true,
+   "test_another_user_cannot_get_a_link": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_the_link_downloads_the_file_without_logging_in": true,
+   "test_the_link_stops_working_after_10_minutes": true
+  }
+ },
+ "document-vault-mid-1": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 1,
+  "task": "document-vault",
+  "tests": {
+   "test_a_file_over_5_mb_is_rejected": true,
+   "test_a_file_that_only_claims_to_be_an_image_is_rejected": true,
+   "test_a_link_to_a_missing_file_answers_404": true,
+   "test_a_tampered_link_is_refused": true,
+   "test_an_upload_is_stored_privately_under_a_generated_name": true,
+   "test_another_user_cannot_get_a_link": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_the_link_downloads_the_file_without_logging_in": true,
+   "test_the_link_stops_working_after_10_minutes": true
+  }
+ },
+ "document-vault-mid-2": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 2,
+  "task": "document-vault",
+  "tests": {
+   "test_a_file_over_5_mb_is_rejected": true,
+   "test_a_file_that_only_claims_to_be_an_image_is_rejected": true,
+   "test_a_link_to_a_missing_file_answers_404": true,
+   "test_a_tampered_link_is_refused": true,
+   "test_an_upload_is_stored_privately_under_a_generated_name": true,
+   "test_another_user_cannot_get_a_link": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_the_link_downloads_the_file_without_logging_in": true,
+   "test_the_link_stops_working_after_10_minutes": true
+  }
+ },
+ "document-vault-mid-3": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 3,
+  "task": "document-vault",
+  "tests": {
+   "test_a_file_over_5_mb_is_rejected": true,
+   "test_a_file_that_only_claims_to_be_an_image_is_rejected": true,
+   "test_a_link_to_a_missing_file_answers_404": true,
+   "test_a_tampered_link_is_refused": true,
+   "test_an_upload_is_stored_privately_under_a_generated_name": true,
+   "test_another_user_cannot_get_a_link": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_the_link_downloads_the_file_without_logging_in": true,
+   "test_the_link_stops_working_after_10_minutes": true
+  }
+ },
+ "document-vault-plain-1": {
+  "arm": "plain",
+  "exit_code": 1,
+  "run": 1,
+  "task": "document-vault",
+  "tests": {
+   "test_a_file_over_5_mb_is_rejected": true,
+   "test_a_file_that_only_claims_to_be_an_image_is_rejected": true,
+   "test_a_link_to_a_missing_file_answers_404": true,
+   "test_a_tampered_link_is_refused": true,
+   "test_an_upload_is_stored_privately_under_a_generated_name": true,
+   "test_another_user_cannot_get_a_link": true,
+   "test_guest_without_accept_header_gets_json_401": false,
+   "test_the_link_downloads_the_file_without_logging_in": true,
+   "test_the_link_stops_working_after_10_minutes": true
+  }
+ },
+ "document-vault-prev-1": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 1,
+  "task": "document-vault",
+  "tests": {
+   "test_a_file_over_5_mb_is_rejected": true,
+   "test_a_file_that_only_claims_to_be_an_image_is_rejected": true,
+   "test_a_link_to_a_missing_file_answers_404": true,
+   "test_a_tampered_link_is_refused": true,
+   "test_an_upload_is_stored_privately_under_a_generated_name": true,
+   "test_another_user_cannot_get_a_link": true,
+   "test_guest_without_accept_header_gets_json_401": false,
+   "test_the_link_downloads_the_file_without_logging_in": true,
+   "test_the_link_stops_working_after_10_minutes": true
+  }
+ },
+ "document-vault-prev-2": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 2,
+  "task": "document-vault",
+  "tests": {
+   "test_a_file_over_5_mb_is_rejected": true,
+   "test_a_file_that_only_claims_to_be_an_image_is_rejected": true,
+   "test_a_link_to_a_missing_file_answers_404": true,
+   "test_a_tampered_link_is_refused": true,
+   "test_an_upload_is_stored_privately_under_a_generated_name": true,
+   "test_another_user_cannot_get_a_link": true,
+   "test_guest_without_accept_header_gets_json_401": false,
+   "test_the_link_downloads_the_file_without_logging_in": true,
+   "test_the_link_stops_working_after_10_minutes": true
+  }
+ },
+ "document-vault-prev-3": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 3,
+  "task": "document-vault",
+  "tests": {
+   "test_a_file_over_5_mb_is_rejected": true,
+   "test_a_file_that_only_claims_to_be_an_image_is_rejected": true,
+   "test_a_link_to_a_missing_file_answers_404": true,
+   "test_a_tampered_link_is_refused": true,
+   "test_an_upload_is_stored_privately_under_a_generated_name": true,
+   "test_another_user_cannot_get_a_link": true,
+   "test_guest_without_accept_header_gets_json_401": false,
+   "test_the_link_downloads_the_file_without_logging_in": true,
+   "test_the_link_stops_working_after_10_minutes": true
+  }
+ },
+ "document-vault-skill-1": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 1,
+  "task": "document-vault",
+  "tests": {
+   "test_a_file_over_5_mb_is_rejected": true,
+   "test_a_file_that_only_claims_to_be_an_image_is_rejected": true,
+   "test_a_link_to_a_missing_file_answers_404": true,
+   "test_a_tampered_link_is_refused": true,
+   "test_an_upload_is_stored_privately_under_a_generated_name": true,
+   "test_another_user_cannot_get_a_link": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_the_link_downloads_the_file_without_logging_in": true,
+   "test_the_link_stops_working_after_10_minutes": true
+  }
+ },
+ "document-vault-skill-2": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 2,
+  "task": "document-vault",
+  "tests": {
+   "test_a_file_over_5_mb_is_rejected": true,
+   "test_a_file_that_only_claims_to_be_an_image_is_rejected": true,
+   "test_a_link_to_a_missing_file_answers_404": true,
+   "test_a_tampered_link_is_refused": true,
+   "test_an_upload_is_stored_privately_under_a_generated_name": true,
+   "test_another_user_cannot_get_a_link": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_the_link_downloads_the_file_without_logging_in": true,
+   "test_the_link_stops_working_after_10_minutes": true
+  }
+ },
+ "document-vault-skill-3": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 3,
+  "task": "document-vault",
+  "tests": {
+   "test_a_file_over_5_mb_is_rejected": true,
+   "test_a_file_that_only_claims_to_be_an_image_is_rejected": true,
+   "test_a_link_to_a_missing_file_answers_404": true,
+   "test_a_tampered_link_is_refused": true,
+   "test_an_upload_is_stored_privately_under_a_generated_name": true,
+   "test_another_user_cannot_get_a_link": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_the_link_downloads_the_file_without_logging_in": true,
+   "test_the_link_stops_working_after_10_minutes": true
+  }
+ },
+ "export-purge-command-draft-1": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 1,
+  "task": "export-purge-command",
+  "tests": {
+   "test_a_dry_run_deletes_nothing_and_reports_the_count": true,
+   "test_a_file_that_cannot_be_deleted_keeps_its_row_does_not_stop_the_rest_and_fails_the_run": true,
+   "test_in_production_force_deletes_unattended": true,
+   "test_in_production_it_refuses_to_delete_without_confirmation_when_unattended": true,
+   "test_it_is_scheduled_nightly_at_three_on_one_server_and_the_scheduled_invocation_works_unattended_in_production": true,
+   "test_it_removes_every_expired_export_and_its_file_and_keeps_recent_ones": true,
+   "test_the_retention_period_can_be_changed": true
+  }
+ },
+ "export-purge-command-draft-2": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 2,
+  "task": "export-purge-command",
+  "tests": {
+   "test_a_dry_run_deletes_nothing_and_reports_the_count": true,
+   "test_a_file_that_cannot_be_deleted_keeps_its_row_does_not_stop_the_rest_and_fails_the_run": true,
+   "test_in_production_force_deletes_unattended": true,
+   "test_in_production_it_refuses_to_delete_without_confirmation_when_unattended": true,
+   "test_it_is_scheduled_nightly_at_three_on_one_server_and_the_scheduled_invocation_works_unattended_in_production": true,
+   "test_it_removes_every_expired_export_and_its_file_and_keeps_recent_ones": true,
+   "test_the_retention_period_can_be_changed": true
+  }
+ },
+ "export-purge-command-mid-1": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 1,
+  "task": "export-purge-command",
+  "tests": {
+   "test_a_dry_run_deletes_nothing_and_reports_the_count": true,
+   "test_a_file_that_cannot_be_deleted_keeps_its_row_does_not_stop_the_rest_and_fails_the_run": true,
+   "test_in_production_force_deletes_unattended": true,
+   "test_in_production_it_refuses_to_delete_without_confirmation_when_unattended": true,
+   "test_it_is_scheduled_nightly_at_three_on_one_server_and_the_scheduled_invocation_works_unattended_in_production": true,
+   "test_it_removes_every_expired_export_and_its_file_and_keeps_recent_ones": true,
+   "test_the_retention_period_can_be_changed": true
+  }
+ },
+ "export-purge-command-mid-2": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 2,
+  "task": "export-purge-command",
+  "tests": {
+   "test_a_dry_run_deletes_nothing_and_reports_the_count": true,
+   "test_a_file_that_cannot_be_deleted_keeps_its_row_does_not_stop_the_rest_and_fails_the_run": true,
+   "test_in_production_force_deletes_unattended": true,
+   "test_in_production_it_refuses_to_delete_without_confirmation_when_unattended": true,
+   "test_it_is_scheduled_nightly_at_three_on_one_server_and_the_scheduled_invocation_works_unattended_in_production": true,
+   "test_it_removes_every_expired_export_and_its_file_and_keeps_recent_ones": true,
+   "test_the_retention_period_can_be_changed": true
+  }
+ },
+ "export-purge-command-prev-1": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 1,
+  "task": "export-purge-command",
+  "tests": {
+   "test_a_dry_run_deletes_nothing_and_reports_the_count": true,
+   "test_a_file_that_cannot_be_deleted_keeps_its_row_does_not_stop_the_rest_and_fails_the_run": true,
+   "test_in_production_force_deletes_unattended": true,
+   "test_in_production_it_refuses_to_delete_without_confirmation_when_unattended": true,
+   "test_it_is_scheduled_nightly_at_three_on_one_server_and_the_scheduled_invocation_works_unattended_in_production": true,
+   "test_it_removes_every_expired_export_and_its_file_and_keeps_recent_ones": true,
+   "test_the_retention_period_can_be_changed": true
+  }
+ },
+ "export-purge-command-prev-2": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 2,
+  "task": "export-purge-command",
+  "tests": {
+   "test_a_dry_run_deletes_nothing_and_reports_the_count": true,
+   "test_a_file_that_cannot_be_deleted_keeps_its_row_does_not_stop_the_rest_and_fails_the_run": true,
+   "test_in_production_force_deletes_unattended": true,
+   "test_in_production_it_refuses_to_delete_without_confirmation_when_unattended": true,
+   "test_it_is_scheduled_nightly_at_three_on_one_server_and_the_scheduled_invocation_works_unattended_in_production": true,
+   "test_it_removes_every_expired_export_and_its_file_and_keeps_recent_ones": true,
+   "test_the_retention_period_can_be_changed": true
+  }
+ },
+ "export-purge-command-skill-1": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 1,
+  "task": "export-purge-command",
+  "tests": {
+   "test_a_dry_run_deletes_nothing_and_reports_the_count": true,
+   "test_a_file_that_cannot_be_deleted_keeps_its_row_does_not_stop_the_rest_and_fails_the_run": true,
+   "test_in_production_force_deletes_unattended": true,
+   "test_in_production_it_refuses_to_delete_without_confirmation_when_unattended": true,
+   "test_it_is_scheduled_nightly_at_three_on_one_server_and_the_scheduled_invocation_works_unattended_in_production": true,
+   "test_it_removes_every_expired_export_and_its_file_and_keeps_recent_ones": true,
+   "test_the_retention_period_can_be_changed": true
+  }
+ },
+ "export-purge-command-skill-2": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 2,
+  "task": "export-purge-command",
+  "tests": {
+   "test_a_dry_run_deletes_nothing_and_reports_the_count": true,
+   "test_a_file_that_cannot_be_deleted_keeps_its_row_does_not_stop_the_rest_and_fails_the_run": true,
+   "test_in_production_force_deletes_unattended": true,
+   "test_in_production_it_refuses_to_delete_without_confirmation_when_unattended": true,
+   "test_it_is_scheduled_nightly_at_three_on_one_server_and_the_scheduled_invocation_works_unattended_in_production": true,
+   "test_it_removes_every_expired_export_and_its_file_and_keeps_recent_ones": true,
+   "test_the_retention_period_can_be_changed": true
+  }
+ },
+ "orders-api-draft-1": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 1,
+  "task": "orders-api",
+  "tests": {
+   "A missing order is a 404 without internals": true,
+   "A read token cannot create orders": true,
+   "A read token lists only the owners orders newest first": true,
+   "A write token creates an order without an accept header": true,
+   "A write token without read cannot list": true,
+   "Another users order is a 404 without internals": true,
+   "Api responses do not start a session": true,
+   "Guest with json accept gets json 401": true,
+   "Guest without accept header gets json 401": true
+  }
+ },
+ "orders-api-draft-2": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 2,
+  "task": "orders-api",
+  "tests": {
+   "A missing order is a 404 without internals": true,
+   "A read token cannot create orders": true,
+   "A read token lists only the owners orders newest first": true,
+   "A write token creates an order without an accept header": true,
+   "A write token without read cannot list": true,
+   "Another users order is a 404 without internals": true,
+   "Api responses do not start a session": true,
+   "Guest with json accept gets json 401": true,
+   "Guest without accept header gets json 401": true
+  }
+ },
+ "orders-api-draft-3": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 3,
+  "task": "orders-api",
+  "tests": {
+   "A missing order is a 404 without internals": true,
+   "A read token cannot create orders": true,
+   "A read token lists only the owners orders newest first": true,
+   "A write token creates an order without an accept header": true,
+   "A write token without read cannot list": true,
+   "Another users order is a 404 without internals": true,
+   "Api responses do not start a session": true,
+   "Guest with json accept gets json 401": true,
+   "Guest without accept header gets json 401": true
+  }
+ },
+ "orders-api-mid-1": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 1,
+  "task": "orders-api",
+  "tests": {
+   "A missing order is a 404 without internals": true,
+   "A read token cannot create orders": true,
+   "A read token lists only the owners orders newest first": true,
+   "A write token creates an order without an accept header": true,
+   "A write token without read cannot list": true,
+   "Another users order is a 404 without internals": true,
+   "Api responses do not start a session": true,
+   "Guest with json accept gets json 401": true,
+   "Guest without accept header gets json 401": true
+  }
+ },
+ "orders-api-mid-2": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 2,
+  "task": "orders-api",
+  "tests": {
+   "A missing order is a 404 without internals": true,
+   "A read token cannot create orders": true,
+   "A read token lists only the owners orders newest first": true,
+   "A write token creates an order without an accept header": true,
+   "A write token without read cannot list": true,
+   "Another users order is a 404 without internals": true,
+   "Api responses do not start a session": true,
+   "Guest with json accept gets json 401": true,
+   "Guest without accept header gets json 401": true
+  }
+ },
+ "orders-api-mid-3": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 3,
+  "task": "orders-api",
+  "tests": {
+   "A missing order is a 404 without internals": true,
+   "A read token cannot create orders": true,
+   "A read token lists only the owners orders newest first": true,
+   "A write token creates an order without an accept header": true,
+   "A write token without read cannot list": true,
+   "Another users order is a 404 without internals": true,
+   "Api responses do not start a session": true,
+   "Guest with json accept gets json 401": true,
+   "Guest without accept header gets json 401": true
+  }
+ },
+ "orders-api-plain-1": {
+  "arm": "plain",
+  "exit_code": 0,
+  "run": 1,
+  "task": "orders-api",
+  "tests": {
+   "A missing order is a 404 without internals": true,
+   "A read token cannot create orders": true,
+   "A read token lists only the owners orders newest first": true,
+   "A write token creates an order without an accept header": true,
+   "A write token without read cannot list": true,
+   "Another users order is a 404 without internals": true,
+   "Api responses do not start a session": true,
+   "Guest with json accept gets json 401": true,
+   "Guest without accept header gets json 401": true
+  }
+ },
+ "orders-api-prev-1": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 1,
+  "task": "orders-api",
+  "tests": {
+   "A missing order is a 404 without internals": true,
+   "A read token cannot create orders": true,
+   "A read token lists only the owners orders newest first": true,
+   "A write token creates an order without an accept header": true,
+   "A write token without read cannot list": true,
+   "Another users order is a 404 without internals": true,
+   "Api responses do not start a session": true,
+   "Guest with json accept gets json 401": true,
+   "Guest without accept header gets json 401": true
+  }
+ },
+ "orders-api-prev-2": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 2,
+  "task": "orders-api",
+  "tests": {
+   "A missing order is a 404 without internals": true,
+   "A read token cannot create orders": true,
+   "A read token lists only the owners orders newest first": true,
+   "A write token creates an order without an accept header": true,
+   "A write token without read cannot list": true,
+   "Another users order is a 404 without internals": true,
+   "Api responses do not start a session": true,
+   "Guest with json accept gets json 401": true,
+   "Guest without accept header gets json 401": true
+  }
+ },
+ "orders-api-prev-3": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 3,
+  "task": "orders-api",
+  "tests": {
+   "A missing order is a 404 without internals": true,
+   "A read token cannot create orders": true,
+   "A read token lists only the owners orders newest first": true,
+   "A write token creates an order without an accept header": true,
+   "A write token without read cannot list": true,
+   "Another users order is a 404 without internals": true,
+   "Api responses do not start a session": true,
+   "Guest with json accept gets json 401": true,
+   "Guest without accept header gets json 401": true
+  }
+ },
+ "orders-api-skill-1": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 1,
+  "task": "orders-api",
+  "tests": {
+   "A missing order is a 404 without internals": true,
+   "A read token cannot create orders": true,
+   "A read token lists only the owners orders newest first": true,
+   "A write token creates an order without an accept header": true,
+   "A write token without read cannot list": true,
+   "Another users order is a 404 without internals": true,
+   "Api responses do not start a session": true,
+   "Guest with json accept gets json 401": true,
+   "Guest without accept header gets json 401": true
+  }
+ },
+ "orders-api-skill-2": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 2,
+  "task": "orders-api",
+  "tests": {
+   "A missing order is a 404 without internals": true,
+   "A read token cannot create orders": true,
+   "A read token lists only the owners orders newest first": true,
+   "A write token creates an order without an accept header": true,
+   "A write token without read cannot list": true,
+   "Another users order is a 404 without internals": true,
+   "Api responses do not start a session": true,
+   "Guest with json accept gets json 401": true,
+   "Guest without accept header gets json 401": true
+  }
+ },
+ "orders-api-skill-3": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 3,
+  "task": "orders-api",
+  "tests": {
+   "A missing order is a 404 without internals": true,
+   "A read token cannot create orders": true,
+   "A read token lists only the owners orders newest first": true,
+   "A write token creates an order without an accept header": true,
+   "A write token without read cannot list": true,
+   "Another users order is a 404 without internals": true,
+   "Api responses do not start a session": true,
+   "Guest with json accept gets json 401": true,
+   "Guest without accept header gets json 401": true
+  }
+ },
+ "orders-customer-link-draft-1": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 1,
+  "task": "orders-customer-link",
+  "tests": {
+   "test_an_index_serves_the_customer_orders_query": true,
+   "test_customer_id_is_a_nullable_foreign_key_and_customer_email_stays": true,
+   "test_deleting_a_customer_keeps_their_orders_detached": true,
+   "test_placing_an_order_sets_both_columns": true,
+   "test_the_backfill_links_every_matching_order_and_leaves_the_rest": true,
+   "test_the_endpoint_uses_the_linked_customer": true
+  }
+ },
+ "orders-customer-link-draft-2": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 2,
+  "task": "orders-customer-link",
+  "tests": {
+   "test_an_index_serves_the_customer_orders_query": true,
+   "test_customer_id_is_a_nullable_foreign_key_and_customer_email_stays": true,
+   "test_deleting_a_customer_keeps_their_orders_detached": true,
+   "test_placing_an_order_sets_both_columns": true,
+   "test_the_backfill_links_every_matching_order_and_leaves_the_rest": true,
+   "test_the_endpoint_uses_the_linked_customer": true
+  }
+ },
+ "orders-customer-link-draft-3": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 3,
+  "task": "orders-customer-link",
+  "tests": {
+   "test_an_index_serves_the_customer_orders_query": true,
+   "test_customer_id_is_a_nullable_foreign_key_and_customer_email_stays": true,
+   "test_deleting_a_customer_keeps_their_orders_detached": true,
+   "test_placing_an_order_sets_both_columns": true,
+   "test_the_backfill_links_every_matching_order_and_leaves_the_rest": true,
+   "test_the_endpoint_uses_the_linked_customer": true
+  }
+ },
+ "orders-customer-link-mid-1": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 1,
+  "task": "orders-customer-link",
+  "tests": {
+   "test_an_index_serves_the_customer_orders_query": true,
+   "test_customer_id_is_a_nullable_foreign_key_and_customer_email_stays": true,
+   "test_deleting_a_customer_keeps_their_orders_detached": true,
+   "test_placing_an_order_sets_both_columns": true,
+   "test_the_backfill_links_every_matching_order_and_leaves_the_rest": true,
+   "test_the_endpoint_uses_the_linked_customer": true
+  }
+ },
+ "orders-customer-link-mid-2": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 2,
+  "task": "orders-customer-link",
+  "tests": {
+   "test_an_index_serves_the_customer_orders_query": true,
+   "test_customer_id_is_a_nullable_foreign_key_and_customer_email_stays": true,
+   "test_deleting_a_customer_keeps_their_orders_detached": true,
+   "test_placing_an_order_sets_both_columns": true,
+   "test_the_backfill_links_every_matching_order_and_leaves_the_rest": true,
+   "test_the_endpoint_uses_the_linked_customer": true
+  }
+ },
+ "orders-customer-link-mid-3": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 3,
+  "task": "orders-customer-link",
+  "tests": {
+   "test_an_index_serves_the_customer_orders_query": true,
+   "test_customer_id_is_a_nullable_foreign_key_and_customer_email_stays": true,
+   "test_deleting_a_customer_keeps_their_orders_detached": true,
+   "test_placing_an_order_sets_both_columns": true,
+   "test_the_backfill_links_every_matching_order_and_leaves_the_rest": true,
+   "test_the_endpoint_uses_the_linked_customer": true
+  }
+ },
+ "orders-customer-link-plain-1": {
+  "arm": "plain",
+  "exit_code": 0,
+  "run": 1,
+  "task": "orders-customer-link",
+  "tests": {
+   "test_an_index_serves_the_customer_orders_query": true,
+   "test_customer_id_is_a_nullable_foreign_key_and_customer_email_stays": true,
+   "test_deleting_a_customer_keeps_their_orders_detached": true,
+   "test_placing_an_order_sets_both_columns": true,
+   "test_the_backfill_links_every_matching_order_and_leaves_the_rest": true,
+   "test_the_endpoint_uses_the_linked_customer": true
+  }
+ },
+ "orders-customer-link-prev-1": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 1,
+  "task": "orders-customer-link",
+  "tests": {
+   "test_an_index_serves_the_customer_orders_query": true,
+   "test_customer_id_is_a_nullable_foreign_key_and_customer_email_stays": true,
+   "test_deleting_a_customer_keeps_their_orders_detached": true,
+   "test_placing_an_order_sets_both_columns": true,
+   "test_the_backfill_links_every_matching_order_and_leaves_the_rest": true,
+   "test_the_endpoint_uses_the_linked_customer": true
+  }
+ },
+ "orders-customer-link-prev-2": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 2,
+  "task": "orders-customer-link",
+  "tests": {
+   "test_an_index_serves_the_customer_orders_query": true,
+   "test_customer_id_is_a_nullable_foreign_key_and_customer_email_stays": true,
+   "test_deleting_a_customer_keeps_their_orders_detached": true,
+   "test_placing_an_order_sets_both_columns": true,
+   "test_the_backfill_links_every_matching_order_and_leaves_the_rest": true,
+   "test_the_endpoint_uses_the_linked_customer": true
+  }
+ },
+ "orders-customer-link-prev-3": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 3,
+  "task": "orders-customer-link",
+  "tests": {
+   "test_an_index_serves_the_customer_orders_query": true,
+   "test_customer_id_is_a_nullable_foreign_key_and_customer_email_stays": true,
+   "test_deleting_a_customer_keeps_their_orders_detached": true,
+   "test_placing_an_order_sets_both_columns": true,
+   "test_the_backfill_links_every_matching_order_and_leaves_the_rest": true,
+   "test_the_endpoint_uses_the_linked_customer": true
+  }
+ },
+ "orders-customer-link-skill-1": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 1,
+  "task": "orders-customer-link",
+  "tests": {
+   "test_an_index_serves_the_customer_orders_query": true,
+   "test_customer_id_is_a_nullable_foreign_key_and_customer_email_stays": true,
+   "test_deleting_a_customer_keeps_their_orders_detached": true,
+   "test_placing_an_order_sets_both_columns": true,
+   "test_the_backfill_links_every_matching_order_and_leaves_the_rest": true,
+   "test_the_endpoint_uses_the_linked_customer": true
+  }
+ },
+ "orders-customer-link-skill-2": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 2,
+  "task": "orders-customer-link",
+  "tests": {
+   "test_an_index_serves_the_customer_orders_query": true,
+   "test_customer_id_is_a_nullable_foreign_key_and_customer_email_stays": true,
+   "test_deleting_a_customer_keeps_their_orders_detached": true,
+   "test_placing_an_order_sets_both_columns": true,
+   "test_the_backfill_links_every_matching_order_and_leaves_the_rest": true,
+   "test_the_endpoint_uses_the_linked_customer": true
+  }
+ },
+ "orders-customer-link-skill-3": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 3,
+  "task": "orders-customer-link",
+  "tests": {
+   "test_an_index_serves_the_customer_orders_query": true,
+   "test_customer_id_is_a_nullable_foreign_key_and_customer_email_stays": true,
+   "test_deleting_a_customer_keeps_their_orders_detached": true,
+   "test_placing_an_order_sets_both_columns": true,
+   "test_the_backfill_links_every_matching_order_and_leaves_the_rest": true,
+   "test_the_endpoint_uses_the_linked_customer": true
+  }
+ },
+ "profile-nickname-draft-1": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 1,
+  "task": "profile-nickname",
+  "tests": {
+   "A nickname over 30 characters is rejected": true,
+   "Guest without accept header gets json 401": true,
+   "Me returns the profile": true,
+   "The nickname can be set and cleared": true
+  }
+ },
+ "profile-nickname-draft-2": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 2,
+  "task": "profile-nickname",
+  "tests": {
+   "A nickname over 30 characters is rejected": true,
+   "Guest without accept header gets json 401": true,
+   "Me returns the profile": true,
+   "The nickname can be set and cleared": true
+  }
+ },
+ "profile-nickname-mid-1": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 1,
+  "task": "profile-nickname",
+  "tests": {
+   "A nickname over 30 characters is rejected": true,
+   "Guest without accept header gets json 401": true,
+   "Me returns the profile": true,
+   "The nickname can be set and cleared": true
+  }
+ },
+ "profile-nickname-mid-2": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 2,
+  "task": "profile-nickname",
+  "tests": {
+   "A nickname over 30 characters is rejected": true,
+   "Guest without accept header gets json 401": true,
+   "Me returns the profile": true,
+   "The nickname can be set and cleared": true
+  }
+ },
+ "profile-nickname-plain-1": {
+  "arm": "plain",
+  "exit_code": 1,
+  "run": 1,
+  "task": "profile-nickname",
+  "tests": {
+   "A nickname over 30 characters is rejected": true,
+   "Guest without accept header gets json 401": false,
+   "Me returns the profile": true,
+   "The nickname can be set and cleared": true
+  }
+ },
+ "profile-nickname-prev-1": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 1,
+  "task": "profile-nickname",
+  "tests": {
+   "A nickname over 30 characters is rejected": true,
+   "Guest without accept header gets json 401": false,
+   "Me returns the profile": true,
+   "The nickname can be set and cleared": true
+  }
+ },
+ "profile-nickname-prev-2": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 2,
+  "task": "profile-nickname",
+  "tests": {
+   "A nickname over 30 characters is rejected": true,
+   "Guest without accept header gets json 401": false,
+   "Me returns the profile": true,
+   "The nickname can be set and cleared": true
+  }
+ },
+ "profile-nickname-skill-1": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 1,
+  "task": "profile-nickname",
+  "tests": {
+   "A nickname over 30 characters is rejected": true,
+   "Guest without accept header gets json 401": true,
+   "Me returns the profile": true,
+   "The nickname can be set and cleared": true
+  }
+ },
+ "profile-nickname-skill-2": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 2,
+  "task": "profile-nickname",
+  "tests": {
+   "A nickname over 30 characters is rejected": true,
+   "Guest without accept header gets json 401": true,
+   "Me returns the profile": true,
+   "The nickname can be set and cleared": true
+  }
+ },
+ "queue-bugfix-draft-1": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 1,
+  "task": "queue-bugfix",
+  "tests": {
+   "A crm outage is retried by the queue instead of being swallowed": true,
+   "A subscriber whose sync finally failed is queued again later": true,
+   "A successful sync still marks the subscriber synced": true,
+   "Locks left by a killed process expire quickly": true,
+   "The dispatcher queues each unsynced subscriber once while the queue is backed up": true,
+   "The nightly normalisation handles every row": true
+  }
+ },
+ "queue-bugfix-draft-2": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 2,
+  "task": "queue-bugfix",
+  "tests": {
+   "A crm outage is retried by the queue instead of being swallowed": true,
+   "A subscriber whose sync finally failed is queued again later": true,
+   "A successful sync still marks the subscriber synced": true,
+   "Locks left by a killed process expire quickly": true,
+   "The dispatcher queues each unsynced subscriber once while the queue is backed up": true,
+   "The nightly normalisation handles every row": true
+  }
+ },
+ "queue-bugfix-mid-1": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 1,
+  "task": "queue-bugfix",
+  "tests": {
+   "A crm outage is retried by the queue instead of being swallowed": true,
+   "A subscriber whose sync finally failed is queued again later": true,
+   "A successful sync still marks the subscriber synced": true,
+   "Locks left by a killed process expire quickly": true,
+   "The dispatcher queues each unsynced subscriber once while the queue is backed up": true,
+   "The nightly normalisation handles every row": true
+  }
+ },
+ "queue-bugfix-mid-2": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 2,
+  "task": "queue-bugfix",
+  "tests": {
+   "A crm outage is retried by the queue instead of being swallowed": true,
+   "A subscriber whose sync finally failed is queued again later": true,
+   "A successful sync still marks the subscriber synced": true,
+   "Locks left by a killed process expire quickly": true,
+   "The dispatcher queues each unsynced subscriber once while the queue is backed up": true,
+   "The nightly normalisation handles every row": true
+  }
+ },
+ "queue-bugfix-prev-1": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 1,
+  "task": "queue-bugfix",
+  "tests": {
+   "A crm outage is retried by the queue instead of being swallowed": true,
+   "A subscriber whose sync finally failed is queued again later": true,
+   "A successful sync still marks the subscriber synced": true,
+   "Locks left by a killed process expire quickly": true,
+   "The dispatcher queues each unsynced subscriber once while the queue is backed up": true,
+   "The nightly normalisation handles every row": true
+  }
+ },
+ "queue-bugfix-prev-2": {
+  "arm": "prev",
+  "exit_code": 2,
+  "run": 2,
+  "task": "queue-bugfix",
+  "tests": {
+   "A crm outage is retried by the queue instead of being swallowed": true,
+   "A subscriber whose sync finally failed is queued again later": true,
+   "A successful sync still marks the subscriber synced": true,
+   "Locks left by a killed process expire quickly": false,
+   "The dispatcher queues each unsynced subscriber once while the queue is backed up": true,
+   "The nightly normalisation handles every row": true
+  }
+ },
+ "queue-bugfix-skill-1": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 1,
+  "task": "queue-bugfix",
+  "tests": {
+   "A crm outage is retried by the queue instead of being swallowed": true,
+   "A subscriber whose sync finally failed is queued again later": true,
+   "A successful sync still marks the subscriber synced": true,
+   "Locks left by a killed process expire quickly": true,
+   "The dispatcher queues each unsynced subscriber once while the queue is backed up": true,
+   "The nightly normalisation handles every row": true
+  }
+ },
+ "queue-bugfix-skill-2": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 2,
+  "task": "queue-bugfix",
+  "tests": {
+   "A crm outage is retried by the queue instead of being swallowed": true,
+   "A subscriber whose sync finally failed is queued again later": true,
+   "A successful sync still marks the subscriber synced": true,
+   "Locks left by a killed process expire quickly": true,
+   "The dispatcher queues each unsynced subscriber once while the queue is backed up": true,
+   "The nightly normalisation handles every row": true
+  }
+ },
+ "scheduled-reports-draft-1": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 1,
+  "task": "scheduled-reports",
+  "tests": {
+   "A crashed run does not block a task for a day": true,
+   "A slow supplier sync cannot run twice at the same time": true,
+   "Every task runs on only one of the servers": true,
+   "The cleanup command deletes every abandoned cart and keeps recent ones": true,
+   "The hourly supplier sync is queued not run inside the scheduler": true,
+   "The nightly cleanup runs exactly once a night across daylight saving changes": true,
+   "The weekly report runs on monday at 0730 copenhagen time in winter and summer": true,
+   "Two scheduler runs in the same minute dispatch the hourly sync once": true
+  }
+ },
+ "scheduled-reports-draft-2": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 2,
+  "task": "scheduled-reports",
+  "tests": {
+   "A crashed run does not block a task for a day": true,
+   "A slow supplier sync cannot run twice at the same time": true,
+   "Every task runs on only one of the servers": true,
+   "The cleanup command deletes every abandoned cart and keeps recent ones": true,
+   "The hourly supplier sync is queued not run inside the scheduler": true,
+   "The nightly cleanup runs exactly once a night across daylight saving changes": true,
+   "The weekly report runs on monday at 0730 copenhagen time in winter and summer": true,
+   "Two scheduler runs in the same minute dispatch the hourly sync once": true
+  }
+ },
+ "scheduled-reports-mid-1": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 1,
+  "task": "scheduled-reports",
+  "tests": {
+   "A crashed run does not block a task for a day": true,
+   "A slow supplier sync cannot run twice at the same time": true,
+   "Every task runs on only one of the servers": true,
+   "The cleanup command deletes every abandoned cart and keeps recent ones": true,
+   "The hourly supplier sync is queued not run inside the scheduler": true,
+   "The nightly cleanup runs exactly once a night across daylight saving changes": true,
+   "The weekly report runs on monday at 0730 copenhagen time in winter and summer": true,
+   "Two scheduler runs in the same minute dispatch the hourly sync once": true
+  }
+ },
+ "scheduled-reports-mid-2": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 2,
+  "task": "scheduled-reports",
+  "tests": {
+   "A crashed run does not block a task for a day": true,
+   "A slow supplier sync cannot run twice at the same time": true,
+   "Every task runs on only one of the servers": true,
+   "The cleanup command deletes every abandoned cart and keeps recent ones": true,
+   "The hourly supplier sync is queued not run inside the scheduler": true,
+   "The nightly cleanup runs exactly once a night across daylight saving changes": true,
+   "The weekly report runs on monday at 0730 copenhagen time in winter and summer": true,
+   "Two scheduler runs in the same minute dispatch the hourly sync once": true
+  }
+ },
+ "scheduled-reports-prev-1": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 1,
+  "task": "scheduled-reports",
+  "tests": {
+   "A crashed run does not block a task for a day": true,
+   "A slow supplier sync cannot run twice at the same time": true,
+   "Every task runs on only one of the servers": true,
+   "The cleanup command deletes every abandoned cart and keeps recent ones": true,
+   "The hourly supplier sync is queued not run inside the scheduler": true,
+   "The nightly cleanup runs exactly once a night across daylight saving changes": true,
+   "The weekly report runs on monday at 0730 copenhagen time in winter and summer": true,
+   "Two scheduler runs in the same minute dispatch the hourly sync once": true
+  }
+ },
+ "scheduled-reports-prev-2": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 2,
+  "task": "scheduled-reports",
+  "tests": {
+   "A crashed run does not block a task for a day": true,
+   "A slow supplier sync cannot run twice at the same time": true,
+   "Every task runs on only one of the servers": true,
+   "The cleanup command deletes every abandoned cart and keeps recent ones": true,
+   "The hourly supplier sync is queued not run inside the scheduler": true,
+   "The nightly cleanup runs exactly once a night across daylight saving changes": true,
+   "The weekly report runs on monday at 0730 copenhagen time in winter and summer": true,
+   "Two scheduler runs in the same minute dispatch the hourly sync once": true
+  }
+ },
+ "scheduled-reports-skill-1": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 1,
+  "task": "scheduled-reports",
+  "tests": {
+   "A crashed run does not block a task for a day": true,
+   "A slow supplier sync cannot run twice at the same time": true,
+   "Every task runs on only one of the servers": true,
+   "The cleanup command deletes every abandoned cart and keeps recent ones": true,
+   "The hourly supplier sync is queued not run inside the scheduler": true,
+   "The nightly cleanup runs exactly once a night across daylight saving changes": true,
+   "The weekly report runs on monday at 0730 copenhagen time in winter and summer": true,
+   "Two scheduler runs in the same minute dispatch the hourly sync once": true
+  }
+ },
+ "scheduled-reports-skill-2": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 2,
+  "task": "scheduled-reports",
+  "tests": {
+   "A crashed run does not block a task for a day": true,
+   "A slow supplier sync cannot run twice at the same time": true,
+   "Every task runs on only one of the servers": true,
+   "The cleanup command deletes every abandoned cart and keeps recent ones": true,
+   "The hourly supplier sync is queued not run inside the scheduler": true,
+   "The nightly cleanup runs exactly once a night across daylight saving changes": true,
+   "The weekly report runs on monday at 0730 copenhagen time in winter and summer": true,
+   "Two scheduler runs in the same minute dispatch the hourly sync once": true
+  }
+ },
+ "ship-order-draft-1": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 1,
+  "task": "ship-order",
+  "tests": {
+   "A concurrent ship that lands mid request is not repeated": true,
+   "A rolled back transaction sends no email and awards no points": true,
+   "Guest without accept header gets json 401": true,
+   "Only staff can ship": true,
+   "Shipping again is a 409 and nothing happens twice": true,
+   "Shipping records the shipment emails the customer once and awards points": true
+  }
+ },
+ "ship-order-draft-2": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 2,
+  "task": "ship-order",
+  "tests": {
+   "A concurrent ship that lands mid request is not repeated": true,
+   "A rolled back transaction sends no email and awards no points": true,
+   "Guest without accept header gets json 401": true,
+   "Only staff can ship": true,
+   "Shipping again is a 409 and nothing happens twice": true,
+   "Shipping records the shipment emails the customer once and awards points": true
+  }
+ },
+ "ship-order-draft-3": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 3,
+  "task": "ship-order",
+  "tests": {
+   "A concurrent ship that lands mid request is not repeated": true,
+   "A rolled back transaction sends no email and awards no points": true,
+   "Guest without accept header gets json 401": true,
+   "Only staff can ship": true,
+   "Shipping again is a 409 and nothing happens twice": true,
+   "Shipping records the shipment emails the customer once and awards points": true
+  }
+ },
+ "ship-order-mid-1": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 1,
+  "task": "ship-order",
+  "tests": {
+   "A concurrent ship that lands mid request is not repeated": true,
+   "A rolled back transaction sends no email and awards no points": true,
+   "Guest without accept header gets json 401": true,
+   "Only staff can ship": true,
+   "Shipping again is a 409 and nothing happens twice": true,
+   "Shipping records the shipment emails the customer once and awards points": true
+  }
+ },
+ "ship-order-mid-2": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 2,
+  "task": "ship-order",
+  "tests": {
+   "A concurrent ship that lands mid request is not repeated": true,
+   "A rolled back transaction sends no email and awards no points": true,
+   "Guest without accept header gets json 401": true,
+   "Only staff can ship": true,
+   "Shipping again is a 409 and nothing happens twice": true,
+   "Shipping records the shipment emails the customer once and awards points": true
+  }
+ },
+ "ship-order-mid-3": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 3,
+  "task": "ship-order",
+  "tests": {
+   "A concurrent ship that lands mid request is not repeated": true,
+   "A rolled back transaction sends no email and awards no points": true,
+   "Guest without accept header gets json 401": true,
+   "Only staff can ship": true,
+   "Shipping again is a 409 and nothing happens twice": true,
+   "Shipping records the shipment emails the customer once and awards points": true
+  }
+ },
+ "ship-order-plain-1": {
+  "arm": "plain",
+  "exit_code": 1,
+  "run": 1,
+  "task": "ship-order",
+  "tests": {
+   "A concurrent ship that lands mid request is not repeated": true,
+   "A rolled back transaction sends no email and awards no points": true,
+   "Guest without accept header gets json 401": false,
+   "Only staff can ship": true,
+   "Shipping again is a 409 and nothing happens twice": true,
+   "Shipping records the shipment emails the customer once and awards points": true
+  }
+ },
+ "ship-order-prev-1": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 1,
+  "task": "ship-order",
+  "tests": {
+   "A concurrent ship that lands mid request is not repeated": true,
+   "A rolled back transaction sends no email and awards no points": true,
+   "Guest without accept header gets json 401": false,
+   "Only staff can ship": true,
+   "Shipping again is a 409 and nothing happens twice": true,
+   "Shipping records the shipment emails the customer once and awards points": true
+  }
+ },
+ "ship-order-prev-2": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 2,
+  "task": "ship-order",
+  "tests": {
+   "A concurrent ship that lands mid request is not repeated": true,
+   "A rolled back transaction sends no email and awards no points": true,
+   "Guest without accept header gets json 401": false,
+   "Only staff can ship": true,
+   "Shipping again is a 409 and nothing happens twice": true,
+   "Shipping records the shipment emails the customer once and awards points": true
+  }
+ },
+ "ship-order-prev-3": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 3,
+  "task": "ship-order",
+  "tests": {
+   "A concurrent ship that lands mid request is not repeated": true,
+   "A rolled back transaction sends no email and awards no points": true,
+   "Guest without accept header gets json 401": false,
+   "Only staff can ship": true,
+   "Shipping again is a 409 and nothing happens twice": true,
+   "Shipping records the shipment emails the customer once and awards points": true
+  }
+ },
+ "ship-order-skill-1": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 1,
+  "task": "ship-order",
+  "tests": {
+   "A concurrent ship that lands mid request is not repeated": true,
+   "A rolled back transaction sends no email and awards no points": true,
+   "Guest without accept header gets json 401": true,
+   "Only staff can ship": true,
+   "Shipping again is a 409 and nothing happens twice": true,
+   "Shipping records the shipment emails the customer once and awards points": true
+  }
+ },
+ "ship-order-skill-2": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 2,
+  "task": "ship-order",
+  "tests": {
+   "A concurrent ship that lands mid request is not repeated": true,
+   "A rolled back transaction sends no email and awards no points": true,
+   "Guest without accept header gets json 401": true,
+   "Only staff can ship": true,
+   "Shipping again is a 409 and nothing happens twice": true,
+   "Shipping records the shipment emails the customer once and awards points": true
+  }
+ },
+ "ship-order-skill-3": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 3,
+  "task": "ship-order",
+  "tests": {
+   "A concurrent ship that lands mid request is not repeated": true,
+   "A rolled back transaction sends no email and awards no points": true,
+   "Guest without accept header gets json 401": true,
+   "Only staff can ship": true,
+   "Shipping again is a 409 and nothing happens twice": true,
+   "Shipping records the shipment emails the customer once and awards points": true
+  }
+ },
+ "shipment-sync-draft-1": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 1,
+  "task": "shipment-sync",
+  "tests": {
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true
+  }
+ },
+ "shipment-sync-draft-2": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 2,
+  "task": "shipment-sync",
+  "tests": {
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true
+  }
+ },
+ "shipment-sync-mid-1": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 1,
+  "task": "shipment-sync",
+  "tests": {
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true
+  }
+ },
+ "shipment-sync-mid-2": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 2,
+  "task": "shipment-sync",
+  "tests": {
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true
+  }
+ },
+ "shipment-sync-prev-1": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 1,
+  "task": "shipment-sync",
+  "tests": {
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true
+  }
+ },
+ "shipment-sync-prev-2": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 2,
+  "task": "shipment-sync",
+  "tests": {
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true
+  }
+ },
+ "shipment-sync-skill-1": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 1,
+  "task": "shipment-sync",
+  "tests": {
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true
+  }
+ },
+ "shipment-sync-skill-2": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 2,
+  "task": "shipment-sync",
+  "tests": {
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true
+  }
+ },
+ "statement-batch-draft-1": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 1,
+  "task": "statement-batch",
+  "tests": {
+   "Every account gets a stored statement and the run completes": true,
+   "One broken account does not stop the others and the run still finishes": true,
+   "Starting a run returns before any statement is generated": true,
+   "Statement generation does not run on the default queue": true
+  }
+ },
+ "statement-batch-draft-2": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 2,
+  "task": "statement-batch",
+  "tests": {
+   "Every account gets a stored statement and the run completes": true,
+   "One broken account does not stop the others and the run still finishes": true,
+   "Starting a run returns before any statement is generated": true,
+   "Statement generation does not run on the default queue": true
+  }
+ },
+ "statement-batch-mid-1": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 1,
+  "task": "statement-batch",
+  "tests": {
+   "Every account gets a stored statement and the run completes": true,
+   "One broken account does not stop the others and the run still finishes": true,
+   "Starting a run returns before any statement is generated": true,
+   "Statement generation does not run on the default queue": true
+  }
+ },
+ "statement-batch-mid-2": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 2,
+  "task": "statement-batch",
+  "tests": {
+   "Every account gets a stored statement and the run completes": true,
+   "One broken account does not stop the others and the run still finishes": true,
+   "Starting a run returns before any statement is generated": true,
+   "Statement generation does not run on the default queue": true
+  }
+ },
+ "statement-batch-prev-1": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 1,
+  "task": "statement-batch",
+  "tests": {
+   "Every account gets a stored statement and the run completes": true,
+   "One broken account does not stop the others and the run still finishes": true,
+   "Starting a run returns before any statement is generated": true,
+   "Statement generation does not run on the default queue": true
+  }
+ },
+ "statement-batch-prev-2": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 2,
+  "task": "statement-batch",
+  "tests": {
+   "Every account gets a stored statement and the run completes": true,
+   "One broken account does not stop the others and the run still finishes": true,
+   "Starting a run returns before any statement is generated": true,
+   "Statement generation does not run on the default queue": true
+  }
+ },
+ "statement-batch-skill-1": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 1,
+  "task": "statement-batch",
+  "tests": {
+   "Every account gets a stored statement and the run completes": true,
+   "One broken account does not stop the others and the run still finishes": true,
+   "Starting a run returns before any statement is generated": true,
+   "Statement generation does not run on the default queue": true
+  }
+ },
+ "statement-batch-skill-2": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 2,
+  "task": "statement-batch",
+  "tests": {
+   "Every account gets a stored statement and the run completes": true,
+   "One broken account does not stop the others and the run still finishes": true,
+   "Starting a run returns before any statement is generated": true,
+   "Statement generation does not run on the default queue": true
+  }
+ },
+ "stock-csv-import-draft-1": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 1,
+  "task": "stock-csv-import",
+  "tests": {
+   "A bom crlf file with padded mixed case headers imports every row": true,
+   "A file over 5 mb is rejected": true,
+   "A file without both headers is rejected": true,
+   "A header only csv is accepted": true,
+   "A non csv file is rejected": true,
+   "Blank lines are ignored but still counted in line numbers": true,
+   "Columns are found by name in any order": true,
+   "Guest without accept header gets json 401": true,
+   "Importing a sku again updates it": true,
+   "Invalid rows are reported with their file line and valid rows still import": true
+  }
+ },
+ "stock-csv-import-draft-2": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 2,
+  "task": "stock-csv-import",
+  "tests": {
+   "A bom crlf file with padded mixed case headers imports every row": true,
+   "A file over 5 mb is rejected": true,
+   "A file without both headers is rejected": true,
+   "A header only csv is accepted": true,
+   "A non csv file is rejected": true,
+   "Blank lines are ignored but still counted in line numbers": true,
+   "Columns are found by name in any order": true,
+   "Guest without accept header gets json 401": true,
+   "Importing a sku again updates it": true,
+   "Invalid rows are reported with their file line and valid rows still import": true
+  }
+ },
+ "stock-csv-import-draft-3": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 3,
+  "task": "stock-csv-import",
+  "tests": {
+   "A bom crlf file with padded mixed case headers imports every row": true,
+   "A file over 5 mb is rejected": true,
+   "A file without both headers is rejected": true,
+   "A header only csv is accepted": true,
+   "A non csv file is rejected": true,
+   "Blank lines are ignored but still counted in line numbers": true,
+   "Columns are found by name in any order": true,
+   "Guest without accept header gets json 401": true,
+   "Importing a sku again updates it": true,
+   "Invalid rows are reported with their file line and valid rows still import": true
+  }
+ },
+ "stock-csv-import-mid-1": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 1,
+  "task": "stock-csv-import",
+  "tests": {
+   "A bom crlf file with padded mixed case headers imports every row": true,
+   "A file over 5 mb is rejected": true,
+   "A file without both headers is rejected": true,
+   "A header only csv is accepted": true,
+   "A non csv file is rejected": true,
+   "Blank lines are ignored but still counted in line numbers": true,
+   "Columns are found by name in any order": true,
+   "Guest without accept header gets json 401": true,
+   "Importing a sku again updates it": true,
+   "Invalid rows are reported with their file line and valid rows still import": true
+  }
+ },
+ "stock-csv-import-mid-2": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 2,
+  "task": "stock-csv-import",
+  "tests": {
+   "A bom crlf file with padded mixed case headers imports every row": true,
+   "A file over 5 mb is rejected": true,
+   "A file without both headers is rejected": true,
+   "A header only csv is accepted": true,
+   "A non csv file is rejected": true,
+   "Blank lines are ignored but still counted in line numbers": true,
+   "Columns are found by name in any order": true,
+   "Guest without accept header gets json 401": true,
+   "Importing a sku again updates it": true,
+   "Invalid rows are reported with their file line and valid rows still import": true
+  }
+ },
+ "stock-csv-import-mid-3": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 3,
+  "task": "stock-csv-import",
+  "tests": {
+   "A bom crlf file with padded mixed case headers imports every row": true,
+   "A file over 5 mb is rejected": true,
+   "A file without both headers is rejected": true,
+   "A header only csv is accepted": true,
+   "A non csv file is rejected": true,
+   "Blank lines are ignored but still counted in line numbers": true,
+   "Columns are found by name in any order": true,
+   "Guest without accept header gets json 401": true,
+   "Importing a sku again updates it": true,
+   "Invalid rows are reported with their file line and valid rows still import": true
+  }
+ },
+ "stock-csv-import-plain-1": {
+  "arm": "plain",
+  "exit_code": 1,
+  "run": 1,
+  "task": "stock-csv-import",
+  "tests": {
+   "A bom crlf file with padded mixed case headers imports every row": true,
+   "A file over 5 mb is rejected": true,
+   "A file without both headers is rejected": true,
+   "A header only csv is accepted": true,
+   "A non csv file is rejected": true,
+   "Blank lines are ignored but still counted in line numbers": true,
+   "Columns are found by name in any order": true,
+   "Guest without accept header gets json 401": false,
+   "Importing a sku again updates it": true,
+   "Invalid rows are reported with their file line and valid rows still import": true
+  }
+ },
+ "stock-csv-import-prev-1": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 1,
+  "task": "stock-csv-import",
+  "tests": {
+   "A bom crlf file with padded mixed case headers imports every row": true,
+   "A file over 5 mb is rejected": true,
+   "A file without both headers is rejected": true,
+   "A header only csv is accepted": true,
+   "A non csv file is rejected": true,
+   "Blank lines are ignored but still counted in line numbers": true,
+   "Columns are found by name in any order": true,
+   "Guest without accept header gets json 401": false,
+   "Importing a sku again updates it": true,
+   "Invalid rows are reported with their file line and valid rows still import": true
+  }
+ },
+ "stock-csv-import-prev-2": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 2,
+  "task": "stock-csv-import",
+  "tests": {
+   "A bom crlf file with padded mixed case headers imports every row": true,
+   "A file over 5 mb is rejected": true,
+   "A file without both headers is rejected": true,
+   "A header only csv is accepted": true,
+   "A non csv file is rejected": true,
+   "Blank lines are ignored but still counted in line numbers": true,
+   "Columns are found by name in any order": true,
+   "Guest without accept header gets json 401": false,
+   "Importing a sku again updates it": true,
+   "Invalid rows are reported with their file line and valid rows still import": true
+  }
+ },
+ "stock-csv-import-prev-3": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 3,
+  "task": "stock-csv-import",
+  "tests": {
+   "A bom crlf file with padded mixed case headers imports every row": true,
+   "A file over 5 mb is rejected": true,
+   "A file without both headers is rejected": true,
+   "A header only csv is accepted": true,
+   "A non csv file is rejected": true,
+   "Blank lines are ignored but still counted in line numbers": true,
+   "Columns are found by name in any order": true,
+   "Guest without accept header gets json 401": false,
+   "Importing a sku again updates it": true,
+   "Invalid rows are reported with their file line and valid rows still import": true
+  }
+ },
+ "stock-csv-import-skill-1": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 1,
+  "task": "stock-csv-import",
+  "tests": {
+   "A bom crlf file with padded mixed case headers imports every row": true,
+   "A file over 5 mb is rejected": true,
+   "A file without both headers is rejected": true,
+   "A header only csv is accepted": true,
+   "A non csv file is rejected": true,
+   "Blank lines are ignored but still counted in line numbers": true,
+   "Columns are found by name in any order": true,
+   "Guest without accept header gets json 401": true,
+   "Importing a sku again updates it": true,
+   "Invalid rows are reported with their file line and valid rows still import": true
+  }
+ },
+ "stock-csv-import-skill-2": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 2,
+  "task": "stock-csv-import",
+  "tests": {
+   "A bom crlf file with padded mixed case headers imports every row": true,
+   "A file over 5 mb is rejected": true,
+   "A file without both headers is rejected": true,
+   "A header only csv is accepted": true,
+   "A non csv file is rejected": true,
+   "Blank lines are ignored but still counted in line numbers": true,
+   "Columns are found by name in any order": true,
+   "Guest without accept header gets json 401": true,
+   "Importing a sku again updates it": true,
+   "Invalid rows are reported with their file line and valid rows still import": true
+  }
+ },
+ "stock-csv-import-skill-3": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 3,
+  "task": "stock-csv-import",
+  "tests": {
+   "A bom crlf file with padded mixed case headers imports every row": true,
+   "A file over 5 mb is rejected": true,
+   "A file without both headers is rejected": true,
+   "A header only csv is accepted": true,
+   "A non csv file is rejected": true,
+   "Blank lines are ignored but still counted in line numbers": true,
+   "Columns are found by name in any order": true,
+   "Guest without accept header gets json 401": true,
+   "Importing a sku again updates it": true,
+   "Invalid rows are reported with their file line and valid rows still import": true
+  }
+ },
+ "stock-sync-dispatcher-draft-1": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 1,
+  "task": "stock-sync-dispatcher",
+  "tests": {
+   "A rate limited response is retried not swallowed or marked synced": true,
+   "An abandoned claim is picked up again but a fresh claim is not": true,
+   "Every ready row is dispatched exactly once in groups of at most 100": true,
+   "It is scheduled every minute on one server with a short lived overlap lock": true,
+   "Rows of a job that gives up are dispatched again by the next run": true,
+   "Rows synced by the job are not dispatched again until they change": true,
+   "Synced and disabled rows are not dispatched but changed rows are": true,
+   "The job marks sent rows synced and disables missing skus": true
+  }
+ },
+ "stock-sync-dispatcher-draft-2": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 2,
+  "task": "stock-sync-dispatcher",
+  "tests": {
+   "A rate limited response is retried not swallowed or marked synced": true,
+   "An abandoned claim is picked up again but a fresh claim is not": true,
+   "Every ready row is dispatched exactly once in groups of at most 100": true,
+   "It is scheduled every minute on one server with a short lived overlap lock": true,
+   "Rows of a job that gives up are dispatched again by the next run": true,
+   "Rows synced by the job are not dispatched again until they change": true,
+   "Synced and disabled rows are not dispatched but changed rows are": true,
+   "The job marks sent rows synced and disables missing skus": true
+  }
+ },
+ "stock-sync-dispatcher-mid-1": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 1,
+  "task": "stock-sync-dispatcher",
+  "tests": {
+   "A rate limited response is retried not swallowed or marked synced": true,
+   "An abandoned claim is picked up again but a fresh claim is not": true,
+   "Every ready row is dispatched exactly once in groups of at most 100": true,
+   "It is scheduled every minute on one server with a short lived overlap lock": true,
+   "Rows of a job that gives up are dispatched again by the next run": true,
+   "Rows synced by the job are not dispatched again until they change": true,
+   "Synced and disabled rows are not dispatched but changed rows are": true,
+   "The job marks sent rows synced and disables missing skus": true
+  }
+ },
+ "stock-sync-dispatcher-mid-2": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 2,
+  "task": "stock-sync-dispatcher",
+  "tests": {
+   "A rate limited response is retried not swallowed or marked synced": true,
+   "An abandoned claim is picked up again but a fresh claim is not": true,
+   "Every ready row is dispatched exactly once in groups of at most 100": true,
+   "It is scheduled every minute on one server with a short lived overlap lock": true,
+   "Rows of a job that gives up are dispatched again by the next run": true,
+   "Rows synced by the job are not dispatched again until they change": true,
+   "Synced and disabled rows are not dispatched but changed rows are": true,
+   "The job marks sent rows synced and disables missing skus": true
+  }
+ },
+ "stock-sync-dispatcher-prev-1": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 1,
+  "task": "stock-sync-dispatcher",
+  "tests": {
+   "A rate limited response is retried not swallowed or marked synced": true,
+   "An abandoned claim is picked up again but a fresh claim is not": true,
+   "Every ready row is dispatched exactly once in groups of at most 100": true,
+   "It is scheduled every minute on one server with a short lived overlap lock": true,
+   "Rows of a job that gives up are dispatched again by the next run": true,
+   "Rows synced by the job are not dispatched again until they change": true,
+   "Synced and disabled rows are not dispatched but changed rows are": true,
+   "The job marks sent rows synced and disables missing skus": true
+  }
+ },
+ "stock-sync-dispatcher-prev-2": {
+  "arm": "prev",
+  "exit_code": 0,
+  "run": 2,
+  "task": "stock-sync-dispatcher",
+  "tests": {
+   "A rate limited response is retried not swallowed or marked synced": true,
+   "An abandoned claim is picked up again but a fresh claim is not": true,
+   "Every ready row is dispatched exactly once in groups of at most 100": true,
+   "It is scheduled every minute on one server with a short lived overlap lock": true,
+   "Rows of a job that gives up are dispatched again by the next run": true,
+   "Rows synced by the job are not dispatched again until they change": true,
+   "Synced and disabled rows are not dispatched but changed rows are": true,
+   "The job marks sent rows synced and disables missing skus": true
+  }
+ },
+ "stock-sync-dispatcher-skill-1": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 1,
+  "task": "stock-sync-dispatcher",
+  "tests": {
+   "A rate limited response is retried not swallowed or marked synced": true,
+   "An abandoned claim is picked up again but a fresh claim is not": true,
+   "Every ready row is dispatched exactly once in groups of at most 100": true,
+   "It is scheduled every minute on one server with a short lived overlap lock": true,
+   "Rows of a job that gives up are dispatched again by the next run": true,
+   "Rows synced by the job are not dispatched again until they change": true,
+   "Synced and disabled rows are not dispatched but changed rows are": true,
+   "The job marks sent rows synced and disables missing skus": true
+  }
+ },
+ "stock-sync-dispatcher-skill-2": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 2,
+  "task": "stock-sync-dispatcher",
+  "tests": {
+   "A rate limited response is retried not swallowed or marked synced": true,
+   "An abandoned claim is picked up again but a fresh claim is not": true,
+   "Every ready row is dispatched exactly once in groups of at most 100": true,
+   "It is scheduled every minute on one server with a short lived overlap lock": true,
+   "Rows of a job that gives up are dispatched again by the next run": true,
+   "Rows synced by the job are not dispatched again until they change": true,
+   "Synced and disabled rows are not dispatched but changed rows are": true,
+   "The job marks sent rows synced and disables missing skus": true
+  }
+ },
+ "thread-mentions-draft-1": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 1,
+  "task": "thread-mentions",
+  "tests": {
+   "test_a_failed_write_notifies_nobody": true,
+   "test_a_reply_without_mentions_notifies_nobody": true,
+   "test_each_mentioned_user_gets_one_private_email_and_one_notification": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_reply_count_counts_every_reply": true
+  }
+ },
+ "thread-mentions-draft-2": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 2,
+  "task": "thread-mentions",
+  "tests": {
+   "test_a_failed_write_notifies_nobody": true,
+   "test_a_reply_without_mentions_notifies_nobody": true,
+   "test_each_mentioned_user_gets_one_private_email_and_one_notification": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_reply_count_counts_every_reply": true
+  }
+ },
+ "thread-mentions-draft-3": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 3,
+  "task": "thread-mentions",
+  "tests": {
+   "test_a_failed_write_notifies_nobody": true,
+   "test_a_reply_without_mentions_notifies_nobody": true,
+   "test_each_mentioned_user_gets_one_private_email_and_one_notification": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_reply_count_counts_every_reply": true
+  }
+ },
+ "thread-mentions-mid-1": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 1,
+  "task": "thread-mentions",
+  "tests": {
+   "test_a_failed_write_notifies_nobody": true,
+   "test_a_reply_without_mentions_notifies_nobody": true,
+   "test_each_mentioned_user_gets_one_private_email_and_one_notification": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_reply_count_counts_every_reply": true
+  }
+ },
+ "thread-mentions-mid-2": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 2,
+  "task": "thread-mentions",
+  "tests": {
+   "test_a_failed_write_notifies_nobody": true,
+   "test_a_reply_without_mentions_notifies_nobody": true,
+   "test_each_mentioned_user_gets_one_private_email_and_one_notification": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_reply_count_counts_every_reply": true
+  }
+ },
+ "thread-mentions-mid-3": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 3,
+  "task": "thread-mentions",
+  "tests": {
+   "test_a_failed_write_notifies_nobody": true,
+   "test_a_reply_without_mentions_notifies_nobody": true,
+   "test_each_mentioned_user_gets_one_private_email_and_one_notification": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_reply_count_counts_every_reply": true
+  }
+ },
+ "thread-mentions-plain-1": {
+  "arm": "plain",
+  "exit_code": 1,
+  "run": 1,
+  "task": "thread-mentions",
+  "tests": {
+   "test_a_failed_write_notifies_nobody": true,
+   "test_a_reply_without_mentions_notifies_nobody": true,
+   "test_each_mentioned_user_gets_one_private_email_and_one_notification": true,
+   "test_guest_without_accept_header_gets_json_401": false,
+   "test_reply_count_counts_every_reply": true
+  }
+ },
+ "thread-mentions-prev-1": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 1,
+  "task": "thread-mentions",
+  "tests": {
+   "test_a_failed_write_notifies_nobody": true,
+   "test_a_reply_without_mentions_notifies_nobody": true,
+   "test_each_mentioned_user_gets_one_private_email_and_one_notification": true,
+   "test_guest_without_accept_header_gets_json_401": false,
+   "test_reply_count_counts_every_reply": true
+  }
+ },
+ "thread-mentions-prev-2": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 2,
+  "task": "thread-mentions",
+  "tests": {
+   "test_a_failed_write_notifies_nobody": true,
+   "test_a_reply_without_mentions_notifies_nobody": true,
+   "test_each_mentioned_user_gets_one_private_email_and_one_notification": true,
+   "test_guest_without_accept_header_gets_json_401": false,
+   "test_reply_count_counts_every_reply": true
+  }
+ },
+ "thread-mentions-prev-3": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 3,
+  "task": "thread-mentions",
+  "tests": {
+   "test_a_failed_write_notifies_nobody": true,
+   "test_a_reply_without_mentions_notifies_nobody": true,
+   "test_each_mentioned_user_gets_one_private_email_and_one_notification": true,
+   "test_guest_without_accept_header_gets_json_401": false,
+   "test_reply_count_counts_every_reply": true
+  }
+ },
+ "thread-mentions-skill-1": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 1,
+  "task": "thread-mentions",
+  "tests": {
+   "test_a_failed_write_notifies_nobody": true,
+   "test_a_reply_without_mentions_notifies_nobody": true,
+   "test_each_mentioned_user_gets_one_private_email_and_one_notification": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_reply_count_counts_every_reply": true
+  }
+ },
+ "thread-mentions-skill-2": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 2,
+  "task": "thread-mentions",
+  "tests": {
+   "test_a_failed_write_notifies_nobody": true,
+   "test_a_reply_without_mentions_notifies_nobody": true,
+   "test_each_mentioned_user_gets_one_private_email_and_one_notification": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_reply_count_counts_every_reply": true
+  }
+ },
+ "thread-mentions-skill-3": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 3,
+  "task": "thread-mentions",
+  "tests": {
+   "test_a_failed_write_notifies_nobody": true,
+   "test_a_reply_without_mentions_notifies_nobody": true,
+   "test_each_mentioned_user_gets_one_private_email_and_one_notification": true,
+   "test_guest_without_accept_header_gets_json_401": true,
+   "test_reply_count_counts_every_reply": true
+  }
+ },
+ "token-login-draft-1": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 1,
+  "task": "token-login",
+  "tests": {
+   "A missing field is a 422": true,
+   "Guest without accept header gets json 401": true,
+   "Revoking deletes only the token used": true,
+   "The limit resets after a minute": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true
+  }
+ },
+ "token-login-draft-2": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 2,
+  "task": "token-login",
+  "tests": {
+   "A missing field is a 422": true,
+   "Guest without accept header gets json 401": true,
+   "Revoking deletes only the token used": true,
+   "The limit resets after a minute": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true
+  }
+ },
+ "token-login-draft-3": {
+  "arm": "draft",
+  "exit_code": 0,
+  "run": 3,
+  "task": "token-login",
+  "tests": {
+   "A missing field is a 422": true,
+   "Guest without accept header gets json 401": true,
+   "Revoking deletes only the token used": true,
+   "The limit resets after a minute": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true
+  }
+ },
+ "token-login-mid-1": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 1,
+  "task": "token-login",
+  "tests": {
+   "A missing field is a 422": true,
+   "Guest without accept header gets json 401": true,
+   "Revoking deletes only the token used": true,
+   "The limit resets after a minute": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true
+  }
+ },
+ "token-login-mid-2": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 2,
+  "task": "token-login",
+  "tests": {
+   "A missing field is a 422": true,
+   "Guest without accept header gets json 401": true,
+   "Revoking deletes only the token used": true,
+   "The limit resets after a minute": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true
+  }
+ },
+ "token-login-mid-3": {
+  "arm": "mid",
+  "exit_code": 0,
+  "run": 3,
+  "task": "token-login",
+  "tests": {
+   "A missing field is a 422": true,
+   "Guest without accept header gets json 401": true,
+   "Revoking deletes only the token used": true,
+   "The limit resets after a minute": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true
+  }
+ },
+ "token-login-plain-1": {
+  "arm": "plain",
+  "exit_code": 1,
+  "run": 1,
+  "task": "token-login",
+  "tests": {
+   "A missing field is a 422": true,
+   "Guest without accept header gets json 401": false,
+   "Revoking deletes only the token used": true,
+   "The limit resets after a minute": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true
+  }
+ },
+ "token-login-prev-1": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 1,
+  "task": "token-login",
+  "tests": {
+   "A missing field is a 422": true,
+   "Guest without accept header gets json 401": false,
+   "Revoking deletes only the token used": true,
+   "The limit resets after a minute": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true
+  }
+ },
+ "token-login-prev-2": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 2,
+  "task": "token-login",
+  "tests": {
+   "A missing field is a 422": true,
+   "Guest without accept header gets json 401": false,
+   "Revoking deletes only the token used": true,
+   "The limit resets after a minute": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true
+  }
+ },
+ "token-login-prev-3": {
+  "arm": "prev",
+  "exit_code": 1,
+  "run": 3,
+  "task": "token-login",
+  "tests": {
+   "A missing field is a 422": true,
+   "Guest without accept header gets json 401": false,
+   "Revoking deletes only the token used": true,
+   "The limit resets after a minute": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true
+  }
+ },
+ "token-login-skill-1": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 1,
+  "task": "token-login",
+  "tests": {
+   "A missing field is a 422": true,
+   "Guest without accept header gets json 401": true,
+   "Revoking deletes only the token used": true,
+   "The limit resets after a minute": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true
+  }
+ },
+ "token-login-skill-2": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 2,
+  "task": "token-login",
+  "tests": {
+   "A missing field is a 422": true,
+   "Guest without accept header gets json 401": true,
+   "Revoking deletes only the token used": true,
+   "The limit resets after a minute": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true
+  }
+ },
+ "token-login-skill-3": {
+  "arm": "skill",
+  "exit_code": 0,
+  "run": 3,
+  "task": "token-login",
+  "tests": {
+   "A missing field is a 422": true,
+   "Guest without accept header gets json 401": true,
+   "Revoking deletes only the token used": true,
+   "The limit resets after a minute": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true
+  }
+ }
+}

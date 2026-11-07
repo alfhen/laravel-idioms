@@ -1,0 +1,72 @@
+{
+ "key": "shipment-sync",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Jobs/SendOrderToWarehouse.php:51 \u2013 `$this->order->refresh()` is redundant: SerializesModels already loads the model fresh when the job is unserialised",
+    "app/Jobs/SendOrderToWarehouse.php:129-142 \u2013 the notification claim/release queries are written inline in the job instead of being named methods on the model",
+    "app/Models/Order.php:15 \u2013 `status` is in #[Fillable], so mass assignment can bypass markAsPaid()",
+    "app/Jobs/SendOrderToWarehouse.php:33-35 \u2013 docblock explains design reasoning, which belongs in the PR description",
+    "tests/Feature/SendOrderToWarehouseTest.php:50-58 \u2013 the test called 'only after the transaction commits' never checks afterCommit",
+    "tests/Feature/SendOrderToWarehouseTest.php:154 \u2013 the 422 test calls failed() by hand instead of checking that the queue pipeline records the reason",
+    "tests/Feature/SendOrderToWarehouseTest.php:131 \u2013 convoluted null-coalescing assertion"
+   ],
+   "strengths": [
+    "failed() only updates rows where shipment_reference is null, so a shipment that exists is never reported as failed later (for example when mail retries run out)",
+    "Re-checks trashed, paid and failed status before calling the warehouse; my probe confirmed a cancelled order queued with markAsPaid is not shipped",
+    "Atomic conditional update in markAsPaid plus dispatch afterCommit; the email is sent exactly once using an atomic claim that is released if sending fails",
+    "Global RateLimited middleware, WithoutOverlapping, retryUntil, Backoff/MaxExceptions/Timeout attributes, Idempotency-Key header, capped Retry-After on 429s",
+    "422 gets a dedicated domain exception with a readable reason; other 4xx fail fast; a non-201 or missing id throws",
+    "My probes passed: 422 run through dispatch_sync stores 'Warehouse rejected the address: Bad street'; an unpaid order is not shipped; failed() after Sent keeps Sent"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Jobs/SendOrderToWarehouse.php:87-90 \u2013 failed() calls markShipmentFailed() unconditionally. If the shipment was created but the mail step keeps throwing until retries run out (or MaxAttemptsExceeded fires afterwards), the order flips from Sent to Failed while it still has a shipment_reference. Ops would then see a false failure and might re-ship. My probe confirmed it: Sent became Failed.",
+    "app/Jobs/SendOrderToWarehouse.php:52-61 \u2013 the job never checks status === Paid, so a job dispatched for a pending order still calls the warehouse (my probe confirmed an HTTP request was sent). This is minor because only markAsPaid dispatches the job."
+   ],
+   "antipatterns": [
+    "app/Jobs/SendOrderToWarehouse.php:52-59 \u2013 nested and duplicated shipment_status checks (trashed && !Sent, then !Sent { Failed }) make the guard logic harder to read than one early-return block",
+    "app/Jobs/SendOrderToWarehouse.php:75 \u2013 other 4xx such as 401 or 400 are retried with backoff instead of failing fast",
+    "app/Models/Order.php:49-54 \u2013 manual forceFill()->syncOriginal() after a query update instead of refresh()"
+   ],
+   "strengths": [
+    "The model has well-named intent methods (markShipmentSent, markShipmentFailed, claimShipmentNotification, releaseShipmentNotification), which keeps the job thin",
+    "#[WithoutRelations] on the constructor; the job's resilience settings are declared with queue attributes; Idempotency-Key header; separate connect and request timeouts",
+    "markAsPaid uses an atomic conditional update and afterCommit dispatch and returns a bool",
+    "A failureReason() match builds clear, ops-readable messages for each exception type",
+    "Strongest test suite: a real mail transport failure to check the notification claim is released; 422 tested end-to-end through dispatch_sync; a dataset for failure reasons; the rate limiter checked by actually running out the limit; afterCommit asserted on the pushed job"
+   ]
+  },
+  "rationale": "I ranked impl-1 first because impl-2 has one real correctness bug. Both architectures are almost the same and close to ideal: an atomic conditional update in markAsPaid with an afterCommit dispatch, the global 'warehouse' RateLimited middleware at 5 per second, WithoutOverlapping, retryUntil with Backoff/MaxExceptions/Timeout attributes, an Idempotency-Key header, a capped Retry-After release on 429, a fail() on 422, and an atomic claim on shipment_notified_at so the email goes out once. Both test suites pass (impl-2: 25 tests, impl-1: 22).\n\nThe bug: impl-2's failed() always marks the order Failed. If the shipment was created but the mail keeps failing until retries run out, the order goes from Sent to Failed while it still has a shipment reference. That misleads ops about a shipment that exists and risks a duplicate shipment if they redo it by hand. My probe confirmed it. impl-1 guards failed() with whereNull('shipment_reference') and also re-checks that the order is paid. My second probe showed impl-2 calls the warehouse for an unpaid order if the job is dispatched directly; this is minor because only markAsPaid dispatches it.\n\nIn impl-2's favour: it has the richer test suite (real mail transport failure, 422 run end-to-end, failure-reason dataset, rate limit checked by running it out) and nicer model intent methods. impl-1's tests are weaker in places (the after-commit test never checks afterCommit; the 422 test calls failed() by hand), but its own tests cover the Sent-protection case.\n\nBoth failed my MaxAttemptsExceeded probe with 'Undefined array key \"job\"'. That was a mistake in how I built the probe, not a bug in either implementation, so I ignored it.\n\nOn balance, the Sent-to-Failed overwrite goes directly against the task's requirements to avoid duplicate shipments and give ops an accurate failure status, so impl-1 ranks first."
+ },
+ "cost_usd": 0.444108
+}

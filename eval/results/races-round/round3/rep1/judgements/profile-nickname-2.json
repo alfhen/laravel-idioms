@@ -1,0 +1,98 @@
+{
+ "key": "profile-nickname",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 10,
+    "simplicity": 8
+   },
+   "overall": 9,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "tests/Feature/MeTest.php:6-12 two near-identical guest tests that a dataset (or one test) would cover",
+    "tests/Feature/MeTest.php:49-67 null and empty-string clear cases are separate tests with duplicated bodies; a `->with([null, ''])` dataset would cover both",
+    "tests/Feature/MeTest.php:93,103,110 assertJsonValidationErrors('nickname') checks only the key, not which rule failed (max vs string vs present)",
+    "app/Http/Resources/MeResource.php:14 `$wrap = null` per resource works, but it is one-off configuration for a single endpoint"
+   ],
+   "strengths": [
+    "A dedicated API Resource gives one source of truth for the {id,name,nickname} shape, and `$wrap = null` returns the flat payload the spec describes",
+    "The FormRequest uses `present|nullable|string|max:30`, which makes clearing explicit and rejects an empty PATCH; DB column is string(30) nullable after name",
+    "Fillable attribute updated; `$request->validated()` means only nickname can be mass-assigned (tested)",
+    "Most complete suite: a real personal access token test, multibyte 30-char boundary, 30/31 boundaries, persistence checks, other-user isolation, mass-assignment guard",
+    "My probes passed: 31 multibyte chars rejected, whitespace trimmed to null, integer rejected, form-encoded PATCH works, email not leaked"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Resources/MeResource.php:10 default resource wrapping returns `{data:{id,name,nickname}}` instead of the flat `id, name, nickname` the spec describes. It is a valid Laravel convention, but it is a contract choice made silently",
+    "routes/api.php:10-13 `prefix('me')` combined with `Route::get('/')` is more ceremony than `Route::get('/me')` for two routes",
+    "tests/Feature/MeTest.php:88 `email->not->toBe('x@example.com')` is a weaker assertion than checking the email is unchanged"
+   ],
+   "strengths": [
+    "Clean resource controller with a FormRequest and an API Resource; `present|nullable|string|max:30` validation",
+    "Idiomatic Pest: datasets for guest methods, null/'' clearing and missing/array failures; validation assertions check the actual error messages",
+    "Tests cover the 30/31 boundaries, persistence on failure, other-user isolation, and mass-assignment protection of name/email",
+    "assertExactJson guards against leaking extra fields",
+    "My probes passed: multibyte length, whitespace to null, integer rejection, real-token PATCH, form-encoded PATCH"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 10,
+    "simplicity": 9
+   },
+   "overall": 8,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Controllers/MeController.php:13,20 the `only('id', 'name', 'nickname')` field list is duplicated across both actions; an API Resource is the idiomatic single place for the response shape",
+    "app/Http/Controllers/MeController.php:13 `response()->json($model->only(...))` bypasses the Resource layer that Laravel API conventions expect",
+    "tests/Feature/MeTest.php:47-51 the 30-char acceptance test doesn't check persistence",
+    "tests/Feature/MeTest.php:6-10 several requests in one guest test (and `$this->get` is redundant with getJson)",
+    "No test that PATCH leaves other users untouched"
+   ],
+   "strengths": [
+    "The smallest, most proportionate implementation: `tap($request->user())->update($request->validated())` is concise and idiomatic",
+    "Flat JSON matches the spec exactly; assertExactJson on both GET and PATCH",
+    "The FormRequest uses `present|nullable|string|max:30`; the route uses `controller()` grouping",
+    "Tests check error messages, a null/'' dataset, and persistence on failed validation",
+    "My probes passed: multibyte length, whitespace to null, integer rejection, real-token PATCH, form-encoded PATCH"
+   ]
+  },
+  "rationale": "All three are functionally equivalent and correct. Each has an identical migration (string(30) nullable after name), the same `present|nullable|string|max:30` FormRequest, a Fillable update, auth:sanctum routes and RefreshDatabase enabled. All suites pass (impl-2: 15, impl-3: 13, impl-1: 17). My probes found no bugs in any of them: 31 multibyte chars rejected, whitespace trimmed to null, integer rejected, real-token PATCH works, form-encoded PATCH works, email not leaked. Idiom and test quality decide the ranking. impl-1 uses an API Resource with `$wrap=null`, so the output is flat as the spec describes, and has the broadest tests (real Sanctum token, multibyte boundary, user isolation, mass-assignment guard). Its weak points are some duplicated tests that a dataset would collapse and key-only validation assertions. impl-2 is equally well built and has the most idiomatic Pest (datasets, message-level assertions). It loses a little for silently wrapping the payload in `data` and for an unnecessary prefix/'/' route group. impl-3 is the leanest, using `tap()` and `only()`, which suits the task's size. But it repeats the response field list instead of using a Resource, and its tests are thinner (no other-user isolation test, and the boundary test doesn't check persistence)."
+ },
+ "cost_usd": 0.27946180000000004
+}

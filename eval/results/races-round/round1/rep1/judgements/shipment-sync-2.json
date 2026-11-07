@@ -1,0 +1,75 @@
+{
+ "key": "shipment-sync",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 6
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "tests/Feature/SendOrderToWarehouseTest.php:136,163,175 - mocks Illuminate\\Contracts\\Queue\\Job with Mockery instead of using withFakeQueueInteractions()/assertReleased()/assertFailed()",
+    "app/Models/Order.php:15 - shipment_status/shipment_reference/shipment_failure_reason are mass-assignable just so the job can call update(); forceFill would keep these columns out of reach of user input",
+    "database/migrations/2026_11_07_000000_create_orders_table.php:20 - adds an unrequested shipment_notified_at column. It is a reasonable way to make the email exactly-once, but it is extra schema",
+    "app/Jobs/SendOrderToWarehouse.php:53 - re-runs fresh() after SerializesModels has already loaded the model from the database; this adds a query and a null branch",
+    "app/Jobs/SendOrderToWarehouse.php:112 - uses an inline FQCN \\UnexpectedValueException instead of importing it",
+    "app/Jobs/SendOrderToWarehouse.php:97 - the 422 reason is the raw response body with a prefix, where ops would be better served by the parsed message",
+    "app/Models/Order.php:26 - the integer cast on total_cents is redundant"
+   ],
+   "strengths": [
+    "Atomic conditional update in markAsPaid makes a second call a no-op, and dispatch(...)->afterCommit() keeps checkout fast",
+    "Job checks that the order is trashed, paid, and not already failed/sent before calling the partner. A probe confirmed that a serialized job for a soft-deleted order sends nothing",
+    "The email is exactly-once through an atomic shipment_notified_at claim that is rolled back on failure. A retry sends only the email and never re-POSTs",
+    "failed() is guarded with whereNull('shipment_reference'), so an email that keeps failing never overwrites a created shipment as failed",
+    "Shared RateLimiter at 5/s, WithoutOverlapping per order, Idempotency-Key header, connect and request timeouts, capped Retry-After on 429, time-based retryUntil with Backoff/MaxExceptions attributes",
+    "A 422 records the reason and completes without a retry",
+    "The thorough suite covers the email-failure rollback, failed connections, the manually-failed guard, a Retry-After dataset, and a real throttling test (7 jobs leads to 5 sends)"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Jobs/SendOrderToWarehouse.php:78-84 - failed() always sets shipment_status=failed, even when shipment_reference is already set. A probe confirmed that an order with SHP-1/sent becomes 'failed' when failed() runs, so a late failure (timeout, max attempts) after a successful POST would show ops a false failure",
+    "app/Jobs/SendOrderToWarehouse.php:69-75 - the reference is saved before the mail is queued. If queueing the mail throws, the retry returns early at line 47 because shipment_reference is set, so the customer email is lost (at-most-once rather than exactly-once)"
+   ],
+   "antipatterns": [
+    "app/Jobs/SendOrderToWarehouse.php:67 - throws a generic RuntimeException for a malformed 201; this is fine, but the reason ops see is opaque",
+    "app/Jobs/SendOrderToWarehouse.php:103 - mixes ?? and ?: in one expression, which relies on operator precedence and is hard to read",
+    "app/Exceptions/InvalidShippingAddress.php - a dedicated exception class used only to carry the 422 message into failed(); this is borderline ceremony",
+    "tests/Feature/SendOrderToWarehouseTest.php:154-162 - exhaustion is tested only by calling failed() directly; there is no test that failed() preserves a sent shipment, which is the bug that slipped through"
+   ],
+   "strengths": [
+    "Lean, readable job with modern queue attributes (#[Backoff], #[MaxExceptions], #[Timeout]), retryUntil, RateLimited plus WithoutOverlapping middleware, and an Idempotency-Key header",
+    "An atomic conditional update in markAsPaid inside DB::transaction with afterCommit dispatch, plus a refresh",
+    "A 422 uses $this->fail(new InvalidShippingAddress(...)), so the reason reaches the order through failed() and the job also lands in failed_jobs",
+    "Tests use the modern withFakeQueueInteractions()/assertReleased()/assertFailedWith() helpers and Http::preventStrayRequests",
+    "forceFill for system-managed columns keeps fillable narrow; the mailable is queued and uses a markdown template",
+    "An end-to-end probe on the database queue (503 then 201) shipped correctly; a probe of a serialized job for a trashed order sent nothing"
+   ]
+  },
+  "rationale": "I ranked impl-1 first (8.5/10) and impl-2 second (7/10). Both test suites pass: impl-1 has 23 tests and impl-2 has 16.\n\nWhat both get right:\n- The checkout path is fast: `markAsPaid()` claims the order with an atomic update and dispatches the job only after the transaction commits.\n- Calls to the warehouse are limited to 5 per second across the account, one job runs per order at a time, and each request carries an idempotency key.\n- A 429 waits for the partner's Retry-After, capped at 120 seconds. Other errors retry with backoff for a fixed time window.\n- A 422 is recorded on the order and is not retried.\n- Probes confirmed that a queued job for a cancelled (soft-deleted) order sends nothing to the warehouse. A run through the real database queue with a 503 followed by a 201 shipped the order correctly.\n\nWhere they differ is what happens after the shipment is created:\n- **impl-2's `failed()` hook doesn't check for an existing shipment.** A probe confirmed it overwrites a sent order (SHP-1) with status failed. Ops would then see a false failure for an order that actually shipped.\n- **impl-2 can lose the customer email.** It saves the shipment reference before queueing the email. If queueing the email throws, the retry exits early because the reference is already set, so the email is never sent.\n- **impl-1 makes the email exactly-once.** It claims a `shipment_notified_at` timestamp before sending and clears it if sending fails, so a retry resends only the email and never posts the shipment again. Its `failed()` hook only touches orders that have no shipment reference. It also checks the order is still paid and not already failed.\n- **impl-1's tests cover more failure paths:** email-failure rollback, failed connections, and a real throttling check (7 jobs, 5 sent).\n\nimpl-2 does have advantages:\n- The code is leaner.\n- Its tests use the modern fake-queue helpers rather than Mockery mocks of the queue job.\n- A 422 goes through `$this->fail()`, so the job also shows up in `failed_jobs`.\n- System-managed columns are kept out of mass assignment.\n\nimpl-1 pays for its extra safety with an unrequested column, a redundant reload of the order, and mass-assignable shipment fields. I scored it lower on simplicity for that, but it has no real bugs, so it ranks first.\n\nTwo caveats:\n- I tried to probe the lost-email case directly in both implementations, but my throwaway test broke on how I swapped the mail fake. The impl-2 email bug is therefore from reading the code, not from a run. impl-1's own test covers its rollback.\n- I deleted all the probe files afterwards."
+ },
+ "cost_usd": 0.5369236000000001
+}

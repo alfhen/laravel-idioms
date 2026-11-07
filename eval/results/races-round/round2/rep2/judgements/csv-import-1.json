@@ -1,0 +1,86 @@
+{
+ "key": "csv-import",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "app/Jobs/ProcessImport.php:91-100 marks the import Completed before sending the email synchronously. If Mail::send throws, the retry hits the claim guard at line 35 (status is no longer queued/processing), returns early, and the summary email is never sent.",
+    "app/Imports/ProductRowParser.php:30 stock has no upper bound. A value like 99999999999 passes validation and is upserted into an unsignedInteger column. On MySQL that fails the whole chunk's upsert and the job, instead of recording one row error.",
+    "Retrying a partially processed import (status still processing) counts products upserted on the first attempt as 'updated' rather than 'created', so the counts drift."
+   ],
+   "antipatterns": [
+    "app/Http/Controllers/ImportController.php:17 abort_if($path === false, 503) is ceremony; store() failures normally throw.",
+    "app/Imports/ProductRowParser.php:24-32 hand-written match(true) validation instead of the Validator / validation rules the framework already provides.",
+    "app/Imports/ProductRowParser.php:13 returns array{error}|array{product} shapes instead of a small DTO or exception, and the job checks isset($result['error']).",
+    "app/Models/Import.php:20 the $attributes default uses the string 'queued' instead of ImportStatus::Queued->value.",
+    "tests/Feature/ImportTest.php:232 calls handle() with FQCNs inline instead of imports."
+   ],
+   "strengths": [
+    "Proper API setup: routes/api.php registered in bootstrap/app.php, Sanctum auth:sanctum, and a guest redirect returning null for api/* so non-JSON guests get 401.",
+    "Authorization on the route via ->can('view','import') with an ImportPolicy that uses relation->is().",
+    "Bulk upsert per 500-row chunk with LazyCollection streaming, which scales to 5MB files; duplicate SKUs within a chunk are deduplicated.",
+    "Atomic status claim (conditional update) prevents double processing; the job uses Tries/Backoff/Timeout/DeleteWhenMissingModels attributes.",
+    "Handles BOM, header case, blank lines and ragged rows; a missing header fails the import with a recorded reason.",
+    "Uses File::types()->max() fluent rule, returns 202 Accepted, and the resource uses whenLoaded.",
+    "Thorough tests: exact 5MB boundary, chunk-spanning file, idempotent rerun, header failure, mail content assertions."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 6,
+    "thin_controllers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 4,
+    "modern_laravel": 6,
+    "focus_area": 6,
+    "tests": 6,
+    "correctness": 5,
+    "simplicity": 8
+   },
+   "overall": 5.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "routes/web.php:10-13 puts the API endpoints in web.php under an 'api' prefix with session 'auth'. CSRF/forgery protection therefore applies, and a probe with the unit-test bypass disabled returned 419 on POST /api/imports. Real API clients cannot upload.",
+    "routes/web.php:10 a non-JSON guest request to GET /api/imports/{id} returns 500 (the login route is not defined) instead of 401; confirmed by probe.",
+    "tests/Feature/ImportTest.php:80-88 'accepts file of exactly 5mb' actually asserts 422 (the fake file has no header), so the 5MB boundary acceptance is never tested.",
+    "Retrying a partially processed import counts products created on the first attempt as 'updated'.",
+    "app/Jobs/ProcessImport.php:42-69 a missing file makes readStream return null, so the error is a TypeError from fgetcsv/fclose(null) rather than a clear exception."
+   ],
+   "antipatterns": [
+    "routes/web.php:10 API routes defined in web.php instead of installing api routes plus a token guard (Sanctum).",
+    "app/Jobs/ProcessImport.php:60,127 one query per error row plus updateOrCreate per valid row (2+ queries per row); a 5MB file means hundreds of thousands of queries, where upsert in chunks would do.",
+    "app/Jobs/ProcessImport.php:109 builds a Validator per row: idiomatic, but expensive inside a hot loop.",
+    "app/Http/Resources/ImportResource.php:26 accesses $this->rowErrors unconditionally instead of whenLoaded, so it risks lazy loading.",
+    "app/Http/Controllers/ImportController.php:24 eager-loads rowErrors on a freshly created import, a wasted query.",
+    "Column list duplicated in StoreImportRequest::REQUIRED_COLUMNS and ProcessImport::COLUMNS, and the BOM/header normalisation is duplicated too.",
+    "app/Http/Controllers/ImportController.php:29 Gate::authorize in the controller where route ->can() middleware would do."
+   ],
+   "strengths": [
+    "The header columns are validated up front in the FormRequest after() hook, so bad files are rejected with 422 before an Import is created.",
+    "Uses Laravel's Validator for row rules, giving standard messages and min/max/integer bounds including the stock upper limit.",
+    "A queued Notification (ShouldQueue) for the summary email decouples mail failures from the import job.",
+    "Intention-revealing model methods markProcessing/markCompleted/markFailed; supports reordered columns via header mapping.",
+    "Tests cover a crash-retry clearing stale errors, a header-only file, an exact JSON structure, and the guest/other-user/404 paths."
+   ]
+  },
+  "rationale": "Both suites pass (impl-1: 20 tests, impl-2: 24). They differ on correctness and architecture. impl-1 sets up a real API: api.php, Sanctum token auth, route-level ->can() authorization and a 202 response. Processing streams the file and upserts in 500-row chunks with an atomic status claim. My probes confirmed it handles header-only and empty files, ragged rows, quoted commas and a missing header. Its weaknesses are smaller: if the synchronous email fails, it is lost on retry; stock has no upper bound; and validation is hand-written instead of using Laravel's Validator. impl-2 has nicer pieces: header validation in the FormRequest, a per-row Validator and a queued Notification. But it registers the 'API' in web.php with session auth. With the test bypass disabled, a probe got 419 on POST /api/imports, and a non-JSON guest request returned 500. Its exact-5MB test also does not test what its name says, and processing costs at least two queries per row. impl-2's routing bug means real API clients cannot use the main endpoint, so impl-1 ranks first."
+ },
+ "cost_usd": 0.5443614
+}

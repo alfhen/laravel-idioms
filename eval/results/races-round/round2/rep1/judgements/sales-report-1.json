@@ -1,0 +1,83 @@
+{
+ "key": "sales-report",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Models/OrderItem.php:19 REVENUE_SQL raw-SQL constant on the model, then concatenated into another constant in app/Reports/BuildSalesReport.php:18; the SQL is split across two classes",
+    "app/Models/OrderItem.php:31-35 inOrders scope takes a whole Builder as a parameter, which is unusual; whereHas('order', ...) or a direct whereIn would be clearer",
+    "app/Reports/BuildSalesReport.php:33 the $items closure factory that clones the builder is a little clever; a named method would read better",
+    "app/Reports/BuildSalesReport.php:96 topCustomers runs a second findMany query and indexes the result by id instead of joining customers in the aggregate query",
+    "app/Http/Requests/SalesReportRequest.php:14 trim() is redundant because the TrimStrings middleware already trims input",
+    "app/Http/Requests/SalesReportRequest.php:39 tryFrom($x ?? '') ?? Paid is roundabout; validated('status', default) would be simpler",
+    "tests/Feature/SalesReportTest.php:24 Http::preventStrayRequests is irrelevant ceremony for a database-only endpoint",
+    "database/migrations/2026_11_07_000000_create_sales_tables.php all four tables in one migration (acceptable, but not the usual one-migration-per-table convention)"
+   ],
+   "strengths": [
+    "Probes: empty params (?status=, ?from=, ?country=, ?from=X&to=) are treated as absent and return 200, using nullable plus the ConvertEmptyStringsToNull middleware",
+    "Thin invokable controller with a FormRequest exposing typed filters() and an injected report action",
+    "Modern Laravel 12-13 idioms: #[Fillable] and #[Scope] attributes, casts() method, Rule::enum, backed enum cast",
+    "Inclusive date range using startOfDay/endOfDay, tested at the boundaries",
+    "Money returned as cents plus a Number::currency string with the locale set explicitly",
+    "Aggregation done in SQL with deterministic tiebreak ordering",
+    "Thorough tests: exact-JSON empty case, ranking caps, data provider covering 8 kinds of invalid input, messages, orders without items, rounding, behaviour without the JSON Accept header",
+    "Factory states (pending/paid/refunded/placedAt/priced/from) make the tests readable"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 7.5,
+    "simplicity": 8
+   },
+   "overall": 7.8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Empty optional params are rejected with 422 instead of being treated as absent (probe confirmed): ?status= gives 422 when it should default to paid, and ?from=, ?country= and ?from=2026-03-10&to= also give 422. The rules in app/Http/Requests/SalesReportRequest.php:21-24 lack 'nullable', so the null produced by ConvertEmptyStringsToNull fails them. This is unfriendly for optional filters that form-driven clients commonly send empty"
+   ],
+   "antipatterns": [
+    "database/migrations/2026_11_07_184417_create_orders_table.php imports the app's OrderStatus enum for the column default, coupling the migration to app code that can change later",
+    "database/migrations/2026_11_07_184417_create_orders_table.php customer_id cascadeOnDelete silently deletes order history when a customer is deleted, which is questionable for sales data",
+    "app/Reports/BuildSalesReport.php:46-47 filled() checks are redundant because the validated values are already null or a valid date",
+    "app/Http/Requests/SalesReportRequest.php:24 the 'sometimes' rules without 'nullable' cause the bug above",
+    "tests/Feature/SalesReportTest.php:250-258 the 'makes no network calls' test is meaningless ceremony",
+    "Columns named price and unit_price give no cents hint (impl-1 uses *_cents), making the unit ambiguous for readers"
+   ],
+   "strengths": [
+    "Same clean shape as impl-1: invokable controller, FormRequest filters(), injected report action, #[Scope] and #[Fillable] attributes",
+    "A single reusable $matching closure applied through tap() and whereHas(); clear filter composition without a custom scope that takes a Builder",
+    "Columns qualified (orders.status, orders.placed_at) so the scopes stay safe under joins",
+    "Top customers built in a single joined aggregate query with no second lookup",
+    "validated('status', default) with OrderStatus::from is concise",
+    "One migration per table, index on country, restrictOnDelete on products",
+    "Good tests including thousand-separator formatting, a sequence() in a factory, a data provider of invalid queries, and unit_price vs current product price"
+   ]
+  },
+  "rationale": "The two are structurally near-twins: same invokable controller, Form Request with filters(), BuildSalesReport action, #[Scope] model scopes, Number::currency money helper, and SQL aggregation with deterministic tie-breaks. Both pass their suites (26 and 24 tests), and both produced correct totals, country breakdown, top products and top customers in my probes, including combined filters, case-insensitive country and inclusive date bounds. The deciding difference came from the probes. impl-1 uses 'nullable' rules, so empty params like ?status= or ?from=2026-03-10&to= are treated as absent and status defaults to paid. impl-2 rejects all of these with 422, which is a real usability bug for optional filters. impl-1's tests are also a bit broader: orders without items, an array status, and requests without the JSON Accept header. impl-2 is slightly cleaner in places: one joined query for top customers, a reusable $matching closure with tap(), qualified columns, and one migration per table. But it couples the migration to the app enum, cascade-deletes orders with customers, and adds a pointless no-network test. impl-1 has some ceremony of its own: a raw-SQL constant on the model, an inOrders(Builder) scope, a redundant trim, and an extra findMany. On balance, impl-1 ranks first."
+ },
+ "cost_usd": 0.5049992000000001
+}

@@ -1,0 +1,67 @@
+{
+ "key": "profile-nickname",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 10,
+    "simplicity": 9
+   },
+   "overall": 8.8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "Naming inconsistency: app/Http/Controllers/MeController.php:5 pairs MeController/MeResource with UpdateProfileRequest (mixed 'Me' and 'Profile' vocabulary)",
+    "tests/Feature/MeTest.php:34 PATCH success only checks assertJsonPath('nickname'), so it doesn't confirm the full response shape matches GET",
+    "Pre-existing /api/user closure route left next to the new /api/me (routes/api.php:7), so two endpoints overlap (minor, inherited)"
+   ],
+   "strengths": [
+    "Small and proportionate: a controller with 2 actions, a FormRequest, an unwrapped JsonResource with @mixin, and a VARCHAR(30) nullable migration with a down()",
+    "'present|nullable|string|max:30' validation means clearing has to be explicit; null and '' both clear because of ConvertEmptyStringsToNull",
+    "Mass-assignment safety relies on validated() plus #[Fillable], and a test checks it",
+    "Good Pest tests: guest dataset, exact JSON on GET, labelled datasets for clear and invalid cases, a 30/31-character boundary, and a check that the stored value is unchanged after a 422",
+    "My probes passed: whitespace-only input clears, input is trimmed, 30/31 multibyte characters behave correctly, an integer is rejected, no email leaks, no data wrapper, and real token auth works"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 10,
+    "simplicity": 9
+   },
+   "overall": 9,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "tests/Feature/ProfileTest.php:7 sends a JSON body on the GET guest case (harmless noise)",
+    "tests/Feature/ProfileTest.php:50 uses an unlabelled dataset [null, ''], so test output is a little less readable than with named keys",
+    "Pre-existing /api/user closure route left next to the new /api/me (routes/api.php:7), so two endpoints overlap (minor, inherited)"
+   ],
+   "strengths": [
+    "Consistent naming: ProfileController, ProfileResource and UpdateProfileRequest",
+    "Same lean design as impl-1: FormRequest with present|nullable|string|max:30, unwrapped resource with @mixin, a length-limited nullable column with a reversible migration",
+    "PATCH test uses assertExactJson, so the update response must have the same shape as GET",
+    "Extra test checks that a guest gets a 401 rather than a redirect even without an Accept header, which is a real API edge case",
+    "Covers the 30/31 boundary, the missing field, a non-string value, attempts to change other attributes, and isolation from other users",
+    "My probes passed: whitespace-only input clears, input is trimmed, multibyte characters are counted correctly, an integer is rejected, no email leaks, and token auth works"
+   ]
+  },
+  "rationale": "The two implementations are almost identical: the same migration, FormRequest rules, controller logic, unwrapped JsonResource, Fillable change, route group and test structure. Both pass their suites (15 and 16 tests). Both also passed my probes: whitespace-only input clears the nickname, input is trimmed, 30/31 multibyte characters are handled, a non-string is rejected, no email leaks, there's no data wrapper, and a real Sanctum token works. I found no bugs in either. impl-2 wins on small points: its naming is consistent (Profile* throughout, while impl-1 mixes MeController/MeResource with UpdateProfileRequest), its PATCH response is checked with assertExactJson, and it adds a test for a guest without an Accept header. impl-1 has slightly nicer labelled datasets, but that doesn't outweigh impl-2's extra coverage."
+ },
+ "cost_usd": 0.23312719999999998
+}

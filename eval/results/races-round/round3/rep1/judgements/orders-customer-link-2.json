@@ -1,0 +1,107 @@
+{
+ "key": "orders-customer-link",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 6,
+    "eloquent_idioms": 7,
+    "architecture_fit": 6,
+    "modern_laravel": 5,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 6
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "database/migrations/2026_11_07_190000_add_customer_id_to_orders_table.php:12-34 \u2014 production (MySQL) and test (SQLite) run different code paths. The MySQL raw-SQL branch is never run by the suite, so a typo in it would only show up during the production deploy.",
+    "database/migrations/2026_11_07_190000_add_customer_id_to_orders_table.php:25-31 \u2014 four non-transactional DDL statements sit in one migration. If the index or FK step fails, the column already exists, the migration is not recorded, and re-running fails with 'duplicate column'. That makes the release hard to resume."
+   ],
+   "antipatterns": [
+    "database/migrations/2026_11_07_190000_add_customer_id_to_orders_table.php:25-27 \u2014 hand-written ALTER ... ALGORITHM=INSTANT/INPLACE, LOCK=NONE, although the installed Laravel 13 offers ->instant(), ->inplace() and ->lock('none') on the Blueprint",
+    "database/migrations/2026_11_07_190000_add_customer_id_to_orders_table.php:29-34 \u2014 manual SET SESSION foreign_key_checks with try/finally re-implements Schema::withoutForeignKeyConstraints()",
+    "database/migrations/2026_11_07_190000_add_customer_id_to_orders_table.php:12 \u2014 branches on DB::getDriverName() inside a migration",
+    "app/Console/Commands/LinkOrdersToCustomers.php:27-30 \u2014 the matching subquery is written twice: once as a closure and once as a DB::raw string",
+    "app/Console/Commands/LinkOrdersToCustomers.php:16 \u2014 max(1, ...) silently corrects an invalid --chunk instead of rejecting it",
+    "app/Console/Commands/LinkOrdersToCustomers.php:17-18 \u2014 two full queries for min and max where one would do",
+    "app/Actions/PlaceOrder.php:15 \u2014 sets 'customer_id' => $customer->id by hand and adds customer_id to fillable, instead of creating through $customer->orders()",
+    "app/Http/Controllers/CustomerOrderController.php:14 \u2014 status is still read from the raw query with no validation"
+   ],
+   "strengths": [
+    "The DDL choices are right: an INSTANT column add, both (customer_id, created_at) and (customer_id, status, created_at) indexes built online, and the FK added INPLACE with checks off and ON DELETE SET NULL",
+    "Adds latest('id') as a tie-break so pagination order is stable; the index still serves it because InnoDB appends the PK to secondary indexes",
+    "The backfill uses PK id ranges, whereNull(customer_id) and whereExists, so it can be re-run, never overwrites existing links and leaves updated_at alone",
+    "The updated_at test uses DB::table to avoid Eloquent casts, and there is a test for the indexes"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Console/Commands/LinkOrdersToCustomers.php:30-35 \u2014 the whole UPDATE is a raw SQL string. A query-builder update with whereExists and a subquery value would be more idiomatic and just as efficient.",
+    "app/Console/Commands/LinkOrdersToCustomers.php:29 \u2014 packing the null-bound guard into the for-loop condition hurts readability",
+    "tests/Feature/CustomerOrdersTest.php \u2014 the command tests sit in the endpoint test class rather than in their own test file",
+    "app/Http/Requests/ListCustomerOrdersRequest.php:12 \u2014 the 'sometimes' rule is redundant next to 'nullable'"
+   ],
+   "strengths": [
+    "Best zero-downtime split: four migrations, so each DDL step is atomic and can be retried",
+    "Uses Laravel 13's native ->instant() for the column, ->inplace()->lock('none') for both indexes, and Schema::withoutForeignKeyConstraints with ->inplace()->lock('none') on the FK (all checked in vendor)",
+    "Indexes fit the query: (customer_id, status, created_at) for the filtered case and (customer_id, created_at) for the unfiltered latest() pagination. Both are built before the FK so MySQL does not add its own index.",
+    "nullOnDelete on the FK meets the GDPR detach requirement, and there is a test for it",
+    "The backfill walks PK id ranges, bounded once by whereNull(customer_id). It can be resumed, leaves existing links alone and does not touch updated_at. --chunk is validated and returns INVALID.",
+    "The FormRequest is nullable, so ?status= still returns all orders, and there is a test for that",
+    "Endpoint and PlaceOrder go through the $customer->orders() relation",
+    "Tests cover messy emails, unmatched orders, existing links, re-runs via the linked count, updated_at preservation, chunk boundaries, a bad chunk size, guests and indexes. My probes for sparse ids, late orders from the old app version, and re-running after a customer is deleted all passed."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 7,
+    "focus_area": 6,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "app/Http/Requests/CustomerOrdersRequest.php:12 \u2014 'sometimes|string' without 'nullable' makes GET /api/customers/{id}/orders?status= return 422. ConvertEmptyStringsToNull turns the empty value into null and the string rule rejects it, while the previous behaviour returned all orders. That breaks existing callers of a hot endpoint (confirmed with a probe).",
+    "database/migrations/2026_11_08_000000_add_customer_id_to_orders_table.php:12-13 \u2014 the column add and ADD INDEX go into one ALTER, so MySQL cannot use INSTANT and runs the whole statement INPLACE. That rebuilds the 20M-row table. ->after() and the missing explicit algorithm/lock also mean nothing guarantees an online, non-blocking DDL."
+   ],
+   "antipatterns": [
+    "database/migrations/2026_11_08_000000_add_customer_id_to_orders_table.php:13 \u2014 only a (customer_id, status, created_at) index. Requests without a status filter need a filesort for latest(); there is no (customer_id, created_at) index.",
+    "database/migrations/2026_11_08_000001_add_customer_foreign_key_to_orders_table.php:9-10 \u2014 a two-line rationale comment where ->inplace()->lock('none') would state the intent in code",
+    "tests/Feature/*:18-23 \u2014 Http::preventStrayRequests() in setUp is ceremony, since no HTTP client is used",
+    "app/Console/Commands/LinkOrdersToCustomers.php:17 \u2014 max(1, ...) silently clamps an invalid --batch",
+    "app/Console/Commands/LinkOrdersToCustomers.php:18-19 \u2014 separate min and max queries"
+   ],
+   "strengths": [
+    "The cleanest backfill: query builder throughout, with a reusable matchingCustomer() subquery used for both whereExists and the update value. It walks id ranges, is resumable, and leaves existing links and updated_at alone.",
+    "The FK is added in its own migration under withoutForeignKeyConstraints, with nullOnDelete",
+    "Endpoint and PlaceOrder use the $customer->orders() relation",
+    "Thorough command tests: several messy-email variants via a collection, correct customer per order, multi-batch run with a count check, re-runs, unmatched orders and updated_at. Endpoint tests cover 404, 401 and 422."
+   ]
+  },
+  "rationale": "I ranked them impl-2 first, impl-1 second and impl-3 last. All three test suites pass: 12 tests in impl-2, 10 in impl-1 and 16 in impl-3. I ran throwaway probes against each one: sparse ids, an order placed later by the old app version, re-running after a customer is deleted, and an empty or array-valued status. Every probe file was deleted afterwards. No MySQL server was reachable, so I checked the MySQL behaviour by reading the code and confirmed the schema calls exist in the installed Laravel source.\n\nimpl-2 handles the large-table schema change best. It splits the release into four migrations: an INSTANT column add, two online index builds (one per query shape), and the FK added in place with nullOnDelete. Each step uses Laravel 13's own API, so a failure can be retried step by step. Its backfill is correct and resumable, the empty-status case still returns all orders and is tested, and the tests cover the important edge cases. Its only real weakness is that the backfill UPDATE is raw SQL.\n\nimpl-1 makes the same database choices, and adds a useful tie-break so pagination order is stable. However, it hand-writes the MySQL ALTER statements and the foreign-key-checks toggle inside a branch on the database driver. So the code that runs in production is never exercised by the tests, and four separate DDL statements in one migration cannot be resumed cleanly if one fails partway.\n\nimpl-3 has the most idiomatic backfill and the broadest tests, but it has two real problems. Its new FormRequest makes `?status=` return 422 instead of all orders, which breaks existing callers of a heavily used endpoint (my probe confirmed this). Its first migration also puts the column add and an index build in one ALTER, which turns an instant change into a rebuild of the 20M-row table, and it has no index for requests without a status filter."
+ },
+ "cost_usd": 0.6365723999999999
+}

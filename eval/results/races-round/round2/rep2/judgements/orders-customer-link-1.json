@@ -1,0 +1,73 @@
+{
+ "key": "orders-customer-link",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "database/migrations/2025_06_01_000000_add_customer_id_to_orders_table.php:15-17 \u2014 I generated the MySQL SQL for this migration. The foreign key constraint is added before the composite indexes, so MySQL first builds an implicit single-column `orders_customer_id_foreign` index across all 20M rows. When the composite index is added, MySQL silently drops that implicit index. The result is extra online index-build work on a large table that the migration did not need to do.",
+    "database/migrations/2025_06_01_000000_add_customer_id_to_orders_table.php:13-19 \u2014 One migration runs five separate non-transactional ALTERs: add the column, add the FK, add two indexes. MySQL DDL is not atomic across statements, so a failure partway (for example a lock timeout during an index build) leaves the column in place. Re-running the migration then fails with 'duplicate column'. This makes the migration hard to resume in production."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/LinkOrdersToCustomers.php:22-29 \u2014 The backfill is a hand-written raw SQL string with the correlated subquery written out twice. The query builder can express this (update with a Builder value plus whereExists).",
+    "app/Http/Controllers/CustomerOrderController.php:15 \u2014 The ordering is latest() with no unique tie-breaker, so pagination over orders with equal created_at is not deterministic.",
+    "tests/Feature/CustomerOrdersTest.php:19-24 \u2014 The setUp() override exists only to call Http::preventStrayRequests(), and no test makes HTTP calls. This is ceremony.",
+    "app/Console/Commands/LinkOrdersToCustomers.php:21 \u2014 Every run, including re-runs, starts at min(id) of all orders, so each resume scans the whole id range again."
+   ],
+   "strengths": [
+    "Adds the FK inside Schema::withoutForeignKeyConstraints, and the inline comment correctly explains why: it avoids the table-copy ALTER on MySQL.",
+    "nullOnDelete on the FK keeps GDPR deletes working, and a test covers it.",
+    "The backfill updates in id ranges, never touches updated_at (tested), and has guards for idempotency and unmatched emails (whereNull plus exists).",
+    "Composite indexes (customer_id, status, created_at) and (customer_id, created_at) match both shapes of the endpoint's query, and a test asserts them via Schema::getIndexes.",
+    "PlaceOrder uses $customer->orders()->create(), which sets customer_id through the relation without widening $fillable.",
+    "The endpoint uses the relation plus a FormRequest with validated().",
+    "Tests cover chunk boundaries, the empty run, re-running, keeping existing links, an empty status value, and guests."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "tests/Feature/LinkOrdersToCustomersTest.php:117-182 \u2014 Endpoint, PlaceOrder and schema tests sit in the backfill command's test file, while CustomerOrdersTest still exists. The tests are organised in the wrong files.",
+    "tests/Feature/LinkOrdersToCustomersTest.php:135 \u2014 Http::preventStrayRequests() is called in a test that makes no outbound HTTP calls. This is noise.",
+    "app/Console/Commands/LinkOrdersToCustomers.php:40-45 \u2014 The repeated ->toBase() calls are clunky. DB::table('orders') or Order::query()->toBase() used once would read better.",
+    "database/migrations/2026_11_07_200001_add_customer_indexes_to_orders_table.php:12-13 \u2014 The index names passed explicitly are identical to Laravel's default names, so passing them adds nothing.",
+    "app/Http/Requests/IndexCustomerOrdersRequest.php:12 \u2014 max:255 is arbitrary but harmless."
+   ],
+   "strengths": [
+    "Splits the work into three migrations: the column (instant), the indexes, then the FK. Each risky ALTER is its own step that can be retried. Because the FK comes after the indexes, MySQL reuses the composite index and never builds an implicit FK index; I confirmed this from the generated MySQL SQL.",
+    "Adds the FK with foreign key checks off, avoiding the table-copy ALTER, and uses nullOnDelete so GDPR deletes detach orders.",
+    "The backfill uses the query builder: update(['customer_id' => $subquery]) with whereExists and whereBetween over id ranges. The generated SQL is a valid correlated update. It skips Eloquent so updated_at is untouched, and the comment says why.",
+    "The backfill range starts at the first unlinked id, so a re-run after a mostly complete backfill skips the linked prefix.",
+    "The endpoint uses latest()->latest('id') for a deterministic pagination order. On InnoDB the secondary indexes include the PK, so this ordering is still served by the index.",
+    "The broadest test suite of the two: matching the right customer per email, idempotent re-run with 'Linked 0', updated_at preserved, chunks, deletion detaching orders, presence of indexes via Schema::hasIndex, pagination and order, 404/401, and an array status rejected."
+   ]
+  },
+  "rationale": "Both implementations pass all their tests (impl-1: 15, impl-2: 18). Both also passed my throwaway probes, which I then deleted: sparse ids across chunks, a re-run after a customer is deleted, an email that matches only after the customer signs up later, an empty status, and --chunk=0. The two solutions are functionally very close. Both add a nullable FK with nullOnDelete under withoutForeignKeyConstraints, set the column in PlaceOrder through the relation, add matching composite indexes, and run an id-ranged, idempotent backfill that leaves updated_at alone. The ranking comes down to how each one handles the large-table change. I generated the MySQL DDL for both. impl-1 puts the column, FK and indexes in one migration and adds the FK before the indexes. MySQL therefore builds an implicit FK index on 20M rows and then silently drops it. And because MySQL DDL is not atomic, a failure partway leaves a migration that cannot simply be re-run. impl-2 stages three migrations (column, indexes, FK), so no redundant index is built and each step can be retried. impl-2 also writes the backfill with the query builder instead of a raw SQL string, adds an id tie-breaker for stable pagination, and starts the backfill at the first unlinked id. Its tests are broader, though some sit in the wrong test file. Overall, impl-2 ranks first."
+ },
+ "cost_usd": 0.5165952
+}

@@ -1,0 +1,107 @@
+{
+ "key": "orders-customer-link",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 6,
+    "eloquent_idioms": 6,
+    "architecture_fit": 5,
+    "modern_laravel": 5,
+    "focus_area": 6,
+    "tests": 6,
+    "correctness": 8,
+    "simplicity": 5
+   },
+   "overall": 6.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "The single migration runs 4 non-transactional MySQL DDL statements plus a session FK toggle. If any later step fails (e.g. the INPLACE FK add), the column already exists and the migration isn't recorded. Re-running then fails with 'duplicate column', so the deploy step can't be resumed (database/migrations/2026_11_07_190000_add_customer_id_to_orders_table.php:25-34).",
+    "Tests never run the production MySQL path. They exercise only the non-mysql Schema-builder branch, so the DDL actually shipped to production is untested hand-written SQL."
+   ],
+   "antipatterns": [
+    "database/migrations/2026_11_07_190000_add_customer_id_to_orders_table.php:12-20 branches on DB::getDriverName() and keeps two diverging schema definitions. Laravel 13's ->instant(), ->inplace() and ->lock('none') modifiers already produce the same SQL from one Blueprint.",
+    "database/migrations/2026_11_07_190000_add_customer_id_to_orders_table.php:25-34 uses hand-written ALTER TABLE strings and a manual SET SESSION foreign_key_checks try/finally instead of Schema::withoutForeignKeyConstraints().",
+    "app/Actions/PlaceOrder.php:13-15 calls Order::create with 'customer_id' => $customer->id instead of $customer->orders()->create(), and adds customer_id to $fillable (app/Models/Order.php:11) only to make that work.",
+    "app/Console/Commands/LinkOrdersToCustomers.php:30 puts the SET subquery in DB::raw instead of passing a builder subquery.",
+    "app/Console/Commands/LinkOrdersToCustomers.php:22 has a comment that restates framework behaviour.",
+    "app/Http/Controllers/CustomerOrderController.php:14 still reads status from the raw query string without validating it, so status[]=x is accepted (200)."
+   ],
+   "strengths": [
+    "The DDL is explicit about ALGORITHM=INSTANT/INPLACE and LOCK=NONE, so MySQL fails fast instead of silently copying 20M rows. The FK is added with checks off on an all-NULL column, using ON DELETE SET NULL.",
+    "Two composite indexes (customer_id, created_at) and (customer_id, status, created_at) cover both the filtered and unfiltered listing, with latest('id') as a deterministic tiebreak.",
+    "The backfill walks id ranges with whereNull + whereExists via the query builder. It is resumable, leaves unmatched orders alone and doesn't change updated_at.",
+    "An empty ?status= still means no filter, so the base behaviour is preserved (the probe passed).",
+    "A test asserts the composite indexes exist via Schema::getIndexes."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 6,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 7.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "GET /api/customers/{id}/orders?status= (empty) now returns 422 'The status field must be a string.' The status rule is 'sometimes', and ConvertEmptyStringsToNull turns the empty value into null, so the rule needs 'nullable'. The base treated an empty status as no filter (app/Http/Requests/CustomerOrdersRequest.php:12)."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/LinkOrdersToCustomers.php:33-38 runs a raw SQL string through DB::affectingStatement where the query builder (update with a subquery plus whereExists) would express the same statement.",
+    "bootstrap/app.php:17-19 adds an unrequested redirectGuestsTo change to the global middleware config.",
+    "tests/Feature/CustomerOrdersTest.php:19-24 calls Http::preventStrayRequests() although nothing here makes HTTP calls (ceremony).",
+    "The command tests sit in CustomerOrdersTest.php instead of a separate test class for the command.",
+    "app/Http/Requests/CustomerOrdersRequest.php:13 validates 'page', which paginate already handles."
+   ],
+   "strengths": [
+    "Best zero-downtime schema work. Three separate migrations (instant column, then inplace/lock=none indexes, then FK) each use the framework's ->instant(), ->inplace() and ->lock('none') modifiers, so MySQL fails fast instead of copying the table. A partial failure leaves the migration resumable.",
+    "The FK uses nullOnDelete and is added inside Schema::withoutForeignKeyConstraints so it can be INPLACE. A concise comment explains why that is safe.",
+    "Indexes (customer_id, created_at) and (customer_id, status, created_at) fit both query shapes. Together with latest('id') and the implicit PK suffix, they avoid a filesort.",
+    "Proper hasMany/belongsTo relations. PlaceOrder uses $customer->orders()->create() and the controller uses $customer->orders().",
+    "The backfill walks id ranges, uses whereNull plus EXISTS, and runs one autocommitted statement per chunk. It reports how many orders were linked and never touches updated_at.",
+    "Thorough tests: messy emails, unmatched orders, existing links kept, updated_at preserved, re-run counts 1 then 0, empty table, newest-first ordering, no matching by email alone, 401, 404 and 422."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 7,
+    "focus_area": 6,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 6.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "GET ...?status= (empty) returns 422 because the 'sometimes|string' rule has no 'nullable', a regression from the base's 'no filter' behaviour (app/Http/Requests/CustomerOrdersRequest.php:12).",
+    "The DDL doesn't state ALGORITHM or LOCK, so nothing stops MySQL from silently falling back to a blocking or copying ALTER. ->after('customer_email') also prevents INSTANT ADD COLUMN on MySQL 8.0 versions before 8.0.29, which forces an in-place rebuild of the 20M-row table (database/migrations/2026_11_08_000000_add_customer_id_to_orders_table.php:12-13)."
+   ],
+   "antipatterns": [
+    "database/migrations/2026_11_08_000000_add_customer_id_to_orders_table.php:13 has only (customer_id, status, created_at). A request without a status filter can't use the index for ORDER BY created_at, so MySQL has to filesort all of a customer's orders.",
+    "app/Http/Controllers/CustomerOrderController.php:15 orders by latest() with no id tiebreak, so pagination over equal created_at values isn't deterministic.",
+    "tests/Feature/*:19-23 call Http::preventStrayRequests() with no HTTP usage (ceremony).",
+    "database/migrations/2026_11_08_000001_add_customer_foreign_key_to_orders_table.php:9-10 has a two-line comment that leans on the brief."
+   ],
+   "strengths": [
+    "The cleanest backfill: a fully query-builder update with a reusable matchingCustomer() subquery for both the SET and the whereExists, over id-range batches. It is resumable and doesn't touch updated_at.",
+    "The FK sits in its own migration with nullOnDelete inside Schema::withoutForeignKeyConstraints.",
+    "Idiomatic relations. PlaceOrder uses $customer->orders()->create() and the controller uses $customer->orders() with a FormRequest.",
+    "A well-organised separate command test class covers the case and space variants, unmatched orders, the correct customer per order, updated_at, re-runs keeping existing links, multiple batches with counts, and an empty table.",
+    "The simplest overall diff."
+   ]
+  },
+  "rationale": "I ran all three test suites (all pass), read every added or changed file and ran a shared probe against each implementation. The probe covered sparse ids across chunk boundaries, unmatched rows at the lowest id, emails with an internal space (correctly not linked), messy case and padding, updated_at preserved after two runs, customer deletion detaching orders, and the API with an empty and an array status. I also compiled each migration and impl-3's update to MySQL SQL with pretend, and checked that every migration rolls back and re-applies.\n\nAll three backfills are correct, resumable and leave updated_at alone. impl-2 and impl-3 both added a FormRequest without 'nullable', so `?status=` now returns 422 where the base and impl-1 treat it as no filter.\n\nimpl-2 is ranked first because it handles the focus area best: separate migrations, the framework's instant/inplace/lock modifiers, an inplace FK added with checks off, and indexes for both query shapes plus an id tiebreak. Its only real bug is the 422; it also has a raw-SQL backfill and a small out-of-scope bootstrap change.\n\nimpl-1 is second. Its DDL is explicit and safe, and it keeps the empty-status behaviour. But it hand-writes MySQL DDL behind a driver branch, so the production schema path is never tested. It also puts four non-transactional DDL statements in one migration, which can't be resumed after a partial failure, and its relation usage is weaker.\n\nimpl-3 is third. It has the cleanest builder code and the best tests, but it shares the 422 bug, leaves ALGORITHM and LOCK implicit (with an `after()` that can prevent INSTANT on older MySQL 8.0), has only one composite index (so listings without a status filter need a filesort) and no pagination tiebreak."
+ },
+ "cost_usd": 0.7369336000000001
+}

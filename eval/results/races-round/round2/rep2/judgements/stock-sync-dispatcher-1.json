@@ -1,0 +1,75 @@
+{
+ "key": "stock-sync-dispatcher",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 6
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "A row edited while its push is in flight keeps sync_started_at set (markSent only clears rows whose updated_at is unchanged), so it isn't ready again until the 15-minute claim expires. The change is resent late but not lost; confirmed with a probe (app/Jobs/PushStockAllocations.php:77-82).",
+    "synced_at = now() is written after the response arrives, and the check is `updated_at > synced_at` at one-second precision. An edit in the same second right after markSent is never resent (confirmed with a probe).",
+    "The optimistic check compares updated_at at one-second precision (toDateTimeString). Two edits within one second during a push are treated as unchanged, and the newer quantity is marked synced.",
+    "failed() clears sync_started_at for every id without checking the claim is still its own. If the job runs after its rows were re-claimed (e.g. picked from a backlog after 15 minutes), it releases another job's claim and the next dispatcher run sends those rows twice."
+   ],
+   "antipatterns": [
+    "app/Jobs/PushStockAllocations.php:59-84 groups rows by updated_at string with a closure-builder factory: clever but hard-to-read concurrency logic where synced_at = read time would be simpler",
+    "database/migrations/2026_11_07_000000_create_stock_allocations_table.php:20 composite index (disabled_at, synced_at) does little for the OR / column-comparison readiness query",
+    "tests/Feature/StockSyncTest.php:151-153 mocks the Queue Job contract with Mockery instead of using withFakeQueueInteractions()/assertReleased()",
+    "tests/Feature/StockSyncTest.php:13-16 runJob() helper only wraps ->handle(), which is pointless indirection"
+   ],
+   "strengths": [
+    "Two-phase claim (chunkById candidates, then a locked re-check inside a transaction) together with onOneServer + withoutOverlapping, so it is safe across several servers",
+    "Uses toBase() updates so claiming and syncing don't bump updated_at, with a comment explaining why",
+    "retryUntil is tied to CLAIM_TTL_MINUTES, failed() releases the claim, and 429 releases using Retry-After with a default and a cap",
+    "Modern attributes throughout (#[Signature], #[Scope], #[Fillable], #[Backoff], #[MaxExceptions], #[Timeout]); Http::preventStrayRequests is set globally",
+    "Tests are thorough, including grouping, abandoned claims, in-flight edits and the schedule expiry"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 9
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "synced_at is set to the time the rows were read ($startedAt), and the check is `updated_at > synced_at` at one-second precision. An edit in the same second as the read is never resent (confirmed with a probe; the window is about 1 second per job).",
+    "failed() clears sync_started_at for every id without checking the claim is still its own. A job that finally fails after its rows were re-claimed releases the other job's claim, which can lead to a duplicate send.",
+    "Rows reported missing get disabled_at but also synced_at = $startedAt in the same flow. That is harmless, but the job does two separate updates without a transaction, so a crash in between leaves missing SKUs synced but not disabled (they won't retry unless edited)."
+   ],
+   "antipatterns": [
+    "app/Jobs/PushStockAllocations.php:69-70 is a two-line comment that partly narrates; it could be one line",
+    "database/migrations/2026_11_07_000000_create_stock_allocations_table.php has no index to support the readiness scan (minor at 5k rows)",
+    "tests/Feature/PushStockAllocationsTest.php:116-127 uses try/catch with an empty catch; could be folded into the throws test or use expect()->toThrow",
+    "tests/Feature/DispatchStockSyncTest.php:65-73 does not assert the withoutOverlapping expiry"
+   ],
+   "strengths": [
+    "synced_at = read time is a simple, correct way to keep edits made during a slow request ready immediately; no 15-minute delay",
+    "Same safe claim pattern: chunkById over select('id'), then a lockForUpdate re-check in a transaction, toBase() updates, onOneServer + withoutOverlapping",
+    "Idiomatic queue testing with withFakeQueueInteractions() and assertReleased(delay:), and a time-travel test for claim abandonment at 14 and 16 minutes",
+    "#[FailOnTimeout], #[Backoff], #[MaxExceptions], a retryUntil derived from the claim TTL, and a small retryAfter() helper",
+    "Tests are well organised into model, command and job files, with datasets for the Retry-After cap and default plus a unique SKU test"
+   ]
+  },
+  "rationale": "Both suites pass (impl-1: 24 tests; impl-2: 26 tests). I probed edge cases in both with throwaway tests and deleted them afterwards. The two implementations share the same dispatcher design: they claim rows under a lock (lockForUpdate re-check in a transaction), use onOneServer and withoutOverlapping, update with toBase() so updated_at isn't touched, derive retryUntil from the claim TTL, and release the claim in failed(). They also share one flaw: failed() can release a claim that a newer job now holds, which can cause a duplicate send.\n\nThe difference is how each handles edits made while a push is in flight. impl-1 uses a check on updated_at compared as a one-second string, grouped per value. It works but is harder to read, and an edited row stays claimed until the 15-minute TTL runs out, so the update is resent late. It also writes synced_at = now() after the response, so an edit in that same second is lost. impl-2 sets synced_at to the time the rows were read, which is simpler and makes in-flight edits ready again right away. Its only loss window is an edit within the same second as the read. impl-2's tests are also more idiomatic: withFakeQueueInteractions/assertReleased instead of Mockery, and time travel for claim abandonment. Overall, impl-2 is simpler and slightly more correct, so it ranks first."
+ },
+ "cost_usd": 0.418744
+}

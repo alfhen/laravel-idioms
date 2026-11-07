@@ -1,0 +1,102 @@
+{
+ "key": "orders-api",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "bootstrap/app.php:19 redirectGuestsTo(... route('login')) is unnecessary: Authenticate::redirectTo already returns null and the base shouldRenderJsonWhen gives a JSON 401; it also points at a 'login' route that does not exist",
+    "tests/Feature/OrdersApiTest.php:150 dead code: an Order::saving listener that throws, which the test never triggers",
+    "tests/Feature/OrdersApiTest.php: most tests use Sanctum::actingAs, so only one test (line 134) goes through a real createToken bearer token",
+    "Deletes the base tests/Feature/ExampleTest.php and tests/Unit/ExampleTest.php, which is outside the task",
+    "bootstrap/app.php:21 prependToPriorityList is correct but obscure, and nothing in the file explains why it is there (the test at line 128 does document it)"
+   ],
+   "strengths": [
+    "Route ->can('view','order') with OrderPolicy::view returning Response::denyAsNotFound() makes another user's order an identical 404",
+    "Puts CheckAbilities ahead of SubstituteBindings, so a token without the ability gets 403 whether or not the order exists. This closes the existence oracle that impl-3 has, and a test covers it",
+    "Controller is thin, routes use ->controller() grouping, FormRequest, JsonResource with a 201 that comes from wasRecentlyCreated",
+    "The 404 renderer for HttpExceptionInterface hides the 'No query results for model [App\\Models\\Order]' message",
+    "max:4294967295 matches the unsignedInteger column; #[Fillable] attribute; casts() method",
+    "Tests cover no-Accept 401/201/422, a bogus token, 500 with debug off, a duplicate reference, and an ignored user_id"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 8.2,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Controllers/Api/OrderController.php:23 show takes 'string $order' and skips route-model binding. Scoping through the relationship is safe, but a policy with denyAsNotFound or scopeBindings would be the more conventional choice",
+    "bootstrap/app.php:19 redirectGuestsTo is redundant (the base already returns JSON 401) and refers to a non-existent 'login' route",
+    "bootstrap/app.php:23 aliases 'ability' (CheckForAnyAbility), which is never used",
+    "tests/Feature/OrdersApiTest.php:139 vacuous assertion toBeIn([404, 405]); the test name says 404 for unknown routes, but it actually tests a 405",
+    "total_cents has no upper bound in the validation (unsignedBigInteger column), and Order has no integer cast",
+    "tests/Feature/OrdersApiTest.php:12 Http::preventStrayRequests() is irrelevant ceremony"
+   ],
+   "strengths": [
+    "Simplest design: $request->user()->orders()->findOrFail() makes foreign and missing orders the same 404, and there is no binding-order existence oracle (abilities are checked first)",
+    "Tests use real createToken bearer tokens and requests without an Accept header throughout, with app.debug=false, plus a reusable expectNoInternals helper",
+    "Datasets cover the validation cases and the ability/route combinations; the tests check that a forbidden create does not persist",
+    "The 404 renderer for api/* hides model class names; paging uses a latest('id') tie-breaker"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 9,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.4,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "Existence oracle for other users' orders: route model binding runs before the abilities middleware, so a token without orders:read gets 403 for another user's existing order but 404 for an id that doesn't exist. This breaks 'answer 404 for it, the same as for an order that doesn't exist' (seen in a probe: foreign id 403 'Invalid ability provided.', id 99999 404)"
+   ],
+   "antipatterns": [
+    "routes/api.php:13-14 ['abilities:orders:read', 'can:view,order'] without a middleware priority fix, so SubstituteBindings resolves {order} before the ability check",
+    "bootstrap/app.php:19 redirectGuestsTo(fn () => null) is a global no-op (Authenticate::redirectTo already returns null)",
+    "bootstrap/app.php:23 unused 'ability' alias",
+    "tests/Feature/OrdersApiTest.php:9 Http::preventStrayRequests() is unrelated ceremony"
+   ],
+   "strengths": [
+    "OrderPolicy with Response::denyAsNotFound() and $order->user()->is($user), which compares keys without running a query",
+    "The most thorough tests: describe blocks, guest 401 dataset without Accept, JSON 403/201/422 without Accept, a 500 that hides the exception after dropping the table, exact JSON bodies, and a check that validation leaves no persisted order",
+    "Composite index on (user_id, created_at) for the listing query; max:4294967295 matches the unsignedInteger column; integer cast",
+    "Thin controller, FormRequest, JsonResource, named routes, #[Fillable]"
+   ]
+  },
+  "rationale": "All three pass their own suites (impl-1 20, impl-2 19, impl-3 29). I ran the same probe against each: no Accept header, expired and bogus tokens, the '*' ability, non-numeric ids, array references, a huge total, and 405s. Each one returns JSON with the right status and no class names (the custom 404 renderer hides the 'No query results for model [App\\Models\\Order]' message). The one behavioural difference was how middleware order interacts with route model binding. impl-3 binds {order} before the abilities check, so a token without orders:read gets 403 for another user's real order but 404 for an id that doesn't exist. That is an existence oracle, and it breaks the requirement to answer the same 404 as for an order that doesn't exist. impl-1 sees this coming and moves CheckAbilities ahead of SubstituteBindings, with a test for it. impl-2 avoids the problem by not using binding at all: it scopes findOrFail through the user's orders relationship. impl-1 ranks first for the most idiomatic combination (route ->can() plus a policy that returns denyAsNotFound) with no bugs. It loses points for the redundant redirectGuestsTo, a dead Order::saving line in a test, tests that mostly use actingAs instead of real tokens, and deleting the base example tests. impl-2 is just as correct and the simplest, and its tests use real tokens with debug off. It is a little less idiomatic (a string $order parameter, an unused 'ability' alias, and one vacuous 404/405 assertion). impl-3 has the best test suite and clean idioms, but the real requirement violation puts it last."
+ },
+ "cost_usd": 0.585087
+}

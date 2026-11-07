@@ -1,0 +1,76 @@
+{
+ "key": "blog-crud",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 9
+   },
+   "overall": 8.3,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "GET /api/posts?status=&tag= returns 422. TrimStrings/ConvertEmptyStringsToNull turn the empty values into null, and the IndexPostRequest rules have no `nullable` (app/Http/Requests/IndexPostRequest.php:14-16), so a client sending blank filters gets an error instead of an unfiltered list.",
+    "Tag creation uses Tag::firstOrCreate (app/Models/Post.php:55). Two concurrent requests creating the same new tag can both miss the lookup, and one then fails on the unique constraint. createOrFirst avoids this."
+   ],
+   "antipatterns": [
+    "bootstrap/app.php: redirectGuestsTo hardcodes the '/login' string for non-API requests, and the base app has no such route.",
+    "app/Policies/PostPolicy.php:15-18: delete() repeats the update() logic instead of delegating to it.",
+    "app/Http/Requests/UpdatePostRequest.php: copies all of StorePostRequest's rules instead of reusing them."
+   ],
+   "strengths": [
+    "The query scopes take a nullable filter and apply when() themselves (Post.php:60-70), so the index query reads cleanly: ->withStatus($request->status())->withTag($request->tag()).",
+    "Uses current Laravel 12/13 attributes: #[Fillable], #[ObservedBy], #[Scope].",
+    "Authorization sits on the routes with ->can() middleware, so a non-author gets 403 before validation runs, and a test covers this.",
+    "The resource returns tag names with whenLoaded + pluck, and the index eager-loads tags, so there are no N+1 queries.",
+    "The observer handles the slug (with a unique suffix and a fallback for unsluggable titles) and fills published_at only when it is missing.",
+    "Thorough tests: guests on every endpoint, mass-assignment protection, keeping published_at on republish, tag dedupe and trimming, combined filters, tag filter not leaking other users' posts, pagination bounds."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.6,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "routes/api.php:7-12: mixes apiResource()->only(['index','store']) with hand-written update/destroy routes in a nested controller group. One style for all four routes would be easier to read.",
+    "bootstrap/app.php: redirectGuestsTo calls route('login') for non-API requests, and the base app defines no named login route.",
+    "app/Http/Requests/StorePostRequest.php:25: postData() only wraps safe()->except('tags'), which adds a little ceremony.",
+    "app/Http/Requests/UpdatePostRequest.php:11: drops 'required' on title, so an empty title gets 'must be a string' instead of the clearer 'required' message.",
+    "StorePostRequest.php:18: the 'distinct' rule rejects duplicate tags with a 422, even though syncTagNames already de-duplicates them. The rule and the helper disagree on how duplicates should be handled."
+   ],
+   "strengths": [
+    "Index filters are `nullable`, so blank query parameters mean no filter, and a test covers this.",
+    "Uses createOrFirst for creating tags on the fly, which is safe under concurrent requests.",
+    "Route binding by slug (getRouteKeyName) gives meaningful URLs, and a test shows the slug stays the same when the title changes.",
+    "UpdatePostRequest extends StorePostRequest and spreads the parent's rules: little duplication.",
+    "The policy's delete() delegates to update(). The migration adds a composite (user_id, status, created_at) index that suits the index query. Eager loading is limited to the needed columns with tags:id,name.",
+    "Uses #[Fillable], #[ObservedBy], #[Scope], ->can() route middleware and the ??= operator in the observer.",
+    "Thorough tests: 401 even without an Accept header, 403 before validation, empty-filter behaviour, published_at kept on republish, tag replacement, detaching tags with an empty array, and pagination."
+   ]
+  },
+  "rationale": "The two implementations are nearly identical in structure: an enum-cast status, an observer for the slug and published_at, scopes using the #[Scope] attribute, route-level ->can() authorization, a JsonResource that returns tag names, and paginated, newest-first index queries. Both pass their own suites (impl-1: 30 tests, impl-2: 31 tests).\n\nMy probes found:\n- Both return 401 to guests, with or without a JSON Accept header.\n- Both keep the existing published_at when a post is unpublished and then republished.\n- impl-1 returns 422 for blank filters such as ?status=&tag=. impl-2 marks the filters nullable, returns 200, and tests this.\n- impl-2 binds posts by slug and uses createOrFirst, which is safe when two requests create the same tag at once.\n- impl-2's 'distinct' rule rejects duplicate tags with a 422, while impl-1 silently de-duplicates them. Either is defensible, but impl-2's rule clashes with its own de-duplication in syncTagNames.\n\nimpl-1 has the more elegant scopes (nullable parameters handled inside the scope) and slightly simpler routes. impl-2 avoids the blank-filter 422 and the tag-creation race, and reuses its validation rules by extending StorePostRequest. Those small correctness and robustness advantages put impl-2 first, narrowly."
+ },
+ "cost_usd": 0.4516752
+}

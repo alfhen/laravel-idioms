@@ -1,0 +1,81 @@
+{
+ "key": "blog-crud",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 9
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "A guest calling /api/posts without an `Accept: application/json` header gets a 500 error. The `auth` middleware redirects to route('login'), and the base app has no such route (routes/api.php:6, bootstrap/app.php unchanged).",
+    "Empty query filters (`?status=&tag=&per_page=`) return 422 instead of being ignored. The index rules have no `nullable`, and ConvertEmptyStringsToNull turns the empty values into nulls (app/Http/Requests/IndexPostRequest.php:14-16).",
+    "There is no PATCH route, so a partial update with PATCH returns 405 even though UpdatePostRequest uses `sometimes` rules meant for partial updates (routes/api.php:9)."
+   ],
+   "antipatterns": [
+    "routes/api.php:6-11 \u2013 four hand-written routes where `Route::apiResource('posts', ...)->except('show')` would cover them and also give PATCH",
+    "app/Observers/PostObserver.php:29 \u2013 the check-then-insert slug loop can race; the unique index is the only safeguard and a collision becomes a 500",
+    "app/Models/Post.php:55 \u2013 `firstOrCreate` for tags can race against the unique index; `createOrFirst` is safer",
+    "app/Http/Controllers/PostController.php:36 \u2013 `->response()->setStatusCode(201)` is redundant; JsonResource already returns 201 for a model that was just created"
+   ],
+   "strengths": [
+    "Thin controller using `$request->user()->posts()`, `when()` with query scopes, `latest()->latest('id')` as a tie-breaker, and `withQueryString()`",
+    "Uses current Laravel attributes: #[Fillable], #[ObservedBy], #[Scope], and a `casts()` method with an enum cast",
+    "Ownership is checked with route-level `->can()`, so a non-author gets 403 before validation runs (and this is tested)",
+    "`$request->enum()` for the status filter is the idiomatic approach",
+    "syncTagNames uses a clean collection pipeline: trim, filter, uniqueStrict, then sync",
+    "Good tests: guards, slug uniqueness, reuse and de-duplication of tags, keeping an existing published_at, combined filters, pagination meta, and validation messages"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "No functional bugs found. As in impl-1, the slug check-then-insert loop can race under concurrent creates and turn into a 500 on the unique index (app/Observers/PostObserver.php:28)."
+   ],
+   "antipatterns": [
+    "routes/api.php:7-11 \u2013 separate PUT and PATCH route lines; `Route::apiResource('posts', ...)->except('show')->scoped(['post' => 'slug'])` would be more idiomatic",
+    "app/Http/Controllers/PostController.php:20 \u2013 `PostStatus::from($request->validated('status'))` where `$request->enum('status', PostStatus::class)` is the idiomatic call",
+    "app/Http/Controllers/PostController.php:24 \u2013 `$request->validated('per_page') ?? 15` instead of `$request->integer('per_page', 15)`",
+    "tests/Feature/PostApiTest.php:21 \u2013 `Http::preventStrayRequests()` is ceremony; the feature makes no HTTP calls",
+    "app/Http/Resources/PostResource.php:27 \u2013 `->values()` after `pluck` is redundant",
+    "bootstrap/app.php \u2013 a `redirectGuestsTo` closure keyed on `is('api/*')` is a workaround; it is valid, but the path check duplicates what `shouldRenderJsonWhen` could express"
+   ],
+   "strengths": [
+    "Guests on the API get a JSON 401 even without an Accept header (handled in bootstrap/app.php and tested)",
+    "Route model binding by slug (`{post:slug}`) puts the generated slug to real use",
+    "PUT and PATCH are both supported, which suits the `sometimes` update rules",
+    "`createOrFirst` for tags is race-safe against the unique index",
+    "`nullable` index filters treat empty query parameters as absent (tested)",
+    "The policy's delete method reuses update, and the PostFactory defines a user_id default",
+    "Thorough tests: published_at kept across a draft\u2192published round trip using `travel`, 403 before validation, `assertModelMissing`, empty filters, and a JSON 401 for a non-JSON guest request"
+   ]
+  },
+  "rationale": "The two implementations are nearly identical in structure. Both use an enum, an observer for the slug and published_at, route-level `->can()` with a policy, Form Requests, an API Resource, and modern attribute-based models. The ranking comes down to edge cases I confirmed with throwaway probe tests. impl-1 returns a 500 when a guest calls the API without an Accept: application/json header, because it redirects to a `login` route that doesn't exist. impl-1 also rejects empty query filters with 422 and has no PATCH route. impl-2 handles all three: it returns a JSON 401 for API guests, treats empty filters as absent using `nullable`, and routes PATCH. It also uses race-safe `createOrFirst` for tags and binds posts by slug. impl-1 is slightly more idiomatic in a couple of places: it uses `$request->enum` and `$request->integer`, and it avoids the needless `Http::preventStrayRequests`. Those are minor compared with impl-2's correctness advantages, so impl-2 ranks first."
+ },
+ "cost_usd": 0.44410180000000005
+}

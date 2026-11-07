@@ -1,0 +1,102 @@
+{
+ "key": "document-vault",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 5,
+    "eloquent_idioms": 8,
+    "architecture_fit": 6,
+    "modern_laravel": 7,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 7,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Controllers/DocumentController.php:18 validates inline with $request->validate() when a FormRequest would be the usual choice",
+    "app/Http/Controllers/DocumentController.php:36 checks ownership inline with abort_unless instead of a policy using Response::denyAsNotFound()",
+    "app/Models/Document.php:10 'user_id' is in #[Fillable] even though every write goes through the relation",
+    "tests/Feature/DocumentTest.php:79 test_upload_validation packs six unrelated failure cases into one test, so a failure is hard to pin down",
+    "app/Http/Controllers/DocumentController.php:46 the download response uses the client-supplied original_name, so a real PDF uploaded as page.html downloads as page.html (the attachment disposition limits the risk)"
+   ],
+   "strengths": [
+    "Uses the private 'local' disk explicitly through a DISK constant, and store() gives each file a random name",
+    "A temporarySignedRoute plus the signed middleware gives links that can't be guessed, are bound to one document and expire after 10 minutes",
+    "Checks the file exists both when the link is issued and when it is downloaded",
+    "#[Fillable] attribute and creating through the user's documents() relation",
+    "Very compact: one controller, no ceremony",
+    "Tests cover the 9 vs 11 minute expiry, swapping a link's document id, an unsigned URL, a file deleted after the link was issued, the 5120 KB and 100-character boundaries, and a .pdf name with an HTML MIME type"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.3,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Requests/StoreDocumentRequest.php:13 uses the string rule 'mimes:...|max:5120' where the fluent File::types()->max() rule is the current convention",
+    "app/Http/Controllers/DocumentDownloadController.php:15 the download name comes from the client's original_name, so a PDF uploaded as page.html downloads as page.html",
+    "app/Http/Controllers/DocumentDownloadController.php:13 repeats the 'local' disk string in each controller instead of naming it once"
+   ],
+   "strengths": [
+    "The policy returns Response::denyAsNotFound() via $document->user()->is($user), which gives the 404 for other users in the idiomatic way",
+    "Small FormRequest; validated('title') is used in the controller",
+    "Invokable single-action controllers for link and download",
+    "Private 'local' disk stated explicitly; random stored names; a signed temporary route with a 10-minute expiry",
+    "Document #[Fillable] leaves out user_id; the record is created through the relation",
+    "Tests are focused and named well: boundaries, a .php upload leaving no stored files, a reused or tampered link, a missing file at link time and at download time, and checks on the validation message text"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 7.8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Http/Controllers/DocumentDownloadController.php:16 the download is named after slug(title) plus the stored extension and ignores original_name; the task stores original_name for this purpose, and non-ASCII titles get flattened (for example '\u00dcn\u00efcode % name' becomes 'unicode-name.pdf')"
+   ],
+   "antipatterns": [
+    "app/Http/Controllers/DocumentController.php:13 and DocumentLinkController.php:16 / DocumentDownloadController.php:14 rely on the default disk instead of naming the private disk, so FILESYSTEM_DISK=public would put confidential files on a public disk",
+    "app/Http/Controllers/DocumentController.php:14 abort_if($path === false, 503) is defensive ceremony",
+    "tests/Feature/DocumentTest.php:23 and :280 Http::preventStrayRequests() and test_no_real_network_calls_are_made test nothing related to this feature",
+    "tests/Feature/DocumentTest.php:105 the hand-made temp file in the disguised-script test is never cleaned up"
+   ],
+   "strengths": [
+    "Fluent File::types([...])->max(5 * 1024) rule in a FormRequest",
+    "Policy with denyAsNotFound; invokable controllers",
+    "Taking the download extension from the stored path (based on the detected file type) means a spoofed client file name can't control the downloaded file type",
+    "The most thorough tests: a data provider for the allowed types, a real PHP file disguised as PDF, a forged signature, a guest request without a JSON Accept header, assertDownload, and an emoji-only title falling back to document.pdf",
+    "Document::sole() in the test, and the test checks the stored name differs from the client name"
+   ]
+  },
+  "rationale": "I ran `php artisan test` in each implementation, and all suites pass (impl-1: 14 tests, impl-2: 18, impl-3: 28).\n\nI added the same throwaway probe test to each one, ran it, then deleted it. It covered:\n- a PHP file named .pdf\n- an SVG named .png\n- a GIF\n- a real PDF uploaded under the name page.html\n- a Unicode file name containing %\n- another user asking for a link to a document whose file is missing\n- a signed link used after its document was deleted\n- a `user_id` sent in the request to try to set the owner\n\nAll three behaved the same. Each rejects the disguised and wrong-type files. Each stores files with random names on the private local disk (storage/app/private). Each returns 404 for other users, unknown documents and missing files, and signs a temporary route that expires after 10 minutes.\n\nThe probes found two differences:\n- **Download name:** impl-1 and impl-2 use the client's original_name, so a PDF uploaded as page.html downloads as page.html (the attachment header limits the risk). impl-3 ignores original_name and builds the name from slug(title) plus the stored extension. That resists spoofing, but it drops the stored original name and flattens non-ASCII titles.\n- **Disk choice:** impl-3 relies on the default disk everywhere. Confidential storage then depends on the FILESYSTEM_DISK environment setting.\n\nHow I ranked them:\n1. **impl-2** is the cleanest Laravel fit: a FormRequest, a policy that returns 404 via denyAsNotFound, invokable controllers, an explicitly named private disk, and focused tests that cover the failure paths.\n2. **impl-3** uses the most modern idioms (the File::types rule) and has the most thorough tests. It loses ground for the implicit disk, for ignoring original_name, and for unrelated ceremony (Http::preventStrayRequests and a network-call test).\n3. **impl-1** is correct and the simplest, but it skips the FormRequest and policy in favour of inline validation and an inline ownership check, and it crams many validation cases into one test."
+ },
+ "cost_usd": 0.5934558000000001
+}

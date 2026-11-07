@@ -1,0 +1,72 @@
+{
+ "key": "orders-customer-link",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 7,
+    "modern_laravel": 7,
+    "focus_area": 8,
+    "tests": 6,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "CustomerOrderController.php:14-16 only sorts by created_at with no tie-breaker. Orders with the same created_at (common after bulk imports) can appear on two pages or be skipped across paginate(50) pages on this busy endpoint."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/LinkOrdersToCustomers.php:27 builds the SET subquery as DB::raw('('.$builder->toSql().')'). This drops any bindings, and the query builder already accepts a Builder as an update() value.",
+    "app/Console/Commands/LinkOrdersToCustomers.php:22 always scans from id 1 to max(id). Each re-run walks the whole 20M-row range (about 4000 statements) instead of starting at the first unlinked id, so it is re-runnable but not resumable.",
+    "database/migrations/2026_11_07_200004_add_customer_foreign_key_to_orders_table.php:28-43 hand-writes a MySQL-only withoutForeignKeyChecks helper, which duplicates Schema::withoutForeignKeyConstraints().",
+    "app/Console/Commands/LinkOrdersToCustomers.php:38 uses select(DB::raw('1')) and then overrides it with select('customers.id') at line 27, which is confusing reuse of one builder.",
+    "tests/Feature/CustomerOrdersTest.php:18-23 has a setUp that calls Http::preventStrayRequests() although nothing makes HTTP calls. It is noise.",
+    "Splitting the two indexes into two separate migrations (200002 and 200003) adds ceremony without benefit."
+   ],
+   "strengths": [
+    "Migrations are ordered correctly: nullable column, then indexes, then the FK. The FK reuses the existing index, and nullOnDelete keeps orders when a customer is deleted.",
+    "Foreign key checks are turned off while adding the FK, so MySQL can add it in place instead of copying the table. A short comment explains why.",
+    "The backfill uses chunked set-based UPDATE ... WHERE customer_id IS NULL AND EXISTS(...) with the query builder, so updated_at is untouched and unmatched orders are left alone.",
+    "Implements Isolatable, which prevents two backfill runs at once. That is a good touch.",
+    "Both composite indexes fit the endpoint, with and without the status filter.",
+    "PlaceOrder uses $customer->orders()->create(), and the endpoint uses the relationship."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Console/Commands/LinkOrdersToCustomers.php:44-45 calls ->toBase() on $match even though whereExists and update already accept an Eloquent builder. It is redundant.",
+    "app/Http/Requests/IndexCustomerOrdersRequest.php adds a FormRequest for a single optional status string. That is slightly more ceremony than the task asked for, though it is defensible.",
+    "tests/Feature/LinkOrdersToCustomersTest.php:135 calls Http::preventStrayRequests() in a test that makes no HTTP calls. It is noise.",
+    "database/migrations/2026_11_07_200000_add_customer_id_to_orders_table.php:12 uses ->after('id'). MySQL can only add a column mid-table instantly from 8.0.29, so appending it at the end would be safer on older 8.0 patch releases."
+   ],
+   "strengths": [
+    "Migrations are ordered as add nullable column, then the indexes in one ALTER, then the FK. nullOnDelete gives the required GDPR detach behaviour.",
+    "Uses the framework's Schema::withoutForeignKeyConstraints() so MySQL adds the FK in place without a validation scan, with a short comment explaining why.",
+    "The backfill uses the native Query Builder subquery update (update(['customer_id' => $builder])). It is set-based, chunked by id range, uses toBase() so updated_at is not bumped, and checks whereNull plus whereExists, so it is idempotent and leaves unmatched orders alone.",
+    "The backfill starts at min(id) of unlinked orders, which the customer_id index answers cheaply, so a re-run resumes near where the last run stopped.",
+    "The endpoint adds a latest('id') tie-breaker for stable pagination. The (customer_id, created_at) and (customer_id, status, created_at) indexes cover both query shapes, and InnoDB's implicit PK suffix covers the id tie-breaker.",
+    "Thorough tests cover several chunks, re-runs reporting 0 linked, keeping existing links, unmatched orders, updated_at being preserved, the indexes existing, linking by id rather than email, pagination order, auth/404 and validation."
+   ]
+  },
+  "rationale": "I ranked impl-2 first and impl-1 second. Both suites pass (impl-2: 18 tests, impl-1: 11). Neither has a correctness flaw in the parts that matter most, and neither looks like a likely production incident.\n\nWhat they share:\n- **Migrations:** both add the column, then the indexes, then the FK in the right order, use nullOnDelete, and turn off foreign key checks so MySQL adds the FK in place.\n- **Backfill:** both run chunked, set-based query-builder UPDATEs filtered by whereNull and EXISTS.\n- **Probes:** both handled sparse ids, an unmatched order holding the lowest id, preserving updated_at, re-running after a customer is deleted, and `?status=` sent empty.\n\nWhy impl-2 ranks higher:\n- **Framework APIs:** it uses the built-in ones, Schema::withoutForeignKeyConstraints and a Builder passed straight into update(). I checked in vendor that the installed version supports the latter. impl-1 hand-writes a MySQL-only FK-check helper and builds the subquery from toSql(), which silently drops any bindings.\n- **Resuming the backfill:** impl-2 starts at the lowest unlinked id. impl-1 rescans ids 1 to max(id) on every run, about 4000 statements on a 20M-row table.\n- **Pagination:** impl-2 adds an id tie-breaker. impl-1 can repeat or skip orders across pages on this busy endpoint when several share the same created_at.\n- **Tests:** impl-2's are clearly broader, covering several chunks, the re-run count, the indexes, and pagination order and validation.\n\nimpl-1's one clear advantage is Isolatable, which stops two backfill runs at once. impl-2's FormRequest is a little more ceremony than needed, but it isn't harmful."
+ },
+ "cost_usd": 0.45508380000000004
+}

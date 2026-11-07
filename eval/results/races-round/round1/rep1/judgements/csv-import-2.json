@@ -1,0 +1,84 @@
+{
+ "key": "csv-import",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 7,
+    "architecture_fit": 6,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 6
+   },
+   "overall": 6.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Duplicate SKUs in the same chunk are collapsed by `$valid[trim($data['sku'])]` (app/Jobs/ProcessImport.php:133), so the earlier row is dropped from every counter. Probe: 3 rows (A, A, and one bad row) gave total=3, created=1, updated=0, failed=1, which doesn't add up. The test at tests/Feature/ProductImportTest.php:165 treats this as correct",
+    "The stock rule has no upper bound (app/Jobs/ProcessImport.php:123), so 99999999999 passes validation and goes into an unsignedInteger column. On MySQL the bulk upsert throws, and one bad row fails the whole chunk and the whole import instead of being skipped",
+    "POST /api/imports returns 200, not 201 or 202, because `$import->fresh()` resets wasRecentlyCreated (app/Http/Controllers/ImportController.php:27)"
+   ],
+   "antipatterns": [
+    "The queued job depends on an HTTP FormRequest constant, StoreImportRequest::REQUIRED_COLUMNS (app/Jobs/ProcessImport.php:6,53). This is a layering inversion",
+    "Pointless attribute map `['sku' => 'sku', 'price' => 'price', 'stock' => 'stock']` (app/Jobs/ProcessImport.php:124)",
+    "Re-fetches the model with `$this->import->fresh()` and null-checks it even though it already uses #[DeleteWhenMissingModels] (app/Jobs/ProcessImport.php:37-41)",
+    "Counts existing rows before the upsert to work out created and updated, which is racy and adds extra ceremony (app/Jobs/ProcessImport.php:74-77)",
+    "The header is read three times (once in the FormRequest, then CsvReader::header, then again inside rows()). There is a custom CsvReader service plus `app()` resolution inside the FormRequest (app/Http/Requests/StoreImportRequest.php:31)",
+    "`abort_if($path === false, 503)` is ceremony, because the default disk throws or returns a path (app/Http/Controllers/ImportController.php:17)",
+    "`$wrap = null` departs from the default resource envelope (app/Http/Resources/ImportResource.php:13)",
+    "The import mass-assigns its counters and status columns through a wide #[Fillable] list (app/Models/Import.php:12)"
+   ],
+   "strengths": [
+    "Bulk upsert in chunks of 500 over a LazyCollection streaming reader scales well for 5MB files",
+    "Modern queue attributes, including #[FailOnTimeout], and it raises queue retry_after to 360 so it is above the 300s timeout. That is a real operational detail",
+    "A missing-columns header in the job calls $this->fail() immediately instead of retrying pointlessly. It stores failure_reason",
+    "Authorization is on the route with ->can('view','import'), which keeps the controller very thin",
+    "Unique (import_id,row) index, ordered errors in show, and redirectGuestsTo(null) so non-JSON guests get 401",
+    "Tests are broad: BOM, column order, CRLF, idempotency, rerun while processing, failed handler, email content"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Job #[Timeout(300)] is above the default database queue retry_after of 90 (config not adjusted). A long import can be re-delivered while it is still running, and the re-run resets counters and deletes the errors from the run in flight",
+    "Header validation failure inside the job throws a RuntimeException that is retried 3 times instead of failing fast (app/Jobs/ProcessProductImport.php:126). This is minor because the FormRequest already guards it"
+   ],
+   "antipatterns": [
+    "Gate::authorize('create') against a policy method that always returns true is ceremony (app/Http/Controllers/ImportController.php:17, app/Policies/ImportPolicy.php:10-13)",
+    "`->afterCommit()` with no surrounding transaction does nothing (app/Http/Controllers/ImportController.php:27)",
+    "updateOrCreate per row means 2+ queries per row, which is slow for a 5MB file with about 100k rows (app/Jobs/ProcessProductImport.php:75)",
+    "Header-parsing logic is duplicated between the FormRequest after() hook and the job's readHeader (app/Http/Requests/StoreImportRequest.php:31-42 vs app/Jobs/ProcessProductImport.php:118-130)",
+    "Import::COLUMNS lives on the model, which is fine, but `max($header)` used for the column-count check is a little clever (app/Jobs/ProcessProductImport.php:138)"
+   ],
+   "strengths": [
+    "Straightforward, readable job. Uses the Laravel Validator per row, with bounds that match the DB column sizes (stock max 4294967295, price max for decimal(10,2))",
+    "Counts are always consistent. Duplicate SKUs count as created then updated, and probes confirmed total = created + updated + failed",
+    "Bulk-inserts row errors in chunks. Uses forceFill for the system-managed fields and keeps a narrow #[Fillable]",
+    "Returns 202 Accepted via the resource, and the standard resource wrapping is kept",
+    "Modern attributes: #[Tries], #[Backoff], #[Timeout], #[DeleteWhenMissingModels], #[Fillable], #[Table(timestamps:false)]",
+    "Very thorough tests: exact 5MB boundary, BOM with column order and extra columns, quoted commas, failed path with no mail, idempotency, mail rendering, guest/403/404"
+   ]
+  },
+  "rationale": "Both test suites pass: impl-2 ran 22 tests and impl-1 ran 21. Both implementations are modern and structured much the same way (enum, FormRequest with header validation in after(), resource, policy, queued job with attributes, queued markdown mailable). Probes decided the ranking. impl-1's chunked upsert keys valid rows by SKU, so duplicate SKUs within a chunk drop a row from the counts and the import summary doesn't add up (total 3 = created 1 + updated 0 + failed 1). Its stock rule has no upper bound, so an out-of-range value would crash the whole bulk upsert on MySQL instead of being recorded as a row error. It also has a layering smell: the job depends on a FormRequest constant. It adds extra ceremony too (CsvReader service, fresh() re-fetch, pointless attribute map, abort_if on store), and its store endpoint returns 200. impl-1 does win on scalability (bulk upsert) and on queue operations: it set retry_after above the timeout, used FailOnTimeout, and fails fast on a bad header. impl-2 is simpler and its counts are always consistent. Its validation bounds match the schema, and its tests are slightly stronger: the exact 5MB boundary, the failure path with no mail, and quoted fields. Its weaknesses are the per-row updateOrCreate (slow, but correct), an always-true create gate, a no-op afterCommit, and leaving the default retry_after below the job timeout. Weighing correctness heavily, impl-2 ranks first."
+ },
+ "cost_usd": 0.5056354
+}

@@ -1,0 +1,78 @@
+{
+ "key": "blog-crud",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 7.8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "GET /api/posts?status=&tag= returns 422 because the IndexPostRequest rules (app/Http/Requests/IndexPostRequest.php:14-16) are not nullable. Empty query params become null and then fail the enum/string rules, so clients can't send a blank filter.",
+    "Tag::firstOrCreate in app/Models/Post.php:55 is not race-safe against the unique tags.name index. Two concurrent requests that create the same new tag can throw a unique-constraint QueryException. createOrFirst exists for exactly this case."
+   ],
+   "antipatterns": [
+    "app/Http/Requests/UpdatePostRequest.php:13-19 copies the StorePostRequest rules almost line for line instead of reusing them, so status/tags rules can drift apart",
+    "app/Http/Requests/StorePostRequest.php:17-18 has no max on the tags array and no distinct rule, so the request can carry any number of tags",
+    "app/Models/Post.php:61-70 scopes take nullable args and wrap their body in when(). Optional-filter logic is pushed into the model, and the scopes can't be reused cleanly as required filters",
+    "app/Policies/PostPolicy.php:17 delete() repeats the update() logic instead of delegating to it",
+    "app/Http/Controllers/PostController.php:18 uses with('tags') to load full tag rows when only the name is used"
+   ],
+   "strengths": [
+    "Very thin controller: user()->posts() scoping, safe()->except('tags'), and paginate()->withQueryString()",
+    "Authorisation via ->can() route middleware means a non-author gets 403 before validation runs, and a test covers this",
+    "Uses modern attributes (#[Fillable], #[ObservedBy], #[Scope]), a backed enum cast, and Rule::enum",
+    "Unique-slug generation lives in an observer with an empty-slug fallback; published_at is set in saving()",
+    "The routes file is compact and readable",
+    "Tests use hasAttached factories, freezeSecond, and assertModelMissing, and include a test that the tag filter doesn't leak other users' posts"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 8.6,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "routes/api.php:7-12 mixes apiResource()->only(['index','store']) with a separate controller group for update/destroy. This is more ceremony than one prefix/controller group or apiResource()->except('show') with authorisation",
+    "app/Http/Requests/StorePostRequest.php:25-28 adds a postData() wrapper that is just safe()->except('tags'), a thin layer with little value",
+    "app/Http/Requests/IndexPostRequest.php:22 coerces with tryFrom((string) ...) on a value that is already validated; $this->enum('status', PostStatus::class) would be the idiomatic accessor",
+    "Tag dedupe is case-sensitive ('PHP' and 'php' become separate tags). This is a minor design choice that the code doesn't document"
+   ],
+   "strengths": [
+    "Route-model binding by slug (getRouteKeyName), which fits a unique slug column",
+    "Tag::createOrFirst is race-safe against the unique tags.name index",
+    "UpdatePostRequest extends StorePostRequest and overrides only title/body with spread syntax (DRY). Tags get max:20 and distinct",
+    "Index filters are nullable, so empty query params are ignored instead of returning 422. A test covers this",
+    "The controller uses when() with non-nullable #[Scope] methods, so the scopes stay clean and reusable. Eager loading selects only tags:id,name",
+    "Composite index (user_id, status, created_at) matches the index query",
+    "Policy delete() delegates to update(); 403 comes from ->can() middleware before validation",
+    "Thorough tests: slug stays the same when the title changes, guest gets 401 without an Accept header, duplicate/empty tags, combined filters, pagination defaults, and that clients can't set slug, owner or published_at"
+   ]
+  },
+  "rationale": "I ranked impl-2 first (8.6) and impl-1 second (7.8). Both suites pass: 31 tests for impl-2, 30 for impl-1.\n\nThe two implementations are nearly the same design: an enum cast, an observer for the unique slug and published_at, a policy enforced through ->can() route middleware, form requests, a resource that plucks tag names, and user()->posts() scoping. Both meet every requirement.\n\nMy probes covered six edge cases on each. Both handle these the same way: un-publishing and re-publishing keeps the original published_at, a guest request without JSON headers gets 401, and null fields or non-string tags get 422.\n\nThey differ in a few places:\n- **Empty filters:** `?status=&tag=` returns 422 in impl-1 because its index rules aren't nullable. impl-2 ignores blank filters and has a test for it.\n- **Tag creation:** impl-1 uses firstOrCreate, which can race against the unique tag-name index. impl-2 uses createOrFirst, which is safe.\n- **Rule duplication:** impl-1 copies the store rules into UpdatePostRequest. impl-2 extends StorePostRequest and overrides only title and body.\n- **Tag limits:** impl-2 caps tags at 20 and adds a distinct rule; impl-1 has neither.\n- **Other idioms:** impl-2 binds routes by slug, loads only tag id and name, and keeps its scopes non-nullable, putting the optional-filter logic in when() in the controller.\n\nimpl-2 has a few weaknesses of its own. Its routes file splits apiResource() and a separate group, which is clumsier than impl-1's single group. Its postData() wrapper adds little.\n\nNeither has a serious bug. impl-2 wins on robustness and on how it uses Laravel's idioms."
+ },
+ "cost_usd": 0.44890280000000005
+}

@@ -1,0 +1,75 @@
+{
+ "key": "shipment-sync",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 8.6,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "A 422 with an empty body stores the reason 'Warehouse rejected the shipping address: ' with nothing after the colon (cosmetic) (app/Services/Warehouse/WarehouseClient.php:35-37)"
+   ],
+   "antipatterns": [
+    "Adds a WarehouseClient service and two custom exceptions for a single HTTP call, which is somewhat more ceremony than the task needs (app/Services/Warehouse/*)",
+    "The 422 and 429 paths are signalled with exceptions only for the job to catch and turn back into control flow (app/Jobs/SendOrderToWarehouse.php:55-73)",
+    "The test reads the Timeout attribute through reflection and compares it against queue config, which tests configuration rather than behaviour (tests/Feature/OrderShipmentTest.php:312-317)",
+    "Adds an extra shipment_notified_at column that the spec did not ask for (justified, but it adds to the schema) (database/migrations/2026_11_07_000000_create_orders_table.php:20)"
+   ],
+   "strengths": [
+    "Uses Skip::when middleware ahead of RateLimited, so cancelled or unpaid orders never spend the shared 5/s budget. A comment notes that restoring a serialized model ignores soft deletes",
+    "Claims the email with a conditional update on shipment_notified_at and releases the claim if sending fails. This makes the email truly exactly-once, including after a crash between saving the reference and sending",
+    "markShipmentFailed has a whereNull(shipment_reference) guard, so a late failure never downgrades a shipment that was already sent",
+    "Other 4xx responses (401 and similar) fail permanently instead of hammering the partner, while 408 is retried",
+    "Uses modern attributes (Backoff, MaxExceptions, Timeout, DeleteWhenMissingModels, WithoutRelations), retryUntil, afterCommit dispatch, an Idempotency-Key header, connect and request timeouts, and caps Retry-After while also handling the HTTP-date form",
+    "markAsPaid claims the order with a conditional update, so it refuses already-paid or cancelled orders",
+    "Very thorough Pest suite (32 tests) using describe blocks and datasets, covering mail failure, sequence recovery, connection failure, the sync-queue failure path and mail rendering"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 9
+   },
+   "overall": 7.4,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "If queueing the email throws after shipment_reference is saved, the retry returns early because the reference exists, so the customer never gets the email. This is at-most-once, not exactly-once, and a probe confirmed it (app/Jobs/SendOrderToWarehouse.php:47,69-75)",
+    "failed() overwrites shipment_status to failed unconditionally. A probe confirmed it downgrades an order that already has a reference and status sent, which could happen if the final attempt throws after saving (app/Jobs/SendOrderToWarehouse.php:78-84)",
+    "Other permanent 4xx responses (401/403/400) throw a RequestException and are retried up to MaxExceptions(8), hammering the partner with a bad token instead of surfacing the problem to ops immediately (app/Jobs/SendOrderToWarehouse.php:65)"
+   ],
+   "antipatterns": [
+    "WithoutOverlapping keyed per order is unnecessary ceremony, because markAsPaid already guarantees a single dispatch and every release consumes an attempt (app/Jobs/SendOrderToWarehouse.php:35)",
+    "rejectionReason chains ?? and ?: without parentheses, which is hard to read (app/Jobs/SendOrderToWarehouse.php:103)",
+    "The 429 release expression mixes a cast, ?: and min() inline (app/Jobs/SendOrderToWarehouse.php:54)",
+    "Tests call (new Job)->handle() directly without withFakeQueueInteractions in several places, and the test of the failed() path calls failed() by hand without going through the worker (tests/Feature/SendOrderToWarehouseTest.php:154-162)"
+   ],
+   "strengths": [
+    "Compact, readable job: the HTTP call is in a private method and the code reads naturally",
+    "markAsPaid claims the order with a conditional update, refreshes the model, dispatches afterCommit and returns a bool",
+    "On 422 it calls $this->fail() with a domain exception, so the reason flows through failed() and lands on the order",
+    "Uses queue attributes (Backoff, MaxExceptions, Timeout), retryUntil, a named RateLimiter shared across the account, an Idempotency-Key header and connect and request timeouts",
+    "The ShipmentCreated mailable is queued (ShouldQueue), keeping the job fast",
+    "Tests use withFakeQueueInteractions with assertReleased and assertFailedWith, plus preventStrayRequests"
+   ]
+  },
+  "rationale": "Both implementations share the same core design: a conditional-update claim in markAsPaid, afterCommit dispatch, a named 5/s RateLimiter shared across the account, Retry-After handling on 429, backoff with retryUntil, and an Idempotency-Key header. Both check trashed(), which is needed because restoring a serialized model ignores soft deletes. All tests pass in both (impl-2: 16, impl-1: 32).\n\nThe probes separate them. In impl-2, if queueing the mail fails after the shipment reference is saved, the email is lost for good because the retry exits early. Its failed() also downgrades a shipment that was already sent, and permanent 4xx responses like 401 keep retrying. impl-1 handles all three: the email is claimed and released if sending fails, the failure update is guarded on a null reference, and non-408 client errors fail fast. It also uses Skip middleware so cancelled orders don't spend rate-limit budget.\n\nimpl-1's only issue is cosmetic: an empty-body 422 leaves a dangling colon in the reason. It has more ceremony (a service class and two exceptions), but its tests are much stronger. impl-2 is simpler but has real correctness gaps against the \"exactly once\" email requirement and the requirement to surface permanent errors to ops. So impl-1 ranks first."
+ },
+ "cost_usd": 0.5030898
+}

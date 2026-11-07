@@ -1,0 +1,83 @@
+{
+ "key": "caching",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Marking a task done without setting completed_at (e.g. $task->update(['status' => 'done'])) leaves completed_at null, so the task is never counted in tasks_completed_last_7_days. Nothing ties status to completed_at (app/Models/Task.php:17, probe confirmed)",
+    "The dashboard uses Cache::remember with no stampede protection. Concurrent misses after an invalidation all recompute the expensive query, and Cache::flexible was not used even though the task allows up to 5 minutes of stale data (app/Services/TeamDashboard.php:16)"
+   ],
+   "antipatterns": [
+    "app/Services/TeamDashboard.php:16 \u2014 Cache::remember plus a hand-rolled version key, where Cache::flexible([secs, 300]) would cover the 'stale OK if recompute is slow' requirement",
+    "app/Services/TeamDashboard.php:34 \u2014 the version key is itself stored with Cache::remember, so every dashboard read costs two cache round trips",
+    "app/Observers/TaskObserver.php:24 \u2014 a DB query on every task save just to find the team_id",
+    "app/Services/ExchangeRates.php:28-40 \u2014 manual block/try/finally release, where the block($secs, $callback) form is shorter"
+   ],
+   "strengths": [
+    "Routes go through routes/api.php with Sanctum, and guests get a 401 for both JSON and plain requests",
+    "Rotating a version key prevents the race where a reader computing old data re-caches it after a forget; the reason is stated in one tight docblock",
+    "Observers implement ShouldHandleEventsAfterCommit, are registered with #[ObservedBy], and invalidate the previous team as well (getPrevious) when a project, task or user moves",
+    "UserObserver only invalidates when team_id changes or the user is created, so unrelated user saves don't flush the cache",
+    "Exchange rates: double-checked fresh cache under the lock, separate fresh and last-known keys, a failure cooldown, timeout(3), and lock timeout falls back to stale or 503",
+    "Strong Pest tests: an invalidation dataset covering 10 kinds of change, query-count assertions, failure datasets, and Sleep::fake lock-contention tests",
+    "FormRequest normalises case and exposes a typed currency() accessor; #[Scope] attributes and enum casts"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 6,
+    "modern_laravel": 7,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "A guest making a non-JSON request to /api/dashboard or /api/exchange-rates/{c} gets a 500 (RouteNotFoundException: Route [login] not defined), because the API routes live in web.php behind the session 'auth' middleware (routes/web.php:11, probe confirmed)",
+    "Cache::forget invalidation has a race: a reader that started computing before a write commits can re-cache the old data for up to 5 minutes, which breaks the 'reflected within seconds' requirement under concurrency (app/Support/TeamDashboard.php:40-44)",
+    "UserObserver::saved forgets the team dashboard on every user save, including unrelated changes such as name or remember_token, which causes needless recomputes on a hot endpoint (app/Observers/UserObserver.php:12, probe confirmed)",
+    "The dashboard uses Cache::remember with no stampede protection and does not use Cache::flexible despite the stale-tolerant requirement (app/Support/TeamDashboard.php:20)"
+   ],
+   "antipatterns": [
+    "routes/web.php:11 \u2014 API endpoints added to web.php under an 'api' prefix with the web middleware stack (sessions, CSRF), instead of install:api / routes/api.php",
+    "app/Observers/TaskObserver.php:13-16 \u2014 two separate queries on every task save, even when project_id did not change",
+    "tests/Feature/ExchangeRatesTest.php:4 \u2014 `use Closure;` in a non-namespaced file produces a PHP warning in the test run",
+    "tests/Feature/ExchangeRatesTest.php:175 \u2014 the 'three second timeout' test only asserts a config value and never checks the timeout actually applied",
+    "tests/Feature/ExchangeRatesTest.php:110 \u2014 the test says waiting requests reuse the lock holder's result, but it only checks a plain cache hit",
+    "tests/Feature/ExchangeRatesTest.php:16-20 \u2014 a mutable $this->upstream closure works around Http::fake, which is more indirect than Http::sequence"
+   ],
+   "strengths": [
+    "The Task saving hook keeps completed_at consistent with status (stamped when done, cleared when reopened)",
+    "Uses Cache::lock()->block($wait, $callback), which releases the lock automatically",
+    "DB::afterCommit defers invalidation until the transaction commits",
+    "Failed fetches are reported with report($e); timeout and lock wait are in config/services.php",
+    "Thin invokable controllers, a FormRequest with a typed accessor, and #[Scope] and #[ObservedBy] attributes",
+    "Tests cover timeouts via ConnectionException, malformed and empty bodies, cooldown recovery, and the 7-day window moving with travel()"
+   ]
+  },
+  "rationale": "Both suites pass (impl-1: 42 tests, impl-2: 41 tests). The two implementations are close in structure, so the ranking comes down to how robust the caching is and to the bugs the probes found. impl-1 ranks first. It puts the routes in api.php with Sanctum, so guests get a 401 for both JSON and plain requests. Its version-key rotation stops a reader from re-caching data computed before a write committed. Its observers fire after commit and skip unrelated user saves. Its tests are stronger, including lock-contention tests using Sleep::fake. Its main gap is that a task marked done without a completed_at is not counted as completed. impl-2 puts the API routes in web.php behind session auth, so a non-JSON request from a guest returns a 500 (probe confirmed). Its plain Cache::forget leaves the stale-recache race open. It also clears the dashboard cache on any user save (probe confirmed). Its tests are weaker: the 3-second timeout test only checks a config value, one test name overstates what it checks, and a `use Closure;` line causes a warning. On the plus side, impl-2 auto-stamps completed_at and uses the callback form of lock block(). Neither implementation uses Cache::flexible or protects the dashboard against a stampede."
+ },
+ "cost_usd": 0.7277490000000001
+}

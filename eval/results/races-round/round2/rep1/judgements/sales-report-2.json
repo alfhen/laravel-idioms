@@ -1,0 +1,77 @@
+{
+ "key": "sales-report",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 10,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 7.8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "The columns are named price_cents / unit_price_cents, but the task named the fields price and unit_price (in cents). This is a small departure from the spec (database/migrations/2026_11_07_000000_create_sales_tables.php:23,43)."
+   ],
+   "antipatterns": [
+    "app/Reports/BuildSalesReport.php:58,75,94 \u2013 the aggregate rows are hydrated as OrderItem models through Eloquent get(). toBase() would be the cleaner way to get plain aggregate rows.",
+    "app/Reports/BuildSalesReport.php:85-105 \u2013 top customers takes two steps: group by customer_id, then findMany and keyBy. A join would do it in one query. It also exposes the internal id but leaves out country.",
+    "app/Models/OrderItem.php:19 \u2013 a raw SQL fragment constant lives on the model and is concatenated into selectRaw in the report class (app/Reports/BuildSalesReport.php:18), which couples the two.",
+    "app/Models/OrderItem.php:13 \u2013 $fillable includes product_id but not order_id, which is inconsistent.",
+    "app/Http/Requests/SalesReportRequest.php:39 \u2013 OrderStatus::tryFrom($validated['status'] ?? '') ?? Paid is an awkward way to apply a default. validated('status', default) is clearer.",
+    "app/Models/Order.php:43,49 \u2013 the scope columns (status, placed_at) are not table-qualified. They work today, but they are fragile once the query has joins.",
+    "database/migrations/2026_11_07_000000_create_sales_tables.php \u2013 all four tables are in one migration instead of one migration per table."
+   ],
+   "strengths": [
+    "The controller is a one-line invokable that uses a FormRequest and an injected report action.",
+    "Uses the #[Scope] attribute, #[Fillable], enum casts, Rule::enum and Number::currency with an explicit locale.",
+    "Empty query params (?country=&status=) are treated as absent through nullable rules, and country input is trimmed and uppercased.",
+    "The filtered order query is cloned and reused as a whereIn subquery, so every section is filtered the same way.",
+    "Good tests: orders with no items, empty filters, inclusive date bounds, ties, 422 without a JSON Accept header, Http::preventStrayRequests, and a data provider for invalid params."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 10,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.4,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Empty query params (?country=, ?from=, ?status=) return 422 because the rules use 'sometimes' without 'nullable', so blank form filters are rejected. This is a strictness choice rather than a hard bug (app/Http/Requests/SalesReportRequest.php:21-24)."
+   ],
+   "antipatterns": [
+    "tests/Feature/SalesReportTest.php:250-258 \u2013 test_the_endpoint_makes_no_network_calls is a low-value ceremonial test.",
+    "app/Reports/BuildSalesReport.php:44-51 \u2013 passing a filter closure into tap()/whereHas works well, but it is slightly indirect compared with a named Order builder method.",
+    "app/Models/Order.php:16 \u2013 customer_id is not in $fillable and depends on factory unguarding. That is acceptable, but worth noting.",
+    "app/Reports/BuildSalesReport.php:68,92,117 \u2013 each section repeats the same map-to-money row shaping. A small helper would remove the duplication."
+   ],
+   "strengths": [
+    "The controller is a one-line invokable with a FormRequest and an injected BuildSalesReport action. filters() reads the status default from validated('status', default).",
+    "Column names (price, unit_price) match the spec. There is one migration per table, with indexes, constrained FKs and sensible cascade/restrict choices.",
+    "Scopes use the modern #[Scope] attribute with table-qualified columns, plus whereRelation for country. Models use #[Fillable], enum casts and typed relations.",
+    "Aggregates use toBase() so no models are hydrated. Each section is one grouped query with deterministic tie-break ordering. Top customers comes from a single join and includes country.",
+    "Thorough tests: inclusive date boundaries, unit_price vs. product price, AOV rounding, thousand separators, exact empty-report JSON, and a data provider covering invalid dates, impossible dates, to<from, array country and bad status."
+   ]
+  },
+  "rationale": "I ranked impl-2 first, narrowly. Both use the same architecture: an invokable controller, a FormRequest with a filters() method, a BuildSalesReport action, #[Scope] scopes and a money() helper built on Number::currency. Both pass their suites (24 and 26 tests) and all my probes: inclusive date bounds, case-insensitive country, `to` without `from`, every section respecting the country filter, and zero-item orders. Neither has a real computation bug.\n\n**impl-2 wins on:**\n- Column names that match the spec.\n- Aggregate queries via toBase() instead of hydrating models.\n- Top customers in a single join that includes country.\n- Table-qualified scope columns.\n- A conventional one-migration-per-table layout.\n\n**impl-1's advantages:**\n- It accepts blank query params gracefully. impl-2 returns 422 for `?country=`, which is the one behavioural gap I found there.\n- Slightly richer tests (orders with no items, requests without a JSON Accept header).\n\n**Against impl-1:**\n- It renames the columns to *_cents.\n- It hydrates aggregate rows as Eloquent models.\n- It uses a two-step customer lookup that exposes internal ids.\n- It keeps a raw SQL constant on the model.\n- It has an inconsistent $fillable.\n\nOverall, impl-2 is the cleaner and more idiomatic of the two."
+ },
+ "cost_usd": 0.516935
+}

@@ -1,0 +1,73 @@
+{
+ "key": "coupon-redeem",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.7,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Controllers/RedeemCouponController.php:16-18 - the controller dispatches the event and reads wasRecentlyCreated, so 'event only on a new redemption' depends on every caller remembering to do it; redeemFor() does not cover it",
+    "app/Models/Coupon.php:45 - 3 deadlock retries are ceremony, because the coupon row lock already serialises these requests",
+    "app/Exceptions/CouponExhausted.php:10-13 - a constructor override only to set the message; a `protected $message` would be simpler",
+    "app/Events/CouponRedeemed.php:10 - no SerializesModels, so the event is not ready to be queued"
+   ],
+   "strengths": [
+    "Locks the coupon row with SELECT ... FOR UPDATE in a transaction, then checks for an existing redemption and then the cap. This holds across several servers on MySQL, and the unique (coupon_id, user_id) index is a backstop",
+    "An existing redeemer gets 200 even after the coupon is used up, because the per-user check runs before the cap check",
+    "Event is dispatched after the transaction commits (probe: transactionLevel 0) and only when wasRecentlyCreated",
+    "bootstrap/app.php redirectGuestsTo returns null for api/*, so a bearer client without an Accept header gets 401 instead of a 500 'Route [login] not defined'. The test covers this",
+    "setRelation('coupon', $coupon) reuses the locked row for the response count and avoids an extra query",
+    "Route-model binding with {coupon:code} gives the 404; the exception renders the 409; the invokable controller stays thin",
+    "Tests: an exact JSON check, sequential cap with 201/201/409/409, the per-user unique index enforced by the DB, and an existing user still getting 200 once the coupon is used up"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.2,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "An unauthenticated POST without an Accept: application/json header returns 500 (RouteNotFoundException: Route [login] not defined) instead of 401. bootstrap/app.php still redirects guests to route('login'), and mobile/bearer clients that leave out Accept hit this. Confirmed with a probe"
+   ],
+   "antipatterns": [
+    "app/Models/Coupon.php:34-37 - setRawAttributes(..., sync: true) quietly changes the route-bound model inside the transaction. It is clever, but harder to read than working on the locked instance",
+    "app/Models/Coupon.php:25-28 - the docblock explains design rationale (the row lock, the backstop) rather than telling a caller what they need to know",
+    "tests/Feature/RedeemCouponTest.php:22 - the guest test only uses postJson, so the case with no Accept header goes untested"
+   ],
+   "strengths": [
+    "Same correct concurrency design: a row lock on the coupon, the per-user check before the cap, and a unique composite index",
+    "Event dispatch sits in the domain method after commit and only when wasRecentlyCreated, so every caller gets the side-effect rule",
+    "Controller is very thin. The exception uses a `protected $message` and throw_if with a class string, which is concise",
+    "Event uses SerializesModels, so it is ready to be queued",
+    "Tests include a real Sanctum bearer token, zero capacity, an idempotent redeem from a stale model instance, and a factories check"
+   ]
+  },
+  "rationale": "Both implementations use the same sound concurrency design. Each runs a transaction that locks the coupon row with lockForUpdate, checks for an existing redemption before the cap, and backs this up with a unique (coupon_id, user_id) index. Both return 201 or 200 based on wasRecentlyCreated and render a 409 with a message from a custom exception. Probes confirmed that both dispatch the event after commit and exactly once per new redemption, that a repeat call after other users have redeemed returns the same id with the current count, and that a coupon with zero capacity returns 409. The deciding difference is how a request without auth is handled. impl-1 changed bootstrap/app.php so that unauthenticated API requests do not redirect. That means a bearer client that sends no Accept header gets 401, and its tests cover this. impl-2 returns a 500 (Route [login] not defined) in that case, a real bug for the mobile clients the task describes. impl-2 has slightly better encapsulation: the event lives in the model, and the event class uses SerializesModels. It also has a real bearer-token test. But it relies on a clever setRawAttributes sync. impl-1 dispatches in the controller and adds unneeded retries. These are smaller points than impl-2's 500 error, so impl-1 ranks first."
+ },
+ "cost_usd": 0.4049584
+}

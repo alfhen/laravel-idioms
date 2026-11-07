@@ -1,0 +1,98 @@
+{
+ "key": "document-vault",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 5,
+    "eloquent_idioms": 6,
+    "architecture_fit": 6,
+    "modern_laravel": 7,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 7,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "original_name stored untruncated: client filename >255 chars passes SQLite but would 500 on MySQL strict varchar(255) (app/Http/Controllers/DocumentController.php:28)"
+   ],
+   "antipatterns": [
+    "Inline $request->validate() in controller instead of a FormRequest (app/Http/Controllers/DocumentController.php:18)",
+    "Manual ownership check abort_unless($document->user_id === $request->user()->id, 404) instead of a Policy with denyAsNotFound (app/Http/Controllers/DocumentController.php:36)",
+    "user_id listed in #[Fillable] although creation goes through the relation (app/Models/Document.php:10)",
+    "Single controller with non-resource 'link'/'download' actions plus private DISK constant ceremony (app/Http/Controllers/DocumentController.php:14)"
+   ],
+   "strengths": [
+    "Private local disk, random hashed storage names",
+    "temporarySignedRoute with 10-minute expiry, signed middleware on unauthenticated download route",
+    "404 on missing file both at link and download time",
+    "mimes rule sniffs content; good tests incl. boundaries, expiry, tampering, public disk not used"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "original_name stored untruncated: filename >255 chars would 500 on MySQL strict varchar(255) (app/Http/Controllers/DocumentController.php:17)"
+   ],
+   "antipatterns": [
+    "String-based 'file','mimes:...','max:5120' rules rather than fluent File::types()->max() (app/Http/Requests/StoreDocumentRequest.php:13)",
+    "Hardcoded 'local' disk name repeated across three call sites (app/Http/Controllers/DocumentDownloadController.php:13,15; DocumentLinkController.php:16)"
+   ],
+   "strengths": [
+    "FormRequest + DocumentPolicy::view returning Response::denyAsNotFound(), Gate::authorize in controller",
+    "Single-action invokable controllers for link/download",
+    "user_id kept out of Fillable; created through $request->user()->documents()",
+    "Most thorough tests: precise validation messages, rejected upload leaves no stored file, link reuse for another document, file vanishing after link issued"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Str::limit($name, 255, '') truncates from the end, dropping the file extension for very long names so the attachment downloads without '.pdf' (app/Http/Controllers/DocumentController.php:18)"
+   ],
+   "antipatterns": [
+    "Http::preventStrayRequests() in a test with no HTTP client use is ceremony (tests/Feature/DocumentTest.php:22)",
+    "Redundant Document::query()->value('id') then ->sole() in upload test (tests/Feature/DocumentTest.php:47-48)",
+    "Hardcoded 'local' disk name repeated across controllers"
+   ],
+   "strengths": [
+    "Fluent File::types(['pdf','png','jpg','jpeg'])->max(5 * 1024) rule in a FormRequest",
+    "Authorization at route level via ->can('link','document') with policy returning denyAsNotFound",
+    "Guards original_name length against the varchar(255) column",
+    "Signed temporary route, private disk, 404 on missing file at link and download time; tests cover expiry, tampering, guests, missing file, no files left after failed validation"
+   ]
+  },
+  "rationale": "All three share the same sound core: private local disk, hashed file names, a temporarySignedRoute with a 10-minute expiry, a signed unauthenticated download route, and 404 for a missing file at both link and download time. Content-sniffing validation rejected a PNG renamed .svg and an SVG with a script in all three. Differences are idiom plus one edge case: impl-1 and impl-2 store over-long client filenames unchanged (would 500 on MySQL strict varchar(255)); impl-3 truncates them, which avoids the error but drops the extension. impl-3 ranks first for the fluent File rule and route-level ->can() with a denyAsNotFound policy. impl-2 is nearly identical, with Gate::authorize, string rules and the most thorough tests. impl-1 is correct and the simplest but uses inline validation, a manual ownership check, and user_id in fillable, so it ranks last."
+ },
+ "cost_usd": 0.4760362
+}

@@ -1,0 +1,70 @@
+{
+ "key": "export-purge-command",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 7.6,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "tests/Feature/PurgeExportsTest.php:32-43 \u2014 the confirmation tests register an anonymous subclass with a copied #[Signature] and override getDefaultConfirmCallback. This is brittle: the signature can drift from the real command, and the real production-env plus prompt path is never exercised.",
+    "tests/Feature/PurgeExportsTest.php:28-31 \u2014 a docblock explains a test workaround. That is reasoning about the harness, not the code.",
+    "app/Console/Commands/PurgeExports.php:29 \u2014 invalid --days returns FAILURE rather than Command::INVALID.",
+    "Tests miss two failure paths: a disk delete() that throws (caught at PurgeExports.php:77) and a row whose file is already gone. Both were verified correct by probe.",
+    "No test with more rows than one lazyById chunk."
+   ],
+   "strengths": [
+    "Uses the framework's ConfirmableTrait (confirmToProceed) for the production guard with --force. This is the canonical idiom, and a non-interactive production run refuses with exit 1.",
+    "Dry-run returns before both the confirmation and the lock, so support can preview in production without being prompted.",
+    "lazyById() is safe to use while deleting rows and keeps memory flat on millions of rows. The scope is backed by a created_at index.",
+    "The file is deleted before the row. A false return or an exception keeps the row, the run continues, and it exits 1. The disk has throw=false and report=false.",
+    "The command takes a Cache::lock with a generous 6h TTL and releases it in finally. The schedule is dailyAt('03:00')->onOneServer() with --force, which covers both two-server and manual-run overlap.",
+    "Adds a createdDaysAgo factory state and a User::exports() relation. Uses modern #[Signature], #[Description], #[Scope] and #[Fillable] attributes.",
+    "filter_var with min_range validates --days and tolerates ' 5' and '+5'."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 7.9,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:65-70 \u2014 hand-rolls a production confirmation (isProduction, --force, isInteractive, confirm) instead of using the framework's ConfirmableTrait::confirmToProceed.",
+    "app/Console/Commands/PurgeExports.php:42 \u2014 the 7200s lock TTL is fairly tight. On a large manual backlog purge (millions of rows, each with a file plus a row delete), the lock could expire mid-run and let the 03:00 job overlap.",
+    "app/Console/Commands/PurgeExports.php:22 \u2014 ctype_digit validation rejects harmless inputs such as ' 5' or '+5'. This is strict but acceptable.",
+    "tests/Feature/PurgeExportsTest.php:257-261 \u2014 the test that asserts config values adds little."
+   ],
+   "strengths": [
+    "The production guard is explicit and refuses in non-interactive production without --force, exiting 1. It shows a clear custom warning prompt.",
+    "Invalid --days returns Command::INVALID (2), and a data-provider test covers 0, -5, abc, 1.5 and the empty string.",
+    "The query is built once with an olderThan(Carbon $cutoff) scope and reused for both the dry-run count and the lazyById purge.",
+    "Delete-file-then-row, keep-row-on-failure, report(), continue and exit 1. The disk is configured with throw=false.",
+    "Cache::lock prevents overlap with a manual run. The schedule uses onOneServer, dailyAt('03:00') and --force.",
+    "The most thorough tests: a throwing disk, a false return, a retry on the next run, an already-missing file, an empty run, more than one lazyById page (1100 rows), lock contention and release, the production env with real expectsConfirmation, and the schedule expression."
+   ]
+  },
+  "rationale": "I ranked impl-2 first, narrowly, mainly because its tests are more thorough.\n\n**Test runs:** impl-1 passes 16/16 and impl-2 passes 25/25.\n\n**What the two share:** The commands are almost identical in structure:\n- `#[Signature]` attributes and a `#[Scope]` olderThan\n- dry-run handled before both the confirmation and the lock\n- a `Cache::lock` released in `finally`\n- `lazyById` to delete the file and then the row\n- a try/catch around `delete()` that keeps the row and counts the failure\n- exit code 1 on any failure\n- `Schedule::command('exports:purge --force')->dailyAt('03:00')->onOneServer()`\n\n**Probes, run against both:**\n- a disk delete that throws\n- an already-missing file\n- the exact 30-day boundary\n- several `--days` formats\n- a real unwritable directory\n\nBoth behaved correctly on all of them, and I found no real bugs in either.\n\n**Where they differ:**\n\nimpl-1:\n- Uses the framework's `ConfirmableTrait`, the more idiomatic choice.\n- Has a safer 6h lock TTL.\n- Adds a factory state and a `User::exports()` relation.\n- To test the confirmation prompt, its tests register an anonymous subclass with a copied signature. This is brittle, because the copy can drift from the real command.\n- Its tests skip the throwing-delete and missing-file paths, and never cover more than one chunk.\n- Bad `--days` input returns FAILURE (1) rather than INVALID (2).\n\nimpl-2:\n- Writes its own production confirmation, which works but duplicates the trait.\n- Has a tighter 2h lock TTL, a minor overlap risk on a huge backlog.\n- Returns INVALID (2) for bad input.\n- Its tests are notably more complete: a throwing disk, a missing file, 1100 rows (more than one page), a data provider for invalid `--days`, and the confirmation tested in a real production environment with no subclass hack."
+ },
+ "cost_usd": 0.4077684
+}

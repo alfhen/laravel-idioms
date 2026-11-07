@@ -1,0 +1,107 @@
+{
+ "key": "ship-order",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 9
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "app/Policies/OrderPolicy.php:11 `return $user->is_staff;` with a `bool` return type throws a TypeError (500) when the User instance has no is_staff attribute loaded (e.g. a factory-made user that was never refreshed). Users loaded from the DB by Sanctum are fine, so this is a latent bug. Confirmed with a probe.",
+    "A guest sending a non-JSON POST gets a 500 'Route [login] not defined'. This comes from the base app's redirect, but it was not fixed here."
+   ],
+   "antipatterns": [
+    "app/Policies/OrderPolicy.php:11 trusts a nullable attribute under a strict bool return; needs (bool) or a factory default",
+    "app/Models/Order.php:58 sends mail synchronously inside afterCommit. If the mail transport fails after the commit, the API returns a 500 even though the order did ship. A queued mailable would avoid this."
+   ],
+   "strengths": [
+    "Claims the order atomically with a conditional UPDATE (whereKey + status != shipped). This blocks double shipping under concurrency on any DB driver, with no lock needed.",
+    "Points are added inside the transaction and mail goes out via DB::afterCommit, so an outer rollback discards both. Tests cover the rollback and also check that mail is deferred until commit.",
+    "Maps the domain exception to 409 in bootstrap/app.php via withExceptions()->render, so the model stays free of HTTP concerns",
+    "Uses the `->can('ship', 'order')` route method, an invokable controller, a FormRequest with validated(), #[Fillable] attributes, the casts() method and an enum cast",
+    "After the claim, forceFill + syncOriginal keeps the in-memory model in sync with no stray dirty state",
+    "Strong Pest tests: datasets for validation and rounding, a 409 check that nothing happens again, a rollback test where the shipment insert fails, and the mail body is rendered to check for the tracking number"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Policies/OrderPolicy.php:11 has the same fragile `bool` return on a possibly-null is_staff. The new UserFactory default ('is_staff' => false) hides it in tests, but any in-memory User without the attribute would TypeError."
+   ],
+   "antipatterns": [
+    "app/OrderStatus.php: a leftover empty `enum OrderStatus: string {}` in the App namespace, duplicating App\\Enums\\OrderStatus. Dead artefact from scaffolding.",
+    "app/Exceptions/OrderAlreadyShipped.php:7 extends Symfony ConflictHttpException, so the domain model throws an HTTP exception. Back-office callers of ship() outside HTTP get coupled to the HTTP layer.",
+    "app/Http/Requests/ShipOrderRequest.php:12 sets max:100, an arbitrary limit that doesn't match the varchar(255) columns",
+    "tests/Feature/ShipOrderTest.php:162 'enforces one shipment per order' tests the DB schema through factories rather than behaviour"
+   ],
+   "strengths": [
+    "Uses the same atomic conditional-UPDATE claim as impl-1, passing the enum straight into the query builder. syncOriginalAttribute keeps the instance clean.",
+    "Uses afterCommit for mail with points inside the transaction. It is the only implementation that tests a nested savepoint rollback inside a committed outer transaction.",
+    "Fixed the base app's guest redirect (redirectGuestsTo returns null for api/*), so a non-JSON guest request gets 401 instead of 500. Verified with a probe.",
+    "Has the richest test suite (24 tests): it checks 403 comes before validation, covers array/long-input validation, rounding datasets, points on top of an existing balance, assertSeeInHtml on the mailable, and user column defaults",
+    "The UserFactory sets is_staff and points defaults explicitly, and adds a staff() state"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 6,
+    "modern_laravel": 7,
+    "focus_area": 8,
+    "tests": 6,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 6.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "A guest sending a non-JSON POST gets a 500 'Route [login] not defined' (inherited from the base app, not fixed)",
+    "app/Models/Order.php:56 sets `$this->status` without syncing the original, so the caller's Order instance is left dirty (getDirty() = ['status' => 'shipped']), unlike the persisted copy it actually updated"
+   ],
+   "antipatterns": [
+    "app/Http/Controllers/OrderShipmentController.php:14-18 uses try/catch in the controller to map the domain exception to 409 instead of an exception render/report in bootstrap/app.php",
+    "app/Http/Requests/ShipOrderRequest.php:9-12 puts authorization in FormRequest::authorize instead of an OrderPolicy plus a route `can` middleware. That works, but the rule can't be reused for back-office checks.",
+    "app/Models/Order.php:47 re-fetches into a separate $locked model with lockForUpdate and then juggles both $locked and $this. A conditional UPDATE would be simpler, and lockForUpdate is a no-op on SQLite.",
+    "app/Models/Order.php:17 and app/Models/OrderShipment.php:11 widen #[Fillable] to include the foreign keys user_id and order_id without need",
+    "Deleted tests/Feature/ExampleTest.php and tests/Unit/ExampleTest.php, which is unrelated churn",
+    "database/migrations/2026_11_07_184200_create_orders_table.php hardcodes default('pending') instead of OrderStatus::Pending->value",
+    "tests/Feature/ShipOrderTest.php repeats expect() calls instead of chaining ->and()"
+   ],
+   "strengths": [
+    "Pessimistic lock plus a status check inside a transaction prevents double shipping on MySQL/Postgres, and the unique order_id backs it up",
+    "Correctly defers mail with DB::afterCommit and keeps the points increment inside the transaction. Tests cover both outer-rollback and deferred-until-commit.",
+    "The (bool) cast in authorize() avoids the null TypeError that impl-1 and impl-2's policies have",
+    "The `customer()` relation name says what the relation means"
+   ]
+  },
+  "rationale": "All three put the side effects in the right place. Points are added inside DB::transaction, mail goes out via DB::afterCommit, and order_shipments.order_id is unique. All suites pass (19/24/11 tests). Probes showed all three correctly discard mail and points on outer and nested-savepoint rollbacks, and none ship twice from stale instances. The ranking comes down to concurrency technique, layering and polish.\n\nimpl-1 and impl-2 use the same atomic conditional-UPDATE claim, which is the most robust way to stop double shipping and works on any driver. impl-1 is the cleanest: the domain exception is mapped to 409 in bootstrap/app.php, it uses `->can()` on the route, keeps the model state in sync, has no stray files and has solid tests.\n\nimpl-2 has the best tests and fixed the base app's non-JSON guest 500. But it left a dead empty enum at app/OrderStatus.php, and its domain exception extends ConflictHttpException, which couples the model to HTTP.\n\nBoth share a latent TypeError in OrderPolicy::ship when is_staff isn't loaded. impl-1 surfaced it under a probe; impl-2's factory default hides it.\n\nimpl-3 is correct but the least idiomatic. It catches the exception in the controller with try/catch, authorizes in the FormRequest instead of a policy, and juggles two models ($locked and $this) around lockForUpdate. It also leaves the caller's model dirty, deleted unrelated example tests, and has the thinnest tests (no validation datasets, rounding edge cases or 404 test)."
+ },
+ "cost_usd": 0.6383156000000001
+}

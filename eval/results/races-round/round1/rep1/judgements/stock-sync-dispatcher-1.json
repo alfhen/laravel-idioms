@@ -1,0 +1,77 @@
+{
+ "key": "stock-sync-dispatcher",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Minor: synced_at uses second-precision timestamps, so an edit that lands in the same second as $startedAt but after the read would compare equal to synced_at and not be re-sent (narrow window; impl-2 has the same issue)."
+   ],
+   "antipatterns": [
+    "app/Jobs/PushStockAllocations.php:70 a closure ($query = fn () => ...) used as a query factory is a bit clever; two plain queries or ->clone() would read more clearly",
+    "tests/Feature/StockSyncTest.php:183-189 the test only checks that middleware() has one entry and that a limiter is registered, a weak structural assertion",
+    "app/Console/Commands/DispatchStockSync.php:43 lockForUpdate inside the per-batch transaction is redundant with onOneServer, and it is a no-op on SQLite (harmless)"
+   ],
+   "strengths": [
+    "Job only sends rows that are still claimed (whereNotNull sync_started_at), so a duplicate SQS delivery or stale job does not re-push synced rows (verified by probe)",
+    "Proactive RateLimited('storefront-stock') middleware backed by Redis cache, plus 429 handling with tooManyRequests() and a clamped Retry-After",
+    "retryUntil (13 min) is tied to CLAIM_TIMEOUT_MINUTES; failed() releases the claim so the next dispatcher run re-picks the rows",
+    "synced_at is captured before the read, so edits made while the request is in flight stay ready; the sync and disable writes share one transaction",
+    "Uses toBase() for claim/sync writes so updated_at is not bumped, and comments only the non-obvious why",
+    "Modern Laravel 13 idioms: #[Signature]/#[Description], #[Scope], #[Fillable], #[Timeout]/#[Backoff]/#[MaxExceptions], Http::preventStrayRequests, onOneServer + withoutOverlapping",
+    "Adds an index to the migration and config-driven URL and rate limit; (array) cast makes 'missing' robust to null"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.6,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Job does not require rows to still be claimed (app/Jobs/PushStockAllocations.php:41-44), so a duplicate SQS delivery or late-running stale job re-POSTs rows that were already synced; probe showed 2 HTTP calls for one change, violating 'sent exactly once per change'",
+    "No proactive rate limiting: all 50 jobs from a 5,000-row run hit the slow API concurrently and rely only on 429 releases, burning attempts and risking retryUntil expiry",
+    "A 200 response with {\"missing\": null} throws TypeError from in_array (line 66), so a successful push is retried or failed instead of being marked synced",
+    "Sync and disable updates (lines 68-72) are not in a transaction, so a crash in between leaves the missing rows claimed until the 15-minute expiry",
+    "$sentAt is taken after the read, which leaves a small window where an edit between the read and now() would be lost"
+   ],
+   "antipatterns": [
+    "app/Jobs/PushStockAllocations.php:56 uses status() === 429 instead of $response->tooManyRequests()",
+    "app/Console/Commands/DispatchStockSync.php:28-32 claims with an update and then re-reads by exact sync_started_at equality, a fragile claim check that depends on timestamp precision",
+    "tests/Feature/Stock/PushStockAllocationsTest.php:69 [$job] = [(...)] is pointless array destructuring",
+    "tests/Feature/Stock/PushStockAllocationsTest.php:44-54 'can run twice' asserts only that synced_at is set, missing the double send",
+    "tests/Feature/Stock/PushStockAllocationsTest.php:115 'exposes the ids' test is trivial",
+    "database/migrations/..._create_stock_allocations_table.php no index for the readyToSync query"
+   ],
+   "strengths": [
+    "Clean chunkById-based dispatcher with a bounded claim per chunk",
+    "Tests are well organised into three files and cover the 429 cap, Retry-After, failed() requeue, the in-flight edit, schedule overlap settings and the unique sku",
+    "retryUntil tied to CLAIM_TTL_MINUTES, with a docblock explaining why releases make a time bound necessary",
+    "toBase() for bookkeeping writes, with a concise scope docblock explaining why",
+    "Uses partition() for unknown vs accepted and modern attributes (#[Scope], #[Fillable], queue attributes)"
+   ]
+  },
+  "rationale": "Both suites pass and both implementations follow the same overall design: a readyToSync scope, claims written with toBase(), retryUntil kept inside the 15-minute claim window, failed() releasing the claim, and onOneServer plus withoutOverlapping on the schedule. impl-1 is more correct on the task's focus. Its job only sends rows that are still claimed, so duplicate SQS deliveries do not re-push (confirmed by probe; impl-2 sent twice). It also throttles calls with a RateLimited middleware backed by the shared Redis cache instead of relying on 429 releases alone, sets synced_at before the read, wraps the final writes in a transaction, and handles a null 'missing' safely (impl-2 throws TypeError). impl-2 has more tests in better-organised files, but some are weak, including one that hides the double-send bug, and its claim relies on fragile timestamp equality. impl-1 ranks first."
+ },
+ "cost_usd": 0.4256384
+}

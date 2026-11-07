@@ -1,0 +1,103 @@
+{
+ "key": "thread-mentions",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Mention regex `(?<!\\w)@(\\w+)` (app/Models/Reply.php:34) cannot match usernames containing '.' or '-'; no username format is enforced anywhere, so such users (if created outside the factory) are unmentionable. Factory generates [a-z0-9_] so it is internally consistent."
+   ],
+   "antipatterns": [
+    "tests/Feature/ReplyMentionsTest.php:32 Http::preventStrayRequests() is irrelevant ceremony for this feature",
+    "app/Actions/NotifyMentionedUsers.php:14 invokable action wrapping a 3-line loop is slight extra indirection alongside Thread::addReply"
+   ],
+   "strengths": [
+    "Thread::addReply (app/Models/Thread.php:29) wraps reply save + increment in DB::transaction; notifications dispatched only after commit",
+    "Reply::mentionedUsers uses collect()->map->unique and a single whereIn + whereKeyNot query",
+    "Username lowercased via Attribute mutator; factory regexify username matches mention grammar",
+    "Migration down drops unique index before column (rollback works on SQLite)",
+    "Best tests: private-email assertions (to count, no cc/bcc), dedupe, case-insensitivity, self-mention, unknown users, reply-create failure AND counter-increment failure rollback, uniqueness, mailable rendering"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.6,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "UserFactory uses fake()->unique()->userName() (database/factories/UserFactory.php:29) which frequently yields dotted usernames (e.g. 'kareem.kutch'), but the mention regex `(?<![\\w@])@(\\w+)` (app/Models/Reply.php:34) stops at the dot \u2014 probe: only 15 of 30 factory users could be mentioned",
+    "add_username migration down() drops the column without dropping the unique index (database/migrations/2026_11_07_183321_add_username_to_users_table.php:19); migrate:rollback fails on SQLite with 'error in index users_username_unique after drop column'"
+   ],
+   "antipatterns": [
+    "tests/Feature/ThreadReplyTest.php:21 helper reply() has no return type",
+    "No test proving the counter increment failure rolls back the reply (only creating failure tested)"
+   ],
+   "strengths": [
+    "PostReply action cleanly owns transaction (reply + increment) then notifies after commit",
+    "Collection ->each over mentionedUsers(); single whereIn/whereKeyNot query",
+    "Lookbehind excludes both word chars and '@', so email addresses are ignored",
+    "Thin ThreadReplyController with FormRequest and validated('body')",
+    "Tests assert exact validation messages, private recipients (no cc/bcc), dedupe, bystander not notified"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 6,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 6,
+    "architecture_fit": 6,
+    "modern_laravel": 7,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 7.2,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Controllers/ReplyController.php:17-45 fat controller: transaction, mention resolution and mail/notification dispatch all inline",
+    "app/Models/Reply.php:34 native array_values/array_unique/array_map instead of collection pipeline",
+    "app/Http/Controllers/ReplyController.php:33 manual `if ($usernames !== [])` guard is unnecessary (whereIn handles empty)",
+    "app/Models/Thread.php:12 reply_count and user_id mass-assignable; app/Models/Reply.php:11 user_id/thread_id fillable rather than associate()",
+    "app/Models/Thread.php:18 $attributes default duplicates the DB default",
+    "app/Mail/MentionedInReply.php:14 Queueable/SerializesModels boilerplate on a non-queued mailable; empty constructor bodies",
+    "tests/Feature/ReplyMentionsTest.php:149 inline FQCN instead of import; test_validates_body asserts only status for max/string cases",
+    "No test for counter-increment failure rollback"
+   ],
+   "strengths": [
+    "Mention regex allows dots/hyphens with a word-char terminator, consistent with faker userName() factory \u2014 dotted usernames and trailing punctuation work",
+    "Transaction wraps create + increment; notifications sent only after commit",
+    "Migration down drops unique index before column (rollback works)",
+    "Tests cover dedupe/case, private recipients, self-mention, unknown names and email addresses, store-failure with Mail and Notification fakes, uniqueness",
+    "Markdown mailable using x-mail::message"
+   ]
+  },
+  "rationale": "All three meet the core flow: a transactional reply insert and counter increment, then mail and database notifications sent after commit, with mentions deduplicated, matched case-insensitively and excluding the author. All suites pass. Impl-1 is the cleanest. Thread::addReply owns the transaction, mention resolution is a collection pipeline, the factory's usernames fit the mention pattern, and it has the most thorough tests, including rollback when the counter increment fails. Impl-2 is idiomatic, but probing found two real bugs. Its faker userName() factory produces dotted usernames its \\w+ pattern can't match: only 15 of 30 factory users were mentionable. Its username migration also can't roll back on SQLite because the unique index isn't dropped first. Impl-3 has no bugs found and handles dotted usernames, but puts all the logic in the controller, uses plain PHP arrays instead of collections, makes user_id and reply_count mass-assignable and carries boilerplate. Because bugs weigh heavily, it ranks above impl-2."
+ },
+ "cost_usd": 0.6927276
+}

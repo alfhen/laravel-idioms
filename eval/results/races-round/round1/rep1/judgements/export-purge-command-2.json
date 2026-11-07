@@ -1,0 +1,70 @@
+{
+ "key": "export-purge-command",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "tests/Feature/PurgeExportsTest.php:32-43 anonymous subclass of the command, re-declaring the signature, just to force the confirmation path; brittle ceremony",
+    "tests/Feature/PurgeExportsTest.php:28-31 explanatory docblock compensating for test workaround",
+    "app/Console/Commands/PurgeExports.php:20 fixed 6h lock TTL can lapse on a very long run",
+    "app/Models/Export.php:22 scope calls now() itself, so dry-run and purge compute separate cutoffs (minor)",
+    "Tests miss the delete-throws path and multi-page iteration",
+    "app/Console/Commands/PurgeExports.php:88 one DELETE query per row (acceptable but chatty on millions)"
+   ],
+   "strengths": [
+    "Uses ConfirmableTrait: standard production confirmation, --force bypass, and Prompts confirm that defaults to false in non-interactive runs",
+    "filter_var FILTER_VALIDATE_INT with min_range rejects 0, negatives, non-numeric and overflowing --days",
+    "Dry run is evaluated before confirmation and the lock, so support can preview in production",
+    "lazyById iteration is memory-safe and keeps going past retained failed rows; delete exceptions are reported and counted",
+    "Cache lock (shared Redis) prevents overlap with a manual run; onOneServer handles the two web servers; lock released in finally",
+    "Adds the User::exports() relation and a createdDaysAgo factory state; index on created_at; #[Scope], #[Fillable] and #[Signature] attributes"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 7,
+    "simplicity": 9
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Console/Commands/PurgeExports.php:22-28 --days validation uses ctype_digit then (int), so a huge value such as --days=99999999999999999999 clamps to PHP_INT_MAX; subDays overflows to a cutoff of tomorrow and the command deletes ALL exports, including recent ones, and exits successfully (confirmed by probe)"
+   ],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:65-70 writes its own production confirmation logic instead of using the framework's ConfirmableTrait",
+    "app/Console/Commands/PurgeExports.php:42 fixed 2h lock TTL may expire mid-run on millions of rows",
+    "app/Console/Commands/PurgeExports.php:94 one DELETE query per row"
+   ],
+   "strengths": [
+    "Cutoff is computed once and passed to an olderThan(CarbonInterface) scope, so dry run and purge use the same boundary",
+    "Confirmation explicitly requires an interactive terminal; non-interactive runs without --force are refused with exit 1",
+    "Bad --days returns self::INVALID",
+    "lazyById, report() plus counted failure on a throwing delete, rows kept for retry, cache lock released in finally, onOneServer schedule",
+    "Strongest test suite: delete that throws, 1100-row paging, data provider of invalid days, retry on the next run, real expectsConfirmation in production, disk config and schedule assertions"
+   ]
+  },
+  "rationale": "The two implementations are almost line-for-line the same: lazyById, report and count failures, keep failed rows, a cache lock released in finally, an onOneServer schedule at 03:00, and a dry run before confirmation. impl-2 has the better tests and slightly cleaner cutoff handling. However, a probe showed its --days validation overflows on very large input: the cutoff becomes tomorrow and the command wipes every export with exit 0. That is data loss in an operational deletion command. impl-1 uses the framework's ConfirmableTrait, rejects the overflow with filter_var, and adds the User relation and a factory state. Its tests are weaker (an anonymous-subclass workaround, no test for a throwing delete or for multiple pages), but it has no real bugs, so it ranks first."
+ },
+ "cost_usd": 0.3658974
+}

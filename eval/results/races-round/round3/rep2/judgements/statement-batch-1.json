@@ -1,0 +1,76 @@
+{
+ "key": "statement-batch",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "app/Jobs/QueueAccountStatements.php:11-33 \u2014 one job queues all ~40,000 accounts (80 chunkById pages, each pushed to SQS one at a time) and has no #[Timeout], so it falls back to the worker default (60s) and #[Tries(1)]. If it times out partway through, the rest of the accounts are never queued. The run then finishes as completed_with_errors with failed_accounts=1, which does not match total_accounts.",
+    "No cleanup for job_batches or failed_jobs: nothing schedules queue:prune-batches or queue:prune-failed, and every failed account leaves a failed_jobs row. The queue tables grow every month.",
+    "total_accounts is counted at start, but accounts are queued later. Accounts deleted mid-run (DeleteWhenMissingModels) count as successes, so total no longer equals the number processed. This is minor."
+   ],
+   "antipatterns": [
+    "app/Jobs/QueueAccountStatements.php:28 \u2014 the job that queues the whole account set is one long, non-resumable unit and has no timeout set",
+    "tests/Feature/StatementRunTest.php:48-53 \u2014 calls Bus::fake() for no reason and only checks a constructor property",
+    "app/Actions/StartStatementRun.php:23 \u2014 onQueue is set on the batch and again in each job constructor",
+    "app/Jobs/QueueAccountStatements.php:21 \u2014 the comment is useful, but it sits above handle() instead of the batch()->add() call it explains"
+   ],
+   "strengths": [
+    "Bus::batch with allowFailures plus a finally callback means one failing account does not stop the others, and the run always reaches a final status",
+    "FinishStatementRun claims the run with a conditional update (where status = running), so the summary email is sent only once",
+    "SendAccountStatement throws when Storage::put returns false, so the owner is emailed only after the file exists (probe confirmed)",
+    "StatementReady attaches the PDF with Attachment::fromStorageDisk",
+    "Uses modern attributes: #[Tries], #[Timeout], #[DeleteWhenMissingModels], #[Scope], #[Fillable], and an enum cast",
+    "Tests run the real database queue through queue:work and cover the single-failure, no-account, inactive-account and file-content cases"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Jobs/GenerateStatement.php:34-39 \u2014 ignores the return value of Storage::put. If the write fails (put returns false), StatementReady is still emailed and the job counts as a success. A probe confirmed this. It breaks the requirement to email only after the file exists.",
+    "No cleanup for job_batches or failed_jobs: nothing schedules queue:prune-batches or queue:prune-failed, so the queue tables grow every month.",
+    "total_accounts is counted at start, but accounts are queued later. Accounts deleted mid-run count as successes. This is minor."
+   ],
+   "antipatterns": [
+    "app/Jobs/GenerateStatement.php:23 \u2014 serialises the whole StatementRun model into each of the ~40k jobs, which adds one query per job when only the id is needed",
+    "app/Actions/CompleteStatementRun.php:18-20 \u2014 passes ->value explicitly for status even though the model has an enum cast",
+    "tests/Feature/StatementRunTest.php:18 \u2014 uses the older uses(RefreshDatabase::class) in the file instead of setting it once in Pest.php",
+    "tests/Feature/StatementRunTest.php:75 \u2014 does not check the queue:work exit code, and most tests run on the sync queue, so the real asynchronous path is only tested once",
+    "app/Mail/StatementReady.php \u2014 does not attach or link the stored PDF"
+   ],
+   "strengths": [
+    "DispatchStatementJobs pages through accounts with a keyset query and queues its own follow-up job. Each page is bounded, so queuing 40k accounts cannot run into a timeout.",
+    "Has a test that runs more than one page (1001 accounts)",
+    "Uses a batch with allowFailures and finally, plus a conditional update so the run completes and the summary is sent only once; a test checks this",
+    "Gives the batch a name, which helps when inspecting it",
+    "Uses modern attributes throughout and renders mailables with assertSeeInHtml, including an HTML-escaping check"
+   ]
+  },
+  "rationale": "The two designs are almost the same: a dedicated statements queue, Bus::batch with allowFailures and finally, a seed job that queues the per-account jobs, and a conditional update so the run completes only once. Neither prunes job_batches or failed_jobs. impl-2 handles fan-out at the 40k scale better, because each job queues one bounded page and then queues the next. impl-1 queues all 40k accounts from one job with no timeout set. However, impl-2 has a confirmed bug against an explicit requirement: it emails the owner even when the PDF write fails, because it ignores Storage::put's return value. impl-1 guards this case explicitly and attaches the PDF. impl-1's tests also run the real database queue throughout. Its large seed job is a risk at production scale, but it does not break any stated requirement. I rank impl-1 first by a small margin."
+ },
+ "cost_usd": 0.36954800000000004
+}

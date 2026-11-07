@@ -1,0 +1,72 @@
+{
+ "key": "export-purge-command",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Cache lock TTL is a fixed 3600s (app/Console/Commands/PurgeExports.php:42). If a run over millions of rows takes longer than an hour, the lock expires and a manual run can overlap the nightly one. impl-2 has the same issue."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:79 throws a RuntimeException just to jump to its own catch block when delete() returns false. That is an exception used for control flow, though it does make sure the failure gets report()ed",
+    "app/Console/Commands/PurgeExports.php:70 the $expired parameter is untyped (it should be Builder)",
+    "app/Console/Commands/PurgeExports.php:79, database/factories/ExportFactory.php:22, tests/Feature/PurgeExportsTest.php:135 use inline FQCNs (\\RuntimeException, \\DateTimeInterface, \\Illuminate\\Filesystem\\FilesystemAdapter) instead of imports",
+    "tests/Feature/PurgeExportsTest.php:135-146 swaps the disk with an anonymous FilesystemAdapter subclass. That is heavy compared with a mock",
+    "tests/Feature/PurgeExportsTest.php:21 calls Prompt::fallbackWhen(true) in setUp, which is unnecessary ceremony for the console test harness"
+   ],
+   "strengths": [
+    "The per-row try/catch covers both the file delete and the row delete, so any failure (including a DB error, confirmed by probe) is reported, counted, and skipped, the run carries on, and it exits 1",
+    "Uses ConfirmableTrait with --force. Dry-run runs before confirmation and doesn't take the lock, so support can preview in production",
+    "lazyById(500) plus an index on created_at, behind a reusable createdBefore #[Scope]",
+    "Shared Cache::lock with try/finally release, plus a schedule using onOneServer and --force",
+    "Modern attributes: #[Signature], #[Description], #[Fillable], #[Scope]",
+    "Tests use expectsConfirmation to cover both the confirmed and the declined interactive path in production, plus the missing-file, pagination, lock-held and schedule cases"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "An exception from $export->delete() (a DB error or a model event) isn't caught (app/Console/Commands/PurgeExports.php:88). The probe showed it aborts the whole run with an uncaught exception, so the remaining exports aren't processed. That falls short of 'carry on with the rest'",
+    "Files that fail with a false return (no exception) are counted but never report()ed or logged with their path, so ops only see an aggregate number (PurgeExports.php:82-86)",
+    "Same fixed 3600s lock TTL as impl-1 (PurgeExports.php:43). A long run can lose the lock and overlap with a manual run"
+   ],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:30 wraps the query in a closure factory ($exports = fn () => ...) where a plain builder would do, since lazyById clones the builder",
+    "app/Console/Commands/PurgeExports.php:69 the $query parameter is untyped",
+    "app/Console/Commands/PurgeExports.php:42 has a comment that restates what the lock does"
+   ],
+   "strengths": [
+    "The purge loop is clean: lazyById over a createdBefore #[Scope], file deleted first, row kept on failure, counts returned",
+    "The lock is released in finally (verified after an exception), and the schedule uses onOneServer with --force",
+    "Tests mock the Filesystem contract for both a false return and a thrown exception, and cover lock release, the disk config, more than one chunk (1100 rows), invalid --days, dry-run in production, and the schedule expression",
+    "The production refusal is tested, but it relies on the prompt's default rather than asserting a confirmation (no test of the confirmed 'yes' path)"
+   ]
+  },
+  "rationale": "I've ranked impl-1 first, by a narrow margin. The two implementations are almost the same: same model, scope, migration index, disk, ConfirmableTrait/--force, dry-run before confirmation, Cache::lock with finally, lazyById, and an onOneServer schedule. All tests pass in both (impl-2: 17, impl-1: 15).\n\nThe deciding difference is in how they handle errors. In impl-1, the try/catch covers the whole per-row operation, so a failing row delete is reported and skipped and the run carries on. In impl-2, only the file delete is protected. My probe confirmed that an exception from the row delete aborts the entire run, which goes against 'carry on with the rest'. impl-2 also never reports files that fail by returning false, so ops only get a count.\n\nimpl-1's tests also exercise the real interactive confirmation for both yes and no. impl-2's tests are a little broader on mocking (exception path, lock release, disk config) and its code is slightly leaner. impl-1 loses some points for using an exception as control flow, inline FQCNs, and a heavyweight anonymous adapter in a test.\n\nBoth share the same weakness: a fixed 1-hour lock TTL, which could let a manual run overlap the nightly one on a very long run."
+ },
+ "cost_usd": 0.2919546
+}

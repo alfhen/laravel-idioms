@@ -1,0 +1,77 @@
+{
+ "key": "statement-batch",
+ "judge": 2,
+ "v": {
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 7.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Account deleted between dispatch and processing: recordDelivery(false) violates statement_deliveries.billing_account_id FK (app/Models/StatementRun.php:34, migration :34), the catch block rethrows via the insert, failed() hits the same FK error, so the run stays 'running' forever and no summary is sent (confirmed by probe)",
+    "Single DispatchStatementRun job dispatches ~40k jobs one-by-one (app/Jobs/DispatchStatementRun.php:29-36) under a 900s timeout; on SQS this can exceed timeout/visibility, and each retry restarts from the beginning, so tail accounts may never be dispatched and the run never completes",
+    "config('billing.finance_email') has no default (config/billing.php:4); Mail::to(null) would fail the summary job"
+   ],
+   "antipatterns": [
+    "app/Jobs/DispatchStatementRun.php:34 individual dispatch in a loop instead of chunked self-continuing dispatch / Queue::bulk",
+    "app/Models/StatementRun.php:46-52 two COUNT queries over deliveries on every job completion (O(n\u00b2) work across 40k jobs)",
+    "app/Jobs/GenerateAccountStatement.php:44 catch Throwable means transient generator/mail errors are never retried",
+    "statement_deliveries table grows by ~40k rows per run with no pruning"
+   ],
+   "strengths": [
+    "A delivery ledger with a unique key and insertOrIgnore makes counting idempotent; probe confirmed a duplicated dispatcher still gives exact counts and no duplicate emails",
+    "Guarded UPDATE ... WHERE status=running picks a single winner and dispatches the summary as a separate retryable job",
+    "failed() covers worker timeouts/crashes where the catch block never runs",
+    "Correctly reduces total_accounts when accounts are deactivated before dispatch, and caps the run at the accounts counted at start",
+    "Modern attributes (#[Tries], #[Backoff], #[Timeout], #[Scope], #[Fillable], #[WithoutTimestamps]), enum cast, configurable queue name",
+    "Fast, focused Pest tests covering failure, all-fail, empty run, partial progress, idempotency, failed() hook and shrinking total"
+   ]
+  },
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 6
+   },
+   "overall": 6.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Retrying a DispatchStatementChunk job (e.g. after a partial Queue::bulk failure) increments dispatched_accounts again and re-pushes jobs; probe gave total_accounts=6 instead of 3 and 6 StatementReady emails instead of 3 (app/Jobs/DispatchStatementChunk.php:41-46)",
+    "ShouldBeUnique/UniqueFor on GenerateStatement is ineffective because Queue::bulk bypasses PendingDispatch's unique lock, so the duplicate protection it implies does not exist (app/Jobs/GenerateStatement.php:25-27, DispatchStatementChunk.php:43)",
+    "Summary mail is sent inline in GenerateStatement::handle after recordAttempt (app/Jobs/GenerateStatement.php:58,70-72); if it throws, the job retries, increments processed_accounts again and resends the owner email, and the summary is never sent because the status is already claimed",
+    "Accounts reactivated mid-run (id <= maxId) can push processed_accounts past the original total before settleTotal runs, so the run can complete before every account is attempted"
+   ],
+   "antipatterns": [
+    "app/Jobs/GenerateStatement.php:25-27 ShouldBeUnique + UniqueFor ceremony that does nothing with Queue::bulk",
+    "app/Models/StatementRun.php:33 forceFill + fresh() round trip for a single column update",
+    "app/Models/StatementRun.php:36-43 two separate increments rather than one atomic update",
+    "Per-account failures leave rows in failed_jobs with no pruning scheduled",
+    "GenerateStatement serializes the full StatementRun model into each of 40k jobs, re-querying it on every unserialize"
+   ],
+   "strengths": [
+    "Chunked, self-continuing fan-out (1000 per chunk) with Queue::bulk scales well to 40k on SQS",
+    "Retries transient generator failures (Tries 3, Backoff) and counts the account as failed once, in failed(); probe confirmed",
+    "Skips regenerating an existing PDF on retry, and handles accounts deactivated mid-run",
+    "Guarded status claim prevents duplicate summaries under normal concurrency",
+    "Tests run a real database queue worker end-to-end, which is realistic; markdown mailables"
+   ]
+  },
+  "rationale": "Both pass their own tests. Impl-2 tracks results in a per-account delivery table with a unique key and insertOrIgnore, so duplicated jobs or a retried dispatcher still give exact counts and no duplicate emails (confirmed by probe). Its real defects are a foreign-key failure when an account is deleted mid-run, which leaves the run stuck in 'running', and a single 40k-dispatch job that is risky at production scale. Impl-1 has the better fan-out shape (chunked, Queue::bulk) and real retry handling for transient failures. However, its counters are not idempotent: a retried chunk job doubled total_accounts and sent duplicate statement emails in a probe. The ShouldBeUnique it relies on is bypassed by Queue::bulk, and sending the summary inline can double-count on retry. Accurate final status and counts are the core of the task, so impl-2 ranks first."
+ },
+ "cost_usd": 0.660211
+}

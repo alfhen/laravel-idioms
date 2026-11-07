@@ -1,0 +1,85 @@
+{
+ "key": "csv-import",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 6,
+    "thin_controllers": 8,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 5,
+    "simplicity": 5
+   },
+   "overall": 6,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Imports/ProductCsv.php:42-49 parses the file one physical line at a time (fgets + str_getcsv), so a valid quoted field that contains a newline gets split into two rows. Probe: A1,\"Multi\\nline\",1,1 was reported as two 'Wrong number of columns' errors (rows 4 and 5) and the product was not imported",
+    "app/Imports/ProductCsv.php:66-67 has no upper bound on price. Probe: price 1e400 passes is_numeric, round((float)) turns it into INF, and INF is stored. Reading that product afterwards throws 'Unable to cast value to a decimal'. On MySQL the insert into decimal(12,2) would throw instead and fail the whole import",
+    "No length check on sku or name (string(255) columns). Probe: a 300-character sku was accepted as a product. On MySQL/Postgres this throws in the batch upsert and the whole job fails instead of the row being skipped",
+    "app/Imports/ProductCsv.php:66 puts the raw price into the error reason (\"Price '<value>' is not numeric\"), but import_errors.reason is string(255). Probe: a 300-character price produced a reason longer than 255 characters, which overflows on strict databases",
+    "ProductCsv.php:51 rejects any row whose column count differs from the header, so a harmless trailing comma fails the row ('Wrong number of columns')"
+   ],
+   "antipatterns": [
+    "app/Jobs/ProcessImport.php:90-104 uses a $flush closure that captures four variables by reference (&$batch, &$seen, &$created, &$updated) to do created/updated bookkeeping by hand. It is hard to follow",
+    "app/Imports/ProductCsv.php:58-72 hand-rolls row validation with match(true) and a regex instead of using Validator rules. This is how the max/length checks were missed",
+    "app/Http/Controllers/ImportController.php:15 abort_if($path === false, 503) is unnecessary ceremony",
+    "app/Jobs/ProcessImport.php:84 checks the header again even though the FormRequest already validated it",
+    "app/Jobs/ProcessImport.php:140 writes errors with DB::table() and so bypasses the ImportError model",
+    "app/Models/Import.php:36 names the relation errors(), which is easy to confuse with validation errors",
+    "tests/Feature/ProductImportTest.php:249-255 test_no_http_requests_are_made only checks a facade and tests nothing about the feature"
+   ],
+   "strengths": [
+    "Installs Sanctum properly, uses routes/api.php with auth:sanctum, and puts authorization in the route via ->can('view','import'), so the controller stays tiny",
+    "Uses File::types()->max() in the FormRequest, plus an after() hook that checks the header columns",
+    "Batched Product::upsert with correct created/updated counting across chunks and for duplicate skus in one file",
+    "notified_at guard means retries never send the summary email twice. Uses a proper Mailable with a markdown view",
+    "Modern idioms throughout: #[Tries, Backoff, Timeout, DeleteWhenMissingModels], #[Fillable], #[Table], backed enum cast",
+    "Handles BOM, CRLF, blank lines and header case. Tests check exact error reasons with row numbers"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "routes/web.php:10-13 puts the /api/imports routes in the web group with session 'auth'. Because the web group includes CSRF checking, a real API client (no session, no XSRF token) would get 419 on POST. The tests never catch this because Laravel skips CSRF checks while unit tests run",
+    "Row processing does one updateOrCreate and one rowErrors()->create per row, which is N+1 queries. A 5MB file (around 100k rows) could get close to the 300s timeout",
+    "If the job retries after a crash mid-file, products already written by the first attempt are counted as 'updated' instead of 'created' (minor)"
+   ],
+   "antipatterns": [
+    "routes/web.php:10 hosts API endpoints in web.php under a manual prefix('api') instead of routes/api.php with token auth",
+    "app/Http/Requests/StoreImportRequest.php:41 and app/Jobs/ProcessImport.php:88 repeat the same header normalisation (BOM strip/trim/lower) and the column list (REQUIRED_COLUMNS vs COLUMNS)",
+    "app/Jobs/ProcessImport.php:66 uses $counts[$this->upsert(...)]++, where a string return value doubles as an array key. Clever but opaque",
+    "app/Http/Controllers/ImportController.php:24 the store response loads rowErrors but shows the pre-processing counts, which is inconsistent when the queue driver is sync (cosmetic)"
+   ],
+   "strengths": [
+    "Validates each row with Validator::make and real rules (required, numeric, min:0, integer, max lengths/values), so long or huge values become row errors instead of crashing the job. Probe: a 300-character sku/name and 'abc' price were all recorded with clear reasons",
+    "Uses fgetcsv on a Storage stream, so quoted commas and multi-line fields parse correctly. Probe: \"Quoted, name\" imported fine",
+    "Very thin controller with a FormRequest, Gate::authorize, a policy and an API Resource. Small, readable model methods markProcessing/markCompleted/markFailed",
+    "Queued Notification with a MailMessage for the summary. The Completed-status guard plus clearing rowErrors makes retries idempotent",
+    "Modern attributes: #[Tries]/#[Backoff]/#[Timeout]/#[DeleteWhenMissingModels], #[Fillable], casts() method, backed enum",
+    "Thorough tests: exact 5MB boundary, missing header, reordered/BOM headers, blank lines, duplicate skus, idempotent rerun, retry after crash, failed() hook, guest/other-user/404"
+   ]
+  },
+  "rationale": "Both test suites pass (impl-2: 24 tests, impl-1: 19). Both are modern and well structured. The ranking comes down to how they parse and validate rows.\n\nimpl-2 (rank 1) uses fgetcsv and Laravel's Validator for each row, with length and max limits. My probes found no data bugs: long values, a non-numeric price, a blank sku and quoted fields all behaved correctly. Its main weakness is where the endpoints live: they sit in web.php under session auth, so CSRF checking would block real API clients with 419. It also runs one or two queries per row (N+1).\n\nimpl-1 (rank 2) handles the API side more properly (Sanctum, api.php, ->can() on the route) and is faster thanks to batched upserts with a notified_at email guard. But its hand-rolled line parser and validation have real bugs, each confirmed by a probe:\n- Valid CSV with a newline inside a quoted field is split into two failing rows.\n- A price of 1e400 is stored as INF, which corrupts the product: reading it back throws.\n- Too-long sku values and error reasons aren't caught, so on MySQL the whole import job would crash instead of skipping the row.\n- A trailing comma fails the row.\n\nIts reference-capturing $flush closure also adds complexity. Since real bugs are weighted heavily, impl-2 ranks first."
+ },
+ "cost_usd": 0.5468166
+}

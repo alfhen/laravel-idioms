@@ -1,0 +1,69 @@
+{
+ "key": "thread-mentions",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.3,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Models/Reply.php:34 uses raw preg_match_all with an out-parameter instead of str()->matchAll(). The regex has no /u flag, so non-ASCII usernames are never matched.",
+    "app/Models/Reply.php:32 puts mention parsing plus a User query on the Reply model. This is fine, but it mixes a query into the model rather than keeping it in the action.",
+    "app/Actions/NotifyMentionedUsers.php:15 queues the email but sends the database notification synchronously. The two delivery paths are inconsistent, and nothing marks the mail as afterCommit, so it would be sent early if this were ever called inside an outer transaction.",
+    "app/Models/Thread.php:33-34 uses associate() then save() on separate lines (minor)."
+   ],
+   "strengths": [
+    "The reply insert and the reply_count increment share one transaction in Thread::addReply. Notifications are only sent after it commits. A probe that forced the increment to fail rolled back the reply and sent nothing.",
+    "Mentions are lowercased, de-duplicated, and resolved with one whereIn query, with whereKeyNot excluding the author. The (?<!\\w) lookbehind stops email addresses from counting as mentions.",
+    "The mailable is queued (ShouldQueue) and each email goes to one recipient. A probe with real mail showed 2 messages, each with one To address and no CC.",
+    "A username mutator lowercases values, and the column has a unique index. The factory generates unique usernames.",
+    "Tests are thorough: they use Sanctum::actingAs, check 401 with and without an Accept header, and assert exact validation messages. They check for no CC/BCC, test case-insensitive de-duplication, and cover a failed write by asserting a 500 response plus no replies, an unchanged count, and nothing queued. The mailable's rendering is tested too."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 7,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 7.9,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Actions/NotifyMentionedUsers.php:26 sends mail synchronously with Mail::to()->send() inside the HTTP request. If SMTP fails partway through the loop, some users have been emailed and the request returns 500 even though the reply was saved. Queueing the mail would be the idiomatic choice.",
+    "tests/Feature/ThreadReplyTest.php:167-173 tests the failure path with withoutExceptionHandling plus try/catch and $this->fail. assertStatus(500) would be simpler.",
+    "tests/Feature/ThreadReplyTest.php:34 has a reply() helper with no return type, and tests use actingAs (the web guard) instead of Sanctum::actingAs.",
+    "app/Http/Requests/StoreReplyRequest.php:9 has no return-type docblock (minor).",
+    "app/Models/Thread.php:19 sets $attributes reply_count=0, duplicating the database default. This is harmless but redundant."
+   ],
+   "strengths": [
+    "Parses mentions fluently with str()->matchAll()->map()->unique(). The /u flag and mb_strtolower handle Unicode, and the (?<![\\w@]) lookbehind ignores email addresses and @@ sequences.",
+    "The insert and increment share one transaction, and notifications are sent after commit. A probe forcing the increment to fail confirmed the rollback and that nothing was sent.",
+    "Notifications are database-only, mail goes to one recipient each, and the author is excluded with whereKeyNot.",
+    "The factory uses a regexify username pattern and the mutator lowercases with mb_strtolower.",
+    "A single test combines duplicate mentions, mixed case, unknown usernames and a bystander, and checks each notification with sole()."
+   ]
+  },
+  "rationale": "Both implementations work and are structurally almost identical: a FormRequest, Thread::addReply wrapping the insert and increment in DB::transaction, a NotifyMentionedUsers invokable action called after commit, a database-only notification, and a migration for the standard notifications table. Neither has a real bug. Probes on both covered real (non-faked) mail delivery, a failing increment, @@bob, and null usernames. Both sent exactly one email per user with one recipient each and no CC. Both rolled back the reply and sent nothing when the increment failed. They differed only on @@bob: impl-1 treats it as a mention and impl-2 does not.\n\nImpl-1 ranks first for two reasons. First, its mailable is queued (ShouldQueue), which suits mail triggered by a web write better than impl-2's synchronous send(). Second, its tests are more idiomatic and thorough: Sanctum::actingAs, a 401 check without an Accept header, exact validation messages, an explicit no-CC/BCC check, and a failed-write test that asserts a 500 response rather than using withoutExceptionHandling with try/catch. Impl-2 is stronger on helpers (str()->matchAll, Unicode-aware lowercasing) and keeps parsing in the action rather than the model, but those gains are smaller."
+ },
+ "cost_usd": 0.3830924
+}

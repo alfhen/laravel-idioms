@@ -1,0 +1,107 @@
+{
+ "key": "stock-csv-import",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 6,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 6,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 6
+   },
+   "overall": 6,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "app/Imports/ImportStockLevels.php:101 \u2014 the duplicate-column check runs on blank header cells too. A common export like `sku,quantity,,` (trailing empty columns) returns 422 'duplicate column names', but the spec only allows 422 when a header is missing. Probed: `sku,quantity,,\\nA,1,,` \u2192 422.",
+    "app/Imports/ImportStockLevels.php:43 \u2014 `$line++` counts fgetcsv records, not physical lines. After any quoted field that spans lines, every later error reports the wrong line number. Probed: `\"A\\nB\",1` followed by `C,x` reports line 3 when it is on line 4."
+   ],
+   "antipatterns": [
+    "app/Imports/ImportStockLevels.php:56 \u2014 builds a full Validator::make for every row. It is heavy for a 5 MB file, and the generic message ('The quantity field format is invalid.') is less precise than a custom one.",
+    "app/Imports/ImportStockLevels.php:117-122 \u2014 adds created_at/updated_at by hand. Eloquent\\Builder::upsert already adds both timestamps.",
+    "app/Imports/ImportStockLevels.php:45 \u2014 the blank-line check is clumsy: `$row === [null] || (count===1 && trim==='')`.",
+    "tests/Feature/StockImportTest.php:9-11 \u2014 Http::preventStrayRequests() is irrelevant noise. The importCsv() helper authenticates as a hidden side effect while other tests call Sanctum::actingAs themselves, which is inconsistent."
+   ],
+   "strengths": [
+    "Truly streaming: fgetcsv with escape '' and chunked upserts inside the loop, so memory stays bounded. try/finally closes the handle.",
+    "Strips the BOM correctly with fread/rewind. Handles a missing trailing newline and whitespace-only lines.",
+    "Upload validation uses 'mimes:csv,txt' plus 'extensions:csv,txt', which rejects .php and similar uploads.",
+    "Invokable controller plus an invokable import class. Uses throw_if and first-class callable trim(...).",
+    "Most thorough test suite (27 tests): 401 without an Accept header, exact 5 MB boundary, chunk boundary, duplicate headers."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 9
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "app/Actions/ImportStockCsv.php:29-36 \u2014 reads with fgets and then str_getcsv on each line, so a quoted field that spans lines is split. Probed: `\"A\\nB\",1` reports line 2 as a column-count error and then silently imports a garbage sku `B\"` from line 3. Rare in SKU feeds, but it imports bad data."
+   ],
+   "antipatterns": [
+    "app/Actions/ImportStockCsv.php:24,55 \u2014 keeps every valid row in memory until EOF and only then upserts. Acceptable with the 5 MB cap, but it is not streaming writes.",
+    "app/Actions/ImportStockCsv.php:46-47 \u2014 computes trim($cells[$skuIndex]) twice.",
+    "app/Http/Requests/StoreStockImportRequest.php:16 \u2014 has 'mimes:csv,txt' with no 'extensions' rule, so a CSV-content file with any filename (e.g. .php or .txt) is accepted.",
+    "tests/Feature/StockImportTest.php:15 \u2014 Http::preventStrayRequests() is unrelated ceremony."
+   ],
+   "strengths": [
+    "Cleanest design: a thin invokable controller, a FormRequest, and a single invokable action class. The header problem becomes a ValidationException, so the 422 shape is standard.",
+    "Opens the stream in 'rb' and closes it in try/finally. Line numbers count physical lines including blanks. str_getcsv uses escape ''.",
+    "Validation is precise: wrong column count, empty or whitespace sku, sku longer than 255, and quantities over the unsigned-int range, each with a clear specific message.",
+    "Model has a casts() method, a Fillable attribute and a factory. Eloquent upsert handles timestamps automatically. Writes in chunks of 500.",
+    "Strong Pest tests: datasets for missing headers, an exact error payload, both sides of the 5 MB boundary, a chunk-overflow test, and checks on DB state."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 6,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 6,
+    "architecture_fit": 6,
+    "modern_laravel": 7,
+    "focus_area": 6,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 6.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Services/StockCsvParser.php:24-41 \u2014 treats the first non-blank line as the header, so `\\nsku,quantity\\nA,1` is accepted. The spec says the header is line 1.",
+    "app/Services/StockCsvParser.php:18,31 \u2014 splits on newlines before CSV parsing, so a quoted field that spans lines imports a garbage sku `B\"` (probed; same as impl-2)."
+   ],
+   "antipatterns": [
+    "app/Services/StockCsvParser.php:17-18 \u2014 loads the whole upload with ->get() and preg_split, so the contents and the line array both sit in memory. There is no streaming or file-handle management, which is weak for the focus area.",
+    "app/Http/Controllers/StockImportController.php:23-32 \u2014 upsert and persistence logic live in the controller while parsing lives in a 'Services' class. The responsibility split is awkward.",
+    "app/Services/StockCsvParser.php:15,37 \u2014 returns null as a sentinel for 'bad header' and leaves the controller to throw. A ValidationException thrown inside the parser would be cleaner.",
+    "app/Http/Controllers/StockImportController.php:27,31 \u2014 sets timestamps by hand even though Eloquent upsert adds them.",
+    "app/Services/StockCsvParser.php:56 \u2014 `strlen(ltrim($quantity,'0')) > 10` is redundant with the (int) > MAX check, because (int) saturates.",
+    "tests/Feature/StockImportTest.php:16 \u2014 the import() helper has no return type. No factory exists, so tests call StockLevel::create directly."
+   ],
+   "strengths": [
+    "Strictest upload validation: 'extensions:csv' plus 'mimetypes:text/csv,text/plain,application/csv'. A test covers binary content uploaded under a .csv name.",
+    "Normalises \\r\\n, \\n and \\r. Casts numeric-looking sku keys back to string. Upserts in chunks.",
+    "Line numbering and error messages are correct for ordinary files.",
+    "Concise, readable Pest tests with a dataset for missing headers, including an out-of-range quantity case."
+   ]
+  },
+  "rationale": "I ranked impl-2 first, impl-3 second and impl-1 third. All three suites pass (22, 17 and 27 tests). I also ran the same probes against each one: trailing empty columns, a blank line before the header, an uppercase .CSV extension, quoted fields spanning lines, a file that is only a BOM, a header with no newline, leading zeros and '+3' as quantities, a .txt upload, a semicolon delimiter, and Latin-1 bytes.\n\n1. **impl-2** has the cleanest Laravel structure: a thin controller, a validation request class and one import class. It streams the file and always closes it, line numbers count blank lines as the spec asks, and the tests are the strongest. Its only bug is shared with impl-3: a quoted field that spans lines gets split, and a garbage sku is imported.\n\n2. **impl-3** handles every common probe correctly and has the strictest upload validation. But it reads the whole file into memory, puts the database writes in the controller, returns null to signal a bad header instead of throwing, and accepts a file whose header is not on line 1.\n\n3. **impl-1** is the best at streaming the file and handles quoted fields properly. It has a real-world bug, though: an export with trailing empty columns (`sku,quantity,,`) gets a 422 for duplicate column names, when the spec only allows 422 for missing headers. Its line numbers also go wrong after a quoted field that spans lines. Because I weight correctness on realistic files heavily, those bugs put it below impl-3 despite having the most thorough test suite."
+ },
+ "cost_usd": 0.5590193999999999
+}

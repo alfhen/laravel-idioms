@@ -1,0 +1,65 @@
+{
+ "key": "inactive-count",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "tests/Feature/CountInactiveUsersTest.php:31,40: `expectsOutputToContain('): 0')` is a very loose assertion. It would also match unrelated output, and the full output line is never pinned down.",
+    "tests/Feature/CountInactiveUsersTest.php:35-42: the boundary test only checks the 'exactly 90 days is active' side. It never asserts that one second past the cutoff counts as inactive, so a `<` vs `<=` slip is only half-guarded.",
+    "tests/Feature/CountInactiveUsersTest.php:6-24: time is frozen in only one test. The others use offsets like 89 and 91 days that are safe today, but the time handling across the file is inconsistent.",
+    "routes/console.php:11: the whole schedule chain is on one long line. Minor style point."
+   ],
+   "strengths": [
+    "Lean and proportionate: a migration, a cast, a `#[Scope]` attribute scope, an attribute-configured command (#[Signature]/#[Description]) and a single schedule line.",
+    "`filter_var` with the `min_range` option handles validation in one idiomatic call.",
+    "Scope wraps `whereNull` and `orWhere` in a closure, so it combines safely with other conditions. Never-logged-in users are counted as inactive.",
+    "Schedule uses `dailyAt('06:00')` with `appendOutputTo` a log file, which is what 'shows up in our logs' asks for. It avoids `onOneServer` and `withoutOverlapping`, which the task doesn't need.",
+    "Tests cover the default, `--days`, the zero case, the boundary, a dataset of invalid inputs and the schedule expression and output."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "routes/console.php:13: `withoutOverlapping(10)` adds a cache mutex to a sub-second read-only count on a single server. This is unneeded ceremony, and it makes the scheduler depend on the cache store for locks.",
+    "tests/Feature/UsersInactiveCountTest.php:10: `Http::preventStrayRequests()` is noise because the command makes no HTTP calls.",
+    "tests/Feature/UsersInactiveCountTest.php:66-73: the test that `last_login_at` stores a nullable datetime mostly re-tests framework casting. It has little value for this task.",
+    "app/Console/Commands/UsersInactiveCount.php:17-19: validation is `filter_var` plus a manual `< 1` check, where the `min_range` option would do it in one call. Minor."
+   ],
+   "strengths": [
+    "Same clean core as impl-1: a nullable timestamp migration with `down()`, a datetime cast, a grouped `#[Scope]` closure that counts NULL as inactive, and an attribute-based command returning FAILURE/SUCCESS.",
+    "Adds a small `lastLoginAt()` factory state, which makes the tests read well.",
+    "Strongest tests: time is frozen for the whole file, output lines are asserted exactly, and both sides of the boundary are checked (exactly 90 days is active, 90 days plus 1 second is inactive). Also covers an empty table, `--days`, a dataset of invalid inputs, and the schedule expression and output path.",
+    "Schedule uses `dailyAt('06:00')` with `appendOutputTo` a log file and avoids `onOneServer`, which is correct for a single server."
+   ]
+  },
+  "rationale": "I'd rank impl-2 first, but the two are nearly identical and only test quality separates them.\n\n**What they share**\n- The same migration, the same datetime cast and the same `#[Scope]` query (`whereNull` or `orWhere` `<` `now()->subDays`, grouped in a closure).\n- Attribute-based commands that validate `--days` with `filter_var`.\n- A daily 06:00 schedule that appends output to a log file.\n\n**Test runs**\n- Both full suites pass: impl-2 has 13 tests, impl-1 has 11.\n\n**Probes**\nI ran the same throwaway tests against both and then deleted them. Both behaved identically:\n- They accept `' 5'` and `'+5'`, because `filter_var` trims and allows a sign.\n- They reject an empty `--days`.\n- They handle a very large value such as 100000.\n- They don't count future logins.\n- The cast returns a Carbon instance.\n- The schedule timezone is UTC and `onOneServer` is false in both. `withoutOverlapping` is true only in impl-2.\n\nI found no real bugs in either.\n\n**Why impl-2 ranks first**\n- Its tests are clearly stronger: time is frozen for the whole file, output lines are asserted exactly rather than with `'): 0'`, and both sides of the boundary are tested, including 90 days plus 1 second.\n- It adds a tidy factory state.\n\n**What it gives back**\n- An unneeded `withoutOverlapping(10)` on a trivial single-server job.\n- A stray `Http::preventStrayRequests()`.\n- A test that re-checks framework casting.\n\n**Why impl-1 ranks second**\n- It is a bit leaner, and its `min_range` validation is neater.\n- But its assertions are looser and its boundary coverage is one-sided, so it comes second.\n\n**Note on schedule:list**\n`php artisan schedule:list` failed in both apps because the sqlite database file doesn't exist on disk. That's a setup issue, not a code bug, and I didn't count it against either."
+ },
+ "cost_usd": 0.227914
+}

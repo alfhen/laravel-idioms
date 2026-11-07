@@ -1,0 +1,77 @@
+{
+ "key": "sales-report",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Reports/BuildSalesReport.php:21-84 \u2013 a single __invoke of about 60 lines builds all three breakdowns inline. Private methods (as in impl-2) would read better.",
+    "app/Reports/BuildSalesReport.php:21 \u2013 takes an untyped array $filters (described only by a docblock shape) instead of typed parameters or a DTO.",
+    "app/Reports/BuildSalesReport.php:47,56,72 \u2013 orderByRaw repeats the SUM expression instead of ordering by the selected alias.",
+    "app/Http/Requests/SalesReportRequest.php:30 \u2013 the docblock promises CarbonImmutable, but $this->date() returns a mutable Illuminate\\Support\\Carbon (no Date::use is configured).",
+    "app/Http/Requests/SalesReportRequest.php:37-40 \u2013 the filled(... ?? null) checks are repeated four times. They are slightly noisy, though they are what makes empty params work.",
+    "app/Models/Order.php:50-53 \u2013 a hand-written whereIn subquery on customers where whereRelation/whereHas is the more idiomatic choice."
+   ],
+   "strengths": [
+    "Thin invokable controller with a FormRequest and an injected report action.",
+    "Validation is lenient and robust: an empty ?from=&status= is treated as no filter (probed), alpha:ascii rejects non-ASCII country codes like \u00c6\u00d8 (probed), and array input is rejected.",
+    "Uses $this->date() from the request, #[Scope] attribute scopes, #[Fillable], casts() method and enum casts \u2013 current Laravel 12/13 idioms.",
+    "Revenue uses sum(DB::raw(...)), and order_count comes from a separate orders query, so multi-item orders don't inflate the count.",
+    "Strongest tests: orders without items counted in the average, inclusive date boundaries, empty filter values, thousands-separator formatting, an aggregate that excludes pending orders from top products, and uses factory sequence()."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Empty query params return 422 (probed): ?status= gives 'selected status is invalid' even though status is documented as defaulting to paid. ?from=&to= and ?country= also fail, because the rules are 'sometimes' without 'nullable' and ConvertEmptyStringsToNull turns '' into null.",
+    "The country rule 'alpha' is Unicode-aware, so country=\u00c6\u00d8 passes validation and is used as a filter (probed: 200 with an empty report). It should be alpha:ascii, or ideally a list of valid country codes."
+   ],
+   "antipatterns": [
+    "app/Http/Requests/SalesReportRequest.php:40 \u2013 OrderStatus::tryFrom($validated['status'] ?? '') ?? OrderStatus::Paid uses tryFrom('') as a workaround. $this->enum('status', OrderStatus::class) ?? OrderStatus::Paid is the idiomatic version.",
+    "app/Http/Requests/SalesReportRequest.php:37-38 \u2013 Carbon::parse on validated values where $this->date('from') exists.",
+    "app/Http/Requests/SalesReportRequest.php:14 \u2013 uses $this->query() in prepareForValidation while every other read goes through validated()/input. Minor inconsistency.",
+    "app/Reports/BuildSalesReport.php:28-29 \u2013 mixes clone $orders with a closure that re-clones. A single builder factory closure would be more uniform.",
+    "tests/Feature/SalesReportTest.php:30 \u2013 Http::preventStrayRequests() is irrelevant because no HTTP client is used.",
+    "app/Models/Order.php:16 \u2013 customer_id is left out of #[Fillable]. Harmless with factories and for(), but surprising."
+   ],
+   "strengths": [
+    "Clean split: invokable controller \u2192 FormRequest::filters() \u2192 invokable BuildSalesReport with typed named parameters spread from the request.",
+    "The report is broken into small private methods (revenuePerCountry, topProducts, topCustomers) with a shared money() helper using Number::currency.",
+    "Readable scopes (placedBetween, withStatus, fromCountry via whereRelation) using the #[Scope] attribute, and startOfDay/endOfDay give inclusive date ranges.",
+    "A DataProvider-driven 422 test covers bad dates, to before from, unknown status, long, numeric and array country values. Also tests AOV rounding, a multi-item order not inflating the count, and caps on the top-N lists.",
+    "Deterministic tie-break ordering by id on the top-N queries."
+   ]
+  },
+  "rationale": "I ranked impl-1 first (8.5/10) and impl-2 second (7.5/10).\n\nBoth pass their own suites (impl-1: 17 tests, impl-2: 20 tests). They share the same design: an invokable controller, a FormRequest, an invokable BuildSalesReport action using #[Scope] attribute scopes, a SUM(quantity*unit_price) subquery over the filtered order ids, Number::currency formatting and the same JSON shape.\n\nimpl-2 has the tidier report class, with private methods for each breakdown and typed named parameters. My probes found two bugs in it:\n- **Empty params return 422.** The rules are 'sometimes' with no 'nullable', so ?status= is rejected even though status should default to paid. Empty from/to/country values fail the same way.\n- **Non-ASCII country codes pass.** The Unicode 'alpha' rule lets country=\u00c6\u00d8 through as a valid filter.\n\nimpl-1 handles both cases correctly: empty values mean no filter, and 'alpha:ascii' rejects \u00c6\u00d8. Its tests cover more edge cases, including orders without items counting toward the average, thousands-separator formatting, empty filters, and pending orders being excluded from top products. Its weaknesses are style, not behaviour: one long __invoke, an array-shaped $filters parameter, an inaccurate CarbonImmutable docblock and repeated orderByRaw expressions.\n\nCorrectness and validation robustness count most, so impl-1 ranks ahead."
+ },
+ "cost_usd": 0.44073320000000005
+}

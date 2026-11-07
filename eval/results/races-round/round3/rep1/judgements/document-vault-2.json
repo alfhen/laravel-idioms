@@ -1,0 +1,102 @@
+{
+ "key": "document-vault",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 5,
+    "eloquent_idioms": 6,
+    "architecture_fit": 6,
+    "modern_laravel": 7,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 6.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "A guest request to /api/documents or /api/documents/{id}/link without an Accept: application/json header returns 500, because the default redirect to route('login') points at a route that doesn't exist (the base app has the same problem, and this implementation didn't fix it)",
+    "An original filename longer than 255 characters is not limited; on MySQL or Postgres the insert would fail with a 500"
+   ],
+   "antipatterns": [
+    "app/Http/Controllers/DocumentController.php:18 validates inline with $request->validate instead of a FormRequest, and uses string rules ('mimes:...', 'max:5120') where File::types()->max() fits",
+    "app/Http/Controllers/DocumentController.php:36 checks ownership by hand with abort_unless($document->user_id === $request->user()->id, 404) instead of a policy with denyAsNotFound or ->can(). The strict int comparison also relies on the driver returning ints",
+    "app/Models/Document.php:10 makes 'user_id' fillable even though creation always goes through the relation, which needlessly widens the mass-assignment surface",
+    "app/Models/Document.php:13 is missing the @use HasFactory<DocumentFactory> generic annotation",
+    "tests/Feature/DocumentTest.php:79 packs six validation scenarios into one test, so a failure doesn't say which rule broke"
+   ],
+   "strengths": [
+    "Files go to the private local disk, are stored under hashed names, and are served through a temporarySignedRoute that expires after 10 minutes",
+    "Both the link and the download return 404 when the file is missing",
+    "Simple, compact single controller, and creation goes through $request->user()->documents()->create()",
+    "The tests cover expiry with travel(), a tampered or swapped-ID signature, an unsigned request, another user getting 404, and a file deleted after the link was issued"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 7.8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "A guest request without an Accept: application/json header returns 500 (Route [login] not defined) instead of 401",
+    "An original filename longer than 255 characters is not limited; on a strict database the insert would fail with a 500"
+   ],
+   "antipatterns": [
+    "app/Http/Requests/StoreDocumentRequest.php:13 uses string rules 'mimes:pdf,png,jpg,jpeg','max:5120' rather than the fluent File::types([...])->max(5 * 1024)",
+    "app/Http/Controllers/DocumentLinkController.php:15 calls Gate::authorize inside the controller where the route could declare ->can('view', 'document'), which is a minor point"
+   ],
+   "strengths": [
+    "The FormRequest, the policy returning Response::denyAsNotFound(), and the invokable link and download controllers give a clean split",
+    "#[Fillable] has no user_id, and creation goes through the documents() relation",
+    "Files are stored privately on the local disk under hashed names and served via a signed temporary route with 'signed' middleware; both endpoints return 404 when the file is missing",
+    "The tests are thorough: boundaries at 100 characters and 5120 KB, a disguised .php upload with no file left on disk, travel() checks at 9 and 11 minutes, a swapped-ID signature, and a file vanishing after the link was issued",
+    "In my probe, real files whose content doesn't match their extension (PHP in a .pdf, HTML in a .png) were rejected with 422"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.6,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Str::limit($name, 255, '') cuts long filenames off at the end, so the extension is dropped (for example, a 300-character name ending in .pdf downloads without '.pdf'). This is minor"
+   ],
+   "antipatterns": [
+    "tests/Feature/DocumentTest.php:24 calls Http::preventStrayRequests() although nothing here makes HTTP calls, which is unneeded ceremony",
+    "app/Http/Controllers/DocumentController.php:18 truncates the filename where it could have kept the extension, for example by limiting the name part only"
+   ],
+   "strengths": [
+    "The FormRequest uses the fluent File::types(['pdf','png','jpg','jpeg'])->max(5 * 1024) rule",
+    "Authorization is declared on the route with ->can('link', 'document') against a policy that returns denyAsNotFound(), so the ownership check runs before the file-existence check and nothing leaks to non-owners",
+    "bootstrap/app.php adds redirectGuestsTo returning null for api/*, so guests get 401 rather than 500 even without a JSON Accept header (my probe confirmed this, while impl-1 and impl-2 return 500)",
+    "Private disk, hashed filenames, and a 10-minute temporarySignedRoute; both the link and the download return 404 when the file is missing",
+    "The richest tests: a data provider for the allowed types, a real Sanctum token flow, assertDownload(), checks that the stored name isn't the client name and that nothing lands on the public disk, guest requests both with and without an Accept header, and an array-valued title"
+   ]
+  },
+  "rationale": "Rank: impl-3 first, impl-2 second, impl-1 third.\n\nAll three pass their own tests and meet the core requirements. Each stores files on the private local disk under hashed names, issues a 10-minute temporarySignedRoute with the `signed` middleware, gives other users a 404, and returns 404 from both the link and the download when the file is missing. For each one I ran the test suite, read every added or changed file, and ran throwaway probes, which I then deleted. The probes used real uploaded files: PHP saved as .pdf and HTML saved as .png were rejected everywhere, while a real PDF was accepted.\n\n**impl-3 (best).** It uses the most idiomatic Laravel:\n- the fluent `File::types()->max()` rule in a FormRequest\n- authorization declared on the route with `->can()`, backed by a policy that returns `denyAsNotFound`\n- a `redirectGuestsTo` override, so guests get 401 instead of 500 when they don't send an Accept: application/json header (my probe confirmed this)\n\nIt also has the most thorough tests. Its only flaw is small: when a filename is longer than 255 characters it gets cut off at the end, so it loses its extension.\n\n**impl-2 (second).** Nearly identical structure, with a FormRequest, a policy returning `denyAsNotFound`, and invokable controllers. It ranks lower because it uses string `mimes`/`max` rules, calls `Gate::authorize` inside the controller instead of on the route, and returns 500 to guests who don't send a JSON Accept header.\n\n**impl-1 (third).** It works, but it's the least idiomatic:\n- validation is inline in the controller instead of in a FormRequest\n- the ownership check is a hand-written `abort_unless` comparison with no policy\n- `user_id` is mass-assignable\n- six validation scenarios share one test\n- it has the same 500 for guests as impl-2\n\nThe probes found no correctness problems with the signed links in any of the three."
+ },
+ "cost_usd": 0.5639872
+}

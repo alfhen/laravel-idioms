@@ -1,0 +1,68 @@
+{
+ "key": "orders-api",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.3,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "bootstrap/app.php:22 registers an unused 'ability' (CheckForAnyAbility) alias",
+    "app/Http/Requests/StoreOrderRequest.php:12 string rule 'unique:orders,reference' instead of Rule::unique(Order::class)",
+    "app/Http/Controllers/OrderController.php:19 takes a raw string $order instead of route binding; works and is safe, but bypasses the policy/binding convention",
+    "tests/Feature/OrdersApiTest.php:41 newest-first test uses only 2 rows; checks without an Accept header cover few endpoints"
+   ],
+   "strengths": [
+    "Looks up the order only among the owner's orders (user()->orders()->findOrFail), so a foreign order and a missing order give an identical 404",
+    "Ability check runs before any lookup: a token without the ability gets a consistent 403 whether or not the order exists (no existence oracle)",
+    "Generic JSON 404 renderer for api/* keeps model class names out of responses",
+    "Tests use a real bearer token, check a 422 with no Accept header, the 403 body hides internals, the 500 shows only the exact generic message, and the client cannot set user_id",
+    "Lean: no extra policy layer, uses the #[Fillable] attribute and casts() method"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 9,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "routes/api.php:14 \u2014 the route-model lookup runs before the abilities:orders:read check, so a token without orders:read gets 404 for a nonexistent order but 403 for any existing order (including other users'). This breaks 'token without ability gets 403' and lets the token find out which order IDs exist across all users."
+   ],
+   "antipatterns": [
+    "routes/api.php:12-14 relies on route-model binding plus the can middleware without considering that binding runs before CheckAbilities",
+    "tests/Feature/OrderApiTest.php:152 tests 403 only for an existing foreign order, which hides the 404 a missing order gets",
+    "tests/Feature/OrderApiTest.php:160 uses the Route facade without importing it (works only through the global alias)"
+   ],
+   "strengths": [
+    "Idiomatic Response::denyAsNotFound() policy plus ->can('view','order') gives the same 404 for foreign and missing orders when the token has the ability",
+    "Rule::unique(Order::class), the #[Fillable] attribute, casts() method, named routes, composite (user_id, created_at) index",
+    "HttpException-404 renderer for api/* covers both missing models and policy denials with a generic body",
+    "Thorough Pest tests: 401/403 checked with no Accept header across all routes via datasets, a real bearer token, newest-first checked against a real query, 403 before validation, the 500 hides internals, user_id is ignored"
+   ]
+  },
+  "rationale": "Both pass their suites and handle 401, 422, 405 and 500 as JSON with no internals, including for clients that send no Accept header. The deciding difference is in how they find the order. impl-2 uses route-model binding, and Laravel's middleware order runs that lookup before Sanctum's CheckAbilities. A token without orders:read therefore gets 404 for a missing order and 403 for an existing one. That breaks the 403 requirement and reveals which order IDs exist. impl-1 looks the order up inside the controller, only among the owner's orders, so the ability check runs first and the 403/404 behaviour is consistent. impl-2 is somewhat more idiomatic (policy with denyAsNotFound, Rule::unique) and has slightly better tests, but the real bug outweighs that, so impl-1 ranks first."
+ },
+ "cost_usd": 0.3958756
+}

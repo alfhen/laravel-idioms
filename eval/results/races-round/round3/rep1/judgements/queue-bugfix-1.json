@@ -1,0 +1,72 @@
+{
+ "key": "queue-bugfix",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 6,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "The 15-minute claim TTL (app/Console/Commands/DispatchCrmSync.php:11) is shorter than the job's own retry window. Tries(6) with Backoff([10,60,300]) adds up to about 16 minutes of backoff, plus 30s overlap releases and queue latency. During a long outage or backlog the dispatcher can re-queue a subscriber whose original job is still retrying. The crm_synced_at guard stops a second successful CRM write, but the duplicate jobs and extra CRM calls during the outage remain."
+   ],
+   "antipatterns": [
+    "tests/Feature/CrmSyncTest.php:64-71: uses reflection to read #[Tries] and #[Backoff] attributes. This tests how the job is declared, not that it fails and retries. Nothing proves a failed job reaches failed_jobs, even though the test at :48 says 'lands in failed_jobs' in its name.",
+    "tests/Feature/CrmSyncTest.php:48-56: calls handle() directly, so it shows only that the exception is no longer swallowed. The retry and failed_jobs path is never run.",
+    "app/Console/Commands/DispatchCrmSync.php:22-35: does N+1 conditional updates (one claim UPDATE per row). That is acceptable for an atomic claim, but it is worth noting."
+   ],
+   "strengths": [
+    "Finds all four root causes: the try/catch that swallowed failures, re-dispatch with no claim, the scheduler mutex's default 24h expiry, and chunk() paging over rows it is changing (fixed with chunkById).",
+    "Uses Laravel 13 queue attributes: #[Tries, MaxExceptions, Backoff, DeleteWhenMissingModels]. These exist in the installed 13.40.",
+    "WithoutOverlapping uses releaseAfter(30) and expireAfter(120), and MaxExceptions(3) means overlap releases don't use up the real exception budget. This is a well-reasoned combination.",
+    "DeleteWhenMissingModels quietly discards jobs for deleted subscribers. My probe confirmed they do not pollute failed_jobs.",
+    "An atomic conditional UPDATE claim with a stale-claim TTL fixes duplicates and still lets permanently failed subscribers be retried later. My probe confirmed recovery after an outage.",
+    "A failed() hook records crm_last_error, replacing the swallowing catch.",
+    "Includes a 1100-row test that crosses chunk boundaries, plus a test for stale vs fresh claims."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 7,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "No DeleteWhenMissingModels, so a subscriber deleted before its job runs causes a ModelNotFoundException, and that job lands in failed_jobs (confirmed by probe). This is noise, not data loss.",
+    "With WithoutOverlapping->dontRelease() (app/Jobs/SyncSubscriberToCrm.php:24), a job that finds the lock held is dropped silently. If the lock holder was a killed worker, that subscriber waits for the 30-minute claim TTL before it is re-dispatched. This is a minor delay, not lost work."
+   ],
+   "antipatterns": [
+    "app/Jobs/SyncSubscriberToCrm.php:29: `$this->subscriber->fresh()?->crm_synced_at` adds a redundant query, because SerializesModels already re-fetches the model when the job is picked up. The `?->` also lets a missing model fall through to the HTTP call in the sync driver.",
+    "app/Jobs/SyncSubscriberToCrm.php:16-18: uses untyped `public $tries` and `$backoff` properties instead of the Laravel 13 queue attributes or typed properties.",
+    "app/Console/Commands/DispatchCrmSync.php:21: lazyById()->each() with a by-reference `&$count` closure, where a plain foreach would be cleaner."
+   ],
+   "strengths": [
+    "Finds the same four root causes with minimal, focused diffs: exceptions now propagate and failed() records the error, an atomic claim with a stale TTL, withoutOverlapping(10), and chunkById.",
+    "An end-to-end test (tests/Feature/CrmSyncFixesTest.php:22-38) runs queue:work on the database driver for 3 attempts and asserts failed_jobs=1, jobs=0 and crm_last_error is set. It directly proves the fix for symptom 1.",
+    "Adds Http::preventStrayRequests() globally in tests/Pest.php, a good safety net.",
+    "The 30-minute claim TTL comfortably exceeds the job's retry window (about 70s of backoff), so duplicate dispatch is unlikely while a job is still retrying.",
+    "The tests are tight, readable Pest with chained ->and() expectations. The schedule test uses collection first() to inspect the event's expiresAt.",
+    "My probe confirmed that a subscriber which failed during an outage is re-claimed and synced once the CRM recovers."
+   ]
+  },
+  "rationale": "The two implementations are very close, and both pass their suites (impl-1: 14 tests; impl-2: 12 tests). Both fix all four problems the same way:\n- **Failures (1):** they remove the try/catch that hid errors, so the queue retries and failed jobs reach failed_jobs; failed() records the error.\n- **Duplicates (2):** they claim each subscriber with a single conditional UPDATE on crm_sync_queued_at, plus a stale-claim timeout so failed subscribers are retried later.\n- **Scheduler (3):** they set withoutOverlapping(10) so a killed container's lock expires after 10 minutes instead of 24 hours.\n- **Normalisation (4):** they switch to chunkById so updated rows no longer shift the pages.\n\nMy probes showed the same results for both: after a 503 outage the job lands in failed_jobs after 3 attempts, and once the CRM recovers and the claim goes stale, the subscriber syncs. They differ in two edge cases:\n- **Lock held by another worker:** impl-1 releases the job and keeps it; impl-2 deletes it.\n- **Subscriber deleted before the job runs:** impl-1 discards the job; impl-2 sends it to failed_jobs.\n\nimpl-1's job code is a bit more polished and more modern: Laravel 13 attributes, MaxExceptions, releaseAfter and DeleteWhenMissingModels. But its 15-minute claim timeout is shorter than its own retry window of about 16 minutes. Its tests also never prove the failed_jobs path (symptom 1): they call handle() directly and read attributes through reflection.\n\nimpl-2 is simpler. Its claim timeout leaves a safe margin over its retry window. Its end-to-end queue:work test proves the symptom-1 fix directly, and it adds Http::preventStrayRequests(). Because the task explicitly asked for tests that prove each fix, impl-2's stronger tests outweigh impl-1's slightly richer job setup. impl-2 ranks first, narrowly."
+ },
+ "cost_usd": 0.44071240000000006
+}

@@ -1,0 +1,75 @@
+{
+ "key": "stock-csv-import",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 6,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Imports/ImportStockLevels.php:74 puts the raw quantity cell into the error message. A file with non-UTF-8 bytes in that cell (for example a Latin-1 export) makes response()->json throw 'Malformed UTF-8 characters' and the endpoint returns 500. Probe: \"sku,quantity\\nA,\\xff\\xfe\\nB,2\" gave 500. Because it flushes chunks as it goes, valid rows may already be written when the client gets the 500.",
+    "Treats the first non-blank line as the header instead of line 1. A file starting with a blank line is accepted (200) rather than handled as a file without a header row. This is lenient and the line numbers stay correct, but it departs from 'the header is line 1'."
+   ],
+   "antipatterns": [
+    "app/Imports/ImportStockLevels.php:74 echoes untrusted cell content into the JSON response without making sure it is valid UTF-8",
+    "app/Imports/ImportStockLevels.php:41-90 is one long procedural loop: header detection, validation as an if/elseif chain, and chunk flushing all mixed together",
+    "app/Imports/ImportStockLevels.php:80-83 writes chunks while streaming with no transaction, so a later failure leaves a partial import that the client is never told about",
+    "app/Http/Controllers/StockImportController.php:11 uses a single-action 'store' controller where an invokable controller would be the more natural Laravel choice (minor)"
+   ],
+   "strengths": [
+    "Streams the file with fgets and flushes upserts every 500 rows, so memory stays bounded; the file handle is closed in a finally",
+    "Lets Eloquent upsert fill in the timestamps instead of setting them by hand",
+    "Uses mb_strlen for the 255-character sku limit, which matches how string columns count length",
+    "Error messages are precise (column count found vs expected, and the bad value is echoed back)",
+    "Tests assert specific validation messages (assertJsonValidationErrors with message fragments), use sole() and named datasets, and cover blank-line counting, BOM/CRLF, overflow, chunking and 5 MB"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Keeps every valid row in the $quantities array until the end of the file (app/Actions/ImportStockLevels.php:47). The 5 MB cap bounds this, so it is not a real bug, but memory is not streamed the way impl-1's is."
+   ],
+   "antipatterns": [
+    "app/Actions/ImportStockLevels.php:51 `$columns ?? $this->columns('');` relies on a side effect (an exception) to reject empty files; an explicit check would read more clearly",
+    "app/Actions/ImportStockLevels.php:136-143 sets created_at/updated_at by hand even though Eloquent::upsert already adds the timestamps and appends updated_at to the update columns",
+    "app/Actions/ImportStockLevels.php:124 has a redundant overflow check: strlen>10 and (int)>MAX together, where a single digits regex like \\d{1,10} would do",
+    "app/Actions/ImportStockLevels.php:107 parse() returns array|string, using the string as an error signal; a stringly-typed union where a small result type or early-return structure would be clearer",
+    "app/Actions/ImportStockLevels.php:120 strlen counts bytes, not characters, for the 255 limit, so multibyte skus are rejected sooner than the column requires"
+   ],
+   "strengths": [
+    "Never echoes untrusted cell content into the response, so malformed encodings still return a clean 200 with a per-line error (probe confirmed)",
+    "Treats line 1 strictly as the header, which matches the spec; empty, semicolon-delimited and headerless files all return 422",
+    "A generator with try/finally keeps the line reading and file-handle cleanup in one place, and the main loop reads cleanly",
+    "Validation happens before any write, then a single chunked upsert through a collection pipeline, so the header check can never leave a partial import",
+    "Invokable controller plus an Action class plus a FormRequest with mimes:csv,txt|max:5120",
+    "Thorough Pest tests: an annotated line-number fixture, a dataset of bad quantities (including 1e3, +5 and a 20-digit overflow), a header-width check, an exact 5 MB boundary, the chunking path and non-file input"
+   ]
+  },
+  "rationale": "I ranked impl-2 first. Both suites pass (impl-2: 29 tests, impl-1: 25), and the two designs are close: a FormRequest with mimes:csv,txt|max:5120, a thin controller, an invokable importer that reads lines with fgets and str_getcsv(escape:''), header lookup that ignores case and surrounding spaces, BOM stripping, and chunked upserts. The ranking comes down to how each handles untrusted input. impl-1 puts the raw quantity cell into its error message. When a warehouse file has non-UTF-8 bytes in that cell, the JSON encoder throws and the endpoint returns 500, which I confirmed with a probe. And because impl-1 flushes upserts while it streams, valid rows may already be saved when the client sees the failure. That is a real failure on exactly the task's focus: messy real-world files whose bad rows should be reported, not crash the request. impl-2 never echoes cell content, so the same file returns 200 with a line-2 error. impl-2 also follows 'the header is line 1' strictly, while impl-1 quietly treats the first non-blank line as the header. impl-1 does have some edges: it streams memory better, lets Eloquent handle the upsert timestamps, measures sku length with mb_strlen, and its tests check validation messages more precisely. impl-2 has small ceremony issues: timestamps set by hand, the `$columns ?? $this->columns('')` side-effect trick, a redundant overflow check, and the array|string return type. These cost it some simplicity points but don't outweigh impl-1's 500 bug. Other probes behaved the same in both: quoted fields containing commas parse correctly, binary data with a .csv name gets 422, and empty or extra-column rows give the right line errors. All probe files were deleted afterwards."
+ },
+ "cost_usd": 0.4397864
+}

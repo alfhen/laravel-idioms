@@ -1,0 +1,71 @@
+{
+ "key": "document-vault",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 7,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 7.8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Controllers/DocumentController.php:31 - Gate::authorize inside the action when route-level ->can('view','document') middleware would declare authorization on the route",
+    "app/Http/Requests/StoreDocumentRequest.php:12 - pipe-style 'file','mimes:...','max:5120' strings instead of the fluent File::types([...])->max(5 * 1024) rule (Laravel 10+)",
+    "app/Http/Controllers/DocumentController.php:22,32,41 - relies on the default disk being private; if FILESYSTEM_DISK is changed to public/s3, confidential files follow it silently",
+    "app/Http/Controllers/DocumentController.php:29 - unused Request $request parameter",
+    "tests/Feature/DocumentTest.php:107-110 - the download-without-login test still has the Sanctum user set when it hits the signed URL, so it doesn't actually prove that no login is needed",
+    "app/Policies/DocumentPolicy.php:11 - ability is named 'view' but only gates link issuance"
+   ],
+   "strengths": [
+    "Content-based mimes validation rejects PHP/HTML/SVG disguised as .pdf (probed), and the stored filename is a random hash name, not the client name",
+    "Policy uses Response::denyAsNotFound() so a non-owner gets 404, and the ownership check runs before the file-exists check so it doesn't reveal whether a file exists",
+    "temporarySignedRoute with 10 minutes plus 'signed' middleware; Storage::download sends Content-Disposition: attachment",
+    "Checks for a missing file both when issuing the link and when downloading",
+    "Factory includes user_id => User::factory(), so it's usable on its own; a single compact controller",
+    "Tests cover expiry boundary (9 vs 11 minutes), forged signature, vanished file and validation boundaries"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.4,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "database/factories/DocumentFactory.php:15 - no user_id in the definition, so Document::factory()->create() fails unless ->for() is used",
+    "tests/Feature/DocumentTest.php:22 - Http::preventStrayRequests() is noise; the feature makes no HTTP calls",
+    "app/Http/Controllers/DocumentLinkController.php:14 and DocumentDownloadController.php:13,15 - the 'local' disk name is repeated in 4 places with no shared constant or dedicated private 'documents' disk",
+    "Three controllers (resource + two invokables) for three endpoints is a little more ceremony than needed"
+   ],
+   "strengths": [
+    "Fluent File::types(['pdf','png','jpg','jpeg'])->max(5 * 1024) rule; content sniffing rejects disguised PHP/HTML/SVG (probed)",
+    "Pins storage to the private 'local' disk explicitly, so a changed default disk can't make confidential files public",
+    "Authorization is declared on the route with ->can('link','document') and a policy returning denyAsNotFound(); the ability name matches the action",
+    "Signed temporary route (10 minutes) for downloads, attachment disposition, and a 404 for a missing file both when issuing the link and when downloading",
+    "Stronger tests: forgetGuards() proves the download works without login, checks streamed content, assertExactJson on the 201, a test that swapping in another document's id breaks the signature, a test that the stored name is not the client filename, and no stray files after failed validation"
+   ]
+  },
+  "rationale": "I ranked impl-2 first and impl-1 second; it's close.\n\n**What I checked**\n- Both test suites pass: 15 tests each.\n- I ran throwaway probes against both, then deleted them:\n  - Uploads disguised as PDFs: PHP content, HTML content and SVG all got 422.\n  - A real PDF got 201. A PDF uploaded with a .php name got 422.\n  - A title sent as an array got 422.\n  - A plain (non-JSON) multipart upload worked.\n  - The download headers are `attachment` and `no-cache, private`.\n  - A download link for a deleted document answers 404.\n- The two behaved identically in every probe. I found no bugs in either.\n- Both meet the brief:\n  - Content-based type checking.\n  - Random hash filenames in the private storage folder.\n  - Temporary signed links that expire after 10 minutes.\n  - A 404 for other users.\n  - A 404 for a missing file, both when the link is issued and when it is used.\n- Neither makes links single-use. That's a shared gap, so it doesn't affect the ranking.\n\n**Why impl-2 is ahead**\n- **Validation:** it uses the newer fluent `File::types()->max()` rule. impl-1 uses rule strings.\n- **Authorization:** it's declared on the route with `->can('link','document')`. impl-1 calls `Gate::authorize` inside the action and has an unused `Request` parameter.\n- **Storage safety:** it names the private `local` disk explicitly, so changing the default disk can't expose confidential files. impl-1 relies on the default disk.\n- **Tests:** impl-2's are clearly better. They log out with `forgetGuards()` before downloading, so they really prove no login is needed; impl-1's download test still has the user logged in. They also check the downloaded content and that changing the document id in a signed link gets rejected.\n\n**What counts against impl-2**\n- Its factory has no `user_id`, so it only works when you attach a user with `->for()`.\n- There's an unneeded `Http::preventStrayRequests()` call.\n- The `'local'` disk name is repeated in several places.\n- Three controllers is a bit more structure than three endpoints need.\n\nimpl-1 is slightly simpler, with one controller and a factory that works on its own. That isn't enough to outweigh impl-2's safer storage, more modern validation and stronger tests."
+ },
+ "cost_usd": 0.4288672
+}

@@ -1,0 +1,104 @@
+{
+ "key": "ship-order",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 8.8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "app/Policies/OrderPolicy.php:11 `return $user->is_staff;` gives a TypeError (500) when the User instance has no is_staff attribute loaded, e.g. one just created with User::factory()->create() (the probe got 500, not 403). Real requests load the user from the DB, so in practice only tests and in-memory users hit this. `(bool)` or a model `$attributes` default would fix it."
+   ],
+   "antipatterns": [
+    "app/Models/Order.php:51 forceFill+syncOriginal happens inside the inner transaction, so if an outer transaction rolls back, the in-memory model still says Shipped and is marked clean",
+    "app/Models/Order.php:60 the comment is borderline narration, though it does guard against a regression"
+   ],
+   "strengths": [
+    "Atomic conditional UPDATE (status != shipped) claims the order, so concurrent or repeated calls cannot both win without needing a row lock",
+    "Points are incremented inside the transaction, so they roll back with it. The mail goes through DB::afterCommit, so nothing is sent on rollback (a probe confirmed this for a nested savepoint too)",
+    "A plain domain RuntimeException is mapped to 409 in bootstrap/app.php withExceptions, which keeps the model free of HTTP concerns",
+    "Modern route ->can('ship','order') with an auto-discovered policy, an invokable controller, a FormRequest and validated() calls",
+    "Laravel 13 #[Fillable] attributes, a casts() method, an enum cast and factory states (paid/shipped/staff)",
+    "Thorough Pest tests: datasets for rounding and validation, outer-transaction rollback and commit-timing, a test that a failed shipment insert rolls everything back, 409 with no repeated side effects, and the owner forbidden"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.4,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Policies/OrderPolicy.php:11 has the same null-is_staff TypeError as impl-1. The probe with a User::create()'d user got 500 instead of 403. Setting is_staff=false in the factory hides it in tests but doesn't fix it."
+   ],
+   "antipatterns": [
+    "app/Exceptions/OrderAlreadyShipped.php:7 the domain exception thrown from the model extends Symfony ConflictHttpException, which couples the Eloquent model to the HTTP layer. Back-office callers of ship() get an HTTP exception.",
+    "bootstrap/app.php: shouldRenderJsonWhen and redirectGuestsTo changes are app-wide scope creep beyond the task",
+    "tests/Feature/ShipOrderTest.php:16 Http::preventStrayRequests() is irrelevant ceremony, since no HTTP client is used",
+    "routes/api.php:12 uses the string middleware 'can:ship,order' instead of the fluent ->can()",
+    "database/factories/UserFactory.php:33-34 repeats the DB defaults (is_staff/points) in the factory"
+   ],
+   "strengths": [
+    "The same atomic conditional-UPDATE claim as impl-1, with points incremented in the transaction and mail sent via DB::afterCommit",
+    "A clearly named customer() relation and a single relation-query increment",
+    "Syncs only the status attribute (syncOriginalAttribute) after the transaction succeeds",
+    "Strong tests: a stale-instance double-ship test, a test that the mail renders the tracking number, an array-carrier validation case, 401 with and without an Accept header, plus rollback and commit-timing tests"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 6,
+    "modern_laravel": 7,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 7.2,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "app/Models/Order.php:50,56 assigns $this->status without syncing the original, which leaves the caller's model dirty. The probe confirmed that after an OrderAlreadyShipped on a stale instance, isDirty('status') is true, so a later save() would write an unintended update."
+   ],
+   "antipatterns": [
+    "app/Http/Controllers/OrderShipmentController.php:14-18 try/catch in the controller maps the domain exception to 409 instead of a central exception render or a renderable exception",
+    "app/Http/Requests/ShipOrderRequest.php:11 the staff authorization lives in the FormRequest rather than an OrderPolicy/Gate, so it can't be reused for other order actions",
+    "app/Models/Order.php:17 and app/Models/OrderShipment.php:11 put foreign keys user_id and order_id in #[Fillable], which widens mass assignment",
+    "app/Models/Order.php:47 re-fetches a second model instance with lockForUpdate and uses it for side effects, mixing two instances of the same order",
+    "Deleted the base tests/Feature/ExampleTest.php and tests/Unit/ExampleTest.php, and tests/Pest.php has broken indentation, both unrelated to the task",
+    "database/migrations/...184200_create_orders_table.php:14 hardcodes the 'pending' status default instead of using the enum"
+   ],
+   "strengths": [
+    "Pessimistic lockForUpdate inside the transaction correctly serialises concurrent shipping on MySQL/Postgres",
+    "Points increment in the transaction and mail via DB::afterCommit (a probe confirmed the nested-savepoint rollback case)",
+    "(bool) cast in authorize() handles a missing is_staff attribute, so it avoids the 500 the other two hit",
+    "Asserts the email body contains the tracking number inside Mail::assertSent"
+   ]
+  },
+  "rationale": "All three pass their own suites (19, 22 and 11 tests). All three get the core side-effect contract right: points are incremented inside the transaction and the email goes out through DB::afterCommit. My probes confirmed nothing is sent and no points are added when an outer transaction or a nested savepoint rolls back.\n\nimpl-1 and impl-2 are almost identical: an atomic conditional-UPDATE claim, a policy with route-level authorization, and a FormRequest. impl-1 ranks first for three reasons:\n- It keeps OrderAlreadyShipped as a plain domain exception and maps it to 409 in bootstrap/app.php. impl-2 makes the model throw a Symfony HTTP exception.\n- It uses the fluent ->can() route method.\n- It has a test that a failed shipment insert rolls everything back.\n\nimpl-2 adds app-wide exception and middleware config and some ceremony (Http::preventStrayRequests). Its tests are slightly broader, but that doesn't make up for the HTTP coupling.\n\nBoth share a latent policy bug: when is_staff isn't loaded on the User instance, the policy throws a TypeError and returns 500. Real requests load the user from the DB, so in practice this mostly affects tests.\n\nimpl-3 uses lockForUpdate, which is also sound. It ranks last because it:\n- maps 409 with a try/catch in the controller\n- puts staff authorization in the FormRequest instead of a policy\n- adds foreign keys to #[Fillable]\n- leaves the caller's model dirty after both success and failure (the probe confirmed it)\n- deletes the base example tests\n- has thinner tests, with no datasets and no stale-instance or 404 cases"
+ },
+ "cost_usd": 0.6222424
+}

@@ -1,0 +1,80 @@
+{
+ "key": "stock-sync-dispatcher",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Second-precision timestamps: if a row is edited in the same second the job reads it, after the read, updated_at == synced_at, so the change is never re-sent (PushStockAllocations.php:45,73). Confirmed with a probe; impl-2 has the same flaw.",
+    "failed() clears sync_started_at without checking that the claim is still its own. A stale job failing after its claim expired and was re-claimed releases the newer claim, and the row gets dispatched twice (PushStockAllocations.php:79-86). Confirmed with a probe. retryUntil of 13 minutes makes this unlikely."
+   ],
+   "antipatterns": [
+    "app/Console/Commands/DispatchStockSync.php:38-47: the lockForUpdate transaction does not use skipLocked. With onOneServer it adds nothing, and on MySQL it can block instead of skipping rows",
+    "app/Jobs/PushStockAllocations.php:70: a closure is used as a query factory (`$query()`) where two explicit queries would read more clearly",
+    "tests/Feature/StockSyncTest.php:183-189: the rate-limit test only counts the middleware and checks the limiter exists, so it proves no behaviour",
+    "tests/Feature/StockSyncTest.php:94-101: the schedule test does not assert withoutOverlapping",
+    "tests/Feature/StockSyncTest.php:11: a global const STOCK_URL in the test file can collide with other files"
+   ],
+   "strengths": [
+    "Throttles before sending with the RateLimited('storefront-stock') middleware, backed by the shared Redis cache, and also handles 429 with a clamped Retry-After release",
+    "The job only sends rows that are still claimed (whereNotNull sync_started_at), so a duplicate delivery makes no second HTTP call",
+    "retryUntil ends safely inside the 15-minute claim window, and MaxExceptions bounds real errors. failed() releases the claims",
+    "Dispatch happens after the claim transaction commits. The simple claim-until-empty loop worked for 5000 rows (probe)",
+    "synced_at uses the time before the read, so edits made while the request is in flight stay ready (tested)",
+    "(array) guard on json('missing'), and a single SQL whereIn for the disabled rows",
+    "Modern Laravel 13: Signature/Description/Fillable/Scope/queue attributes, Response::tooManyRequests(), and tests that use describe blocks and dispatchSync"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "No proactive throttling: up to 50 jobs at peak hit a slow, rate-limited API at once and depend only on 429 releases. The release delay has no jitter, so released jobs retry together and the herd repeats",
+    "A 200 with {\"missing\": null} raises a TypeError in in_array after the push has succeeded (PushStockAllocations.php:64-66). The rows are not marked, and the job retries and re-sends. Confirmed with a probe",
+    "The job does not check that its rows are still claimed (PushStockAllocations.php:41-44), so duplicate deliveries or redispatches send the same rows again. Its own test 'can run twice' makes two HTTP calls",
+    "Second-precision timestamps: an edit in the same second as the read, made after it, is lost (updated_at == synced_at). Confirmed with a probe; impl-1 has the same flaw",
+    "failed() unconditionally clears sync_started_at, which can release a newer claim after the old one expired and cause a double dispatch (PushStockAllocations.php:75-79). Confirmed with a probe",
+    "The claim re-select `where sync_started_at = $claimedAt` (DispatchStockSync.php:31-32) is second-precision. Two runs in the same second would both pick up the same rows. Only onOneServer prevents this"
+   ],
+   "antipatterns": [
+    "app/Console/Commands/DispatchStockSync.php:23-40: chunkById plus a conditional update plus a re-select by timestamp makes three queries per chunk, and the match on claim timestamps is fragile",
+    "app/Jobs/PushStockAllocations.php:56: compares status() === 429 instead of using $response->tooManyRequests()",
+    "tests/Feature/Stock/PushStockAllocationsTest.php:77: an odd `[$job] = [...]` destructuring",
+    "tests/Feature/Stock/PushStockAllocationsTest.php:10: a global const STOCK_URL in the test file"
+   ],
+   "strengths": [
+    "Conditional claim (readyToSync re-checked inside the UPDATE) is an optimistic, race-aware claim",
+    "retryUntil is tied to CLAIM_TTL_MINUTES, MaxExceptions bounds errors, and failed() releases claims. The 429 delay comes from Retry-After and is clamped",
+    "Uses collection partition() to split accepted and unknown SKUs. toBase() updates avoid touching updated_at, and the model docblock explains why",
+    "synced_at uses the time before the request, and a test covers edits made while the request is in flight",
+    "The most thorough test suite: 26 tests, split by unit, covering Retry-After cap, withoutOverlapping expiry, claim expiry, 250-row grouping, and the failed() \u2192 redispatch round trip",
+    "Modern attributes throughout (Signature, Description, Fillable, Scope, Backoff, MaxExceptions, Timeout)"
+   ]
+  },
+  "rationale": "I ranked impl-1 first. The two are close, but impl-1 handles the main concern better: a slow, rate-limited API.\n\n**Shared design.** Both use:\n- the same scope and claim TTL\n- toBase() for bookkeeping updates, so updated_at is not bumped\n- retryUntil inside the claim window\n- release on 429 and reset of claims in failed()\n\n**Shared flaws** (confirmed with probes in both):\n- With second-precision timestamps, an edit in the same second as the read is lost.\n- A stale failed() call can clear a newer claim.\n\n**Why impl-1 is ahead:**\n- It throttles before sending with the RateLimited middleware, backed by the shared Redis cache. impl-2 only reacts to 429s, with no jitter, so at peak around 50 jobs hit the API together.\n- Its job sends only rows that are still claimed, so duplicate SQS deliveries make no second HTTP call. impl-2 re-sends, as its own test shows.\n- It guards the `missing` field with a cast. impl-2 throws a TypeError on `{\"missing\": null}` after a successful push, which causes re-sends.\n- Its claim loop is a simpler commit-then-dispatch than impl-2's three-query chunk with a re-select matched on timestamp.\n\n**Where impl-2 is ahead:** its tests are broader (Retry-After cap, overlap expiry, a separate model test). impl-1's tests are well organised with describe blocks but thinner, and its rate-limit test checks nothing useful.\n\n**Test runs:** both suites pass (impl-1: 17 tests; impl-2: 26 tests). I deleted all probe files after running them."
+ },
+ "cost_usd": 0.5101962
+}

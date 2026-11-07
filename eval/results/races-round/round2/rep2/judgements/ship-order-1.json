@@ -1,0 +1,73 @@
+{
+ "key": "ship-order",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 8,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 8.8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Mail is sent synchronously inside DB::afterCommit (app/Models/Order.php:58). If the mailer throws after the commit, the request returns 500 even though the order is already shipped and the points are already awarded. This is minor."
+   ],
+   "antipatterns": [
+    "app/Models/Order.php:57: the comment restates standard DB::afterCommit behaviour",
+    "routes/api.php:12: uses the string 'can:ship,order' middleware instead of the fluent ->can('ship', 'order')",
+    "app/Policies/OrderPolicy.php:10: the unused $order parameter is harmless, but it adds noise"
+   ],
+   "strengths": [
+    "Atomic conditional UPDATE (status != shipped) claims the order. Together with the unique order_id index, this stops double shipping under concurrent requests.",
+    "The points increment runs inside the transaction, so it rolls back with the caller's transaction. The email is deferred with DB::afterCommit, so it only goes out when the outermost transaction commits.",
+    "The design works with Mail::fake. My probe confirmed assertNothingSent/assertNothingQueued pass after an outer rollback and after a savepoint-only rollback.",
+    "The relation is named `customer` to match the domain. Factory states (paid/shipped/staff) are used with ->for($customer, 'customer').",
+    "The exception extends ConflictHttpException, so the 409 needs no handler wiring.",
+    "bootstrap/app.php: redirectGuestsTo returns null for api/*, so a guest POST without an Accept header gets 401 instead of a 500 from the missing login route. A test covers this.",
+    "Thorough Pest tests: datasets for rounding and validation, a stale-model 409, and rollback and commit-ordering tests that use Mail::fake. Mailable content is checked with assertSeeInHtml."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 6,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 7.4,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "A guest POST to /api/orders/{order}/ship without an Accept: application/json header returns 500 'Route [login] not defined' instead of 401. The redirectGuestsTo gap was not fixed (I confirmed this with a probe).",
+    "Mail::fake() ignores the mailable's ->afterCommit(). When Mail::fake is active, an outer rollback still records OrderShipped as queued (probe: assertNothingQueued fails). That makes the 'no email on rollback' guarantee impossible to check with the standard mail fake, so the suite has to go down to the array transport."
+   ],
+   "antipatterns": [
+    "tests/Feature/ShipOrderTest.php:12-15,42: reaches into Mail::mailer('array')->getSymfonyTransport()->messages() instead of using Mail::fake assertions",
+    "database/migrations/2026_11_07_190100_create_orders_table.php:20: creates order_shipments inside the orders migration",
+    "app/Http/Controllers/ShipOrderController.php:13: double-quoted strings, inconsistent with the rest of the codebase",
+    "app/Models/Order.php:57: the comment restates framework behaviour"
+   ],
+   "strengths": [
+    "Uses the same atomic conditional UPDATE claim plus the unique order_id index, so concurrent requests cannot double ship.",
+    "The queued mailable uses ->afterCommit(). It respects outer transactions with a real queue and does not block the response.",
+    "The route uses the fluent ->can('ship', 'order'). Mass assignment of user_id/order_id is excluded via #[Fillable].",
+    "Tests cover rounding datasets, the existing balance, 409 with no repeat effects, and outer rollback and commit, all through the real sync queue and array mailer."
+   ]
+  },
+  "rationale": "Both implementations ship orders the same core way: a conditional UPDATE inside DB::transaction, points incremented inside the transaction, and the unique order_id index. Both meet the main requirements, and both full suites pass (20 tests for impl-1, 19 for impl-2).\n\nThe difference is in how the email is deferred and tested. Impl-1 uses DB::afterCommit, and that works with Mail::fake. My probes confirmed nothing is sent or queued after an outer rollback or a savepoint-only rollback, and a second ship() inside the same transaction throws without a second mail or extra points.\n\nImpl-2 queues the mailable with ->afterCommit(), which is better in production because sending does not block the response. But MailFake ignores afterCommit, so under Mail::fake a rolled-back ship still shows as queued. Its suite works around this by reading Symfony transport internals.\n\nImpl-1 also fixed the guest-without-Accept-header 500 in bootstrap/app.php. Impl-2 did not; my probe showed it returns 500 instead of 401.\n\nImpl-1's tests are also more idiomatic: Mail::fake assertions, assertSeeInHtml, and a stale-model 409 case. Impl-1's one weakness is sending mail synchronously after commit, which is minor."
+ },
+ "cost_usd": 0.48515620000000004
+}

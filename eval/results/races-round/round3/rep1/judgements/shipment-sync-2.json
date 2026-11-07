@@ -1,0 +1,72 @@
+{
+ "key": "shipment-sync",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 6
+   },
+   "overall": 8.3,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Any 2xx other than 201 goes to the permanent `fail()` path (app/Jobs/SendOrderToWarehouse.php:111). The job sends an Idempotency-Key, and replaying a request with that key often comes back as 200 with the existing shipment. A probe confirmed a 200 with an id fails the job and marks the order failed even though the shipment exists. The spec only promises 201, so this is minor."
+   ],
+   "antipatterns": [
+    "Adds a `shipment_notified_at` column, a claim/unclaim UPDATE and a try/catch rollback just to send the mail once. It works, but it's a lot of machinery (app/Jobs/SendOrderToWarehouse.php:155-173, migration:20)",
+    "The mailable is sent synchronously inside the rate-limited job rather than queued. A slow SMTP server holds the WithoutOverlapping lock (app/Jobs/SendOrderToWarehouse.php:167, app/Mail/ShipmentCreated.php:10)",
+    "`#[Fillable]` lists every internal shipment field, including notified_at, so the state machine can be mass-assigned (app/Models/Order.php:15-24)",
+    "`$order = $this->order` is passed through every private method, which adds noise (app/Jobs/SendOrderToWarehouse.php:49,77,116)",
+    "`Sleep::fake()` is added to every Pest test even though nothing calls Sleep (tests/Pest.php)"
+   ],
+   "strengths": [
+    "`markAsPaid` uses an atomic conditional UPDATE inside a transaction and dispatches with `afterCommit`. It returns a bool and refuses cancelled orders, which a test covers",
+    "`failed()` uses a guarded `withTrashed` conditional update, so a late failure never overwrites a sent shipment (test included)",
+    "Fails fast on unexpected 4xx such as 401, retries 5xx and connection errors with backoff and MaxExceptions, honours 429 with a clamped Retry-After, and uses an account-wide `RateLimited` limiter, WithoutOverlapping and an Idempotency-Key",
+    "Exactly-once mail survives a mail failure: a retry skips the POST and still sends the mail",
+    "Thorough Pest suite: describe blocks, a Retry-After dataset, failedConnection, 401, a rendering check, an end-to-end run through the sync queue, and the late `failed()` guard"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 9
+   },
+   "overall": 7.4,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "`failed()` writes Failed unconditionally (app/Jobs/SendOrderToWarehouse.php:78-84). A probe confirmed it overwrites an order that is already sent with a reference, for example when retryUntil expires right after the shipment was saved but the mail push threw. Ops would then see failed for a shipped order",
+    "Unexpected 4xx responses such as 401 or 400 go through `$response->throw()` and are retried with backoff up to 8 times instead of failing permanently (line 65). A probe confirmed a 401 is not failed straight away",
+    "Exactly-once mail is not durable. `shipment_reference` is saved before `Mail::send` (lines 69-75), so if pushing the queued mail throws, every retry returns early on `shipment_reference !== null` and the customer never gets the email (found by reading the code; the probe for this didn't run cleanly)"
+   ],
+   "antipatterns": [
+    "A dedicated `InvalidShippingAddress` exception class exists only to carry a message into `failed()` (app/Exceptions/InvalidShippingAddress.php)",
+    "The cancelled-order test calls `markAsPaid` and then dispatches the job a second time by hand, which is a little contrived (tests/Feature/SendOrderToWarehouseTest.php:75-88)",
+    "No test covers connection failures or timeouts, even though the partner sometimes hangs"
+   ],
+   "strengths": [
+    "Lean and readable job: the HTTP call is in its own method, `release()` is capped by Retry-After, a 422 goes through `$this->fail()`, so `failed()` is the single place failures are recorded",
+    "Queued markdown mailable (ShouldQueue) keeps the job fast",
+    "Atomic `markAsPaid` with `afterCommit` dispatch; Fillable is limited to customer fields and job state is written with `forceFill`",
+    "Modern job attributes (Backoff, MaxExceptions, Timeout), `retryUntil`, a global `RateLimited` limiter, WithoutOverlapping, connect and request timeouts, and an Idempotency-Key",
+    "Good tests: `withFakeQueueInteractions` with assertReleased and assertFailedWith, plus missing-id and Retry-After cap cases"
+   ]
+  },
+  "rationale": "I reviewed impl-2 first, then impl-1. Both suites pass (impl-1: 23 tests, impl-2: 16), and every framework API either one uses exists in the installed vendor version. The two share almost the same skeleton: an atomic `markAsPaid` with `afterCommit` dispatch, Backoff/MaxExceptions/Timeout job attributes, `retryUntil`, the RateLimited and WithoutOverlapping middleware, and an Idempotency-Key. So the edge cases decide the ranking. impl-1 handles the failure paths better: its `failed()` can't overwrite a sent shipment, unexpected 4xx responses fail permanently instead of being retried, and the customer still gets the email after a mail failure on a later retry. Its tests cover more, including a hung connection, a 401 and the late-failure guard. impl-2 is simpler and queues the mailable, which is the more idiomatic choice. But probes confirmed two real problems: a late `failed()` call marks a sent order failed, and a 401 is retried 8 times. Reading the code also shows the email is lost if pushing it to the queue fails after the reference is saved. impl-1 does pay for its robustness with extra machinery (a notified_at column and claim/rollback logic), and it permanently fails on a 200, which an idempotent replay could return. Overall, impl-1 ranks first."
+ },
+ "cost_usd": 0.4991834
+}

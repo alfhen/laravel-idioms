@@ -1,0 +1,102 @@
+{
+ "key": "stock-csv-import",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "No SKU length check, but the column is `string` (varchar 255). Probe: a 300-character SKU was reported as imported. SQLite doesn't enforce the length; MySQL strict mode or Postgres would throw. That turns the request into a 500, and earlier batches may already be written with no transaction around them (app/Actions/ImportStockLevels.php:94-102, 116).",
+    "`fopen` result is not checked for false before `fgets` and `fclose` (app/Actions/ImportStockLevels.php:19)."
+   ],
+   "antipatterns": [
+    "The `columns()` docblock says it returns array{sku:int, quantity:int}, but the method also returns a 'count' key (app/Actions/ImportStockLevels.php:64-81).",
+    "tests/Pest.php:19 enables RefreshDatabase but leaves the old commented-out `// ->use(RefreshDatabase::class)` line beneath it.",
+    "The action throws a ValidationException, so HTTP-validation concerns leak into the domain action (app/Actions/ImportStockLevels.php:76)."
+   ],
+   "strengths": [
+    "Reads the file line by line with `fgets` and flushes `upsert` every 500 rows, so memory stays bounded and the handle is closed in `finally`.",
+    "Error messages are precise and include the bad value and the expected column count.",
+    "Thin invokable controller, a FormRequest, an action class, the `#[Fillable]` attribute and `casts()`. All current Laravel 11\u201313 style.",
+    "The broadest test suite. Datasets cover each kind of row error and missing-header cases (including a semicolon delimiter and an empty file), plus the 1,200-row batch boundary, the 5 MB limit, the unsigned-int overflow, and keyed `pluck` assertions.",
+    "Removes the BOM and the line endings, and handles quoted headers and fields."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.3,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "Every valid row is held in memory until the whole file is parsed, then upserted with `array_chunk`. Streaming the parse but not the writes partly defeats the point of using `fgets` (app/Actions/ImportStockCsv.php:46-57).",
+    "`fopen` result is not checked for false (app/Actions/ImportStockCsv.php:19).",
+    "`Http::preventStrayRequests()` in the test `beforeEach` adds noise for an endpoint that makes no HTTP calls (tests/Feature/StockImportTest.php:15).",
+    "The action throws a ValidationException, so the domain action depends on HTTP validation (app/Actions/ImportStockCsv.php:80)."
+   ],
+   "strengths": [
+    "The most correct of the three. It rejects SKUs longer than 255 characters (protecting the varchar column) and quantities above the unsigned-int maximum, and reports each as a row error.",
+    "A compact `match(true)` handles row validation, and the file handle is closed in `finally`.",
+    "Named arguments `str_getcsv(..., escape: '')`, the `#[Fillable]` attribute, a named route, an invokable `Store*` controller and a FormRequest. All current Laravel style.",
+    "Thorough tests: exact line numbers with blank lines, whitespace-only SKU, overflow boundary (4294967295 vs 4294967296), a file exactly at 5 MB is accepted, non-file value, PDF and PNG uploads rejected, and a chunk-boundary test."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 6,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 6,
+    "architecture_fit": 6,
+    "modern_laravel": 7,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 6
+   },
+   "overall": 6.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "Blank lines before the header are skipped, and the first non-blank line is treated as the header. The spec says the header is line 1, so a file starting with an empty line should be rejected with a 422. Probe: \"\\nsku,quantity...\" returned 200 (app/Services/StockCsvParser.php:27-41).",
+    "`imported` counts unique SKUs, not valid rows. Probe: a file with two valid A rows reports `imported: 1`, while impl-1 and impl-2 report 2 (app/Http/Controllers/StockImportController.php:35)."
+   ],
+   "antipatterns": [
+    "Reads the whole upload into memory with `->get()`, then `preg_split`s it. There is no streaming, which goes against the memory focus of the task (app/Http/Controllers/StockImportController.php:15, app/Services/StockCsvParser.php:18).",
+    "Sets `created_at` and `updated_at` by hand for `upsert`, but Eloquent's `upsert` already adds timestamps (checked in vendor Builder::upsert) (app/Http/Controllers/StockImportController.php:23-31).",
+    "The `strlen(ltrim($quantity,'0')) > 10` check duplicates the `(int) > MAX` check (app/Services/StockCsvParser.php:56).",
+    "The parser returns a null sentinel, and the controller then throws ValidationException and runs the persistence loop. Business logic sits in the controller, which defeats the parser/service split (app/Http/Controllers/StockImportController.php:17-32).",
+    "An ad-hoc array-shape return type, plus a long docblock explaining the null result (app/Services/StockCsvParser.php:11-14).",
+    "No model factory, so tests use `StockLevel::create`. No `quantity` cast on the model. `uses(RefreshDatabase::class)` is declared per file instead of in Pest.php. The `import()` helper has no return type (tests/Feature/StockImportTest.php:9,16)."
+   ],
+   "strengths": [
+    "The strictest upload validation: `extensions:csv` plus `mimetypes:text/csv,text/plain,application/csv`. A test checks that binary PNG content renamed to .csv is rejected.",
+    "Checks SKU length and the unsigned-int range.",
+    "Concise tests that cover line numbering, overflow, header variants and non-CSV uploads."
+   ]
+  },
+  "rationale": "impl-1 and impl-2 are nearly the same design: a thin invokable controller, a FormRequest with mimes:csv,txt|max:5120, and an action that reads the file line by line, upserts in chunks and closes the handle in `finally`. impl-2 ranks first because it is the only one with no real bug. It checks SKU length against the varchar(255) column, has a precise match-based validator, and its tests cover the exact 5 MB boundary. Its one weakness is holding all valid rows in memory before upserting. impl-1 streams the upserts more efficiently and has the richest tests, but it never checks SKU length. On MySQL or Postgres a SKU over 255 characters makes the whole request fail with a 500 after earlier batches may already be written. It also leaves a commented line in Pest.php and a wrong docblock. impl-3 has the best upload validation (extension plus MIME type) but is weakest on the focus area. It loads the whole file into memory and puts persistence in the controller behind a null-returning parser. It adds timestamps by hand, which `upsert` already does, and has a redundant overflow check. Probes found two real deviations from the spec: blank lines before the header are skipped, so the header doesn't have to be line 1, and `imported` counts unique SKUs, not valid rows."
+ },
+ "cost_usd": 0.44987160000000004
+}

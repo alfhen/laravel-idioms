@@ -1,0 +1,89 @@
+{
+ "key": "webhook-worker",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "The rate limiter is set to Limit::perSecond(10) (app/Providers/AppServiceProvider.php:24). Laravel's limiter uses fixed windows, so up to about 20 jobs can start within any 1-second span that crosses a window boundary. That breaks the provider's 10 requests/second cap.",
+    "There is no atomic claim on the event. handle() only skips events already marked Processed (app/Jobs/ProcessWebhookEvent.php:54), so a second or duplicate job for an event marked Failed processes it again. A probe confirmed this: a Failed event run again ended up Processed. Duplicate jobs can come from webhooks:redispatch-stuck when the queue has a backlog.",
+    "Unknown event types are marked processed without being stored as failed or checked (ProcessWebhookEvent.php:60-63). This is defensible, but such events never become visible to admins.",
+    "A payment_id sent as an integer fails validation as 'string' and becomes a permanent failure (a probe confirmed this). This is an edge case."
+   ],
+   "antipatterns": [
+    "app/Jobs/ProcessWebhookEvent.php:106 uses a match arm with `markPaid() && notify()` purely for its side effects; notify() returns void.",
+    "app/Jobs/ProcessWebhookEvent.php:32 keeps event types in a string array plus string match arms instead of a backed enum.",
+    "app/Notifications/PaymentReceipt.php:13 implements both ShouldQueue and ShouldQueueAfterCommit, which is redundant because the second extends the first.",
+    "app/Models/Order.php:78 transitionTo() runs a raw update that does not bump updated_at, and it calls refresh() even when nothing changed.",
+    "app/Models/Order.php:57 uses firstOrCreate for the refund even though there is a unique index; createOrFirst would be race-safe.",
+    "database/migrations/2026_01_01_00000*.php have no down() methods.",
+    "README.md keeps the stock Laravel boilerplate and adds the task docs at the bottom.",
+    "app/Payments/PaymentsClient.php:21 always sends a Bearer token, even an empty one."
+   ],
+   "strengths": [
+    "The controller is thin: createOrFirst on a unique event_id, and the job is dispatched only when wasRecentlyCreated is true.",
+    "Uses WithoutOverlapping keyed per event, RateLimited, the Backoff/MaxExceptions/Timeout attributes, retryUntil, and failed() to mark events failed.",
+    "Handles 429/5xx/4xx correctly; 429 honours Retry-After through release.",
+    "Event payload data is validated per type; refund requires refund_id and amount.",
+    "Order state transitions use conditional updates, so they are idempotent, and a payment.failed arriving after payment does not downgrade the order.",
+    "Uses MassPrunable on processed_at, with model:prune scheduled daily, plus recovery of stuck events.",
+    "The README covers production workers well: Supervisor, --tries=0, retry_after ordering and queue:restart.",
+    "Tests include an end-to-end HTTP-to-queue test and a test that drives the real RateLimited middleware."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "webhooks:redispatch-stale re-queues every event still marked Received after 15 minutes. That includes jobs that are only waiting in a backlog or were released by the rate limiter, so the queue fills with duplicate jobs under load. The atomic claim makes them harmless, but it is wasteful.",
+    "A non-string data.payment_id, such as an integer, is treated as missing and the event fails permanently (a probe confirmed this). This is an edge case.",
+    "Unknown event types fail only after an unnecessary call to the provider API (app/Actions/ApplyWebhookEvent.php:20 runs after api->payment)."
+   ],
+   "antipatterns": [
+    "app/Models/Order.php:65 uses a raw query update for the state transition and has to set updated_at by hand. It is acceptable for atomicity but bypasses model events.",
+    "The Action, the Service and the PermanentWebhookFailure exception add some extra layers for a small domain.",
+    "tests/Feature/ProcessWebhookEventTest.php:168 reads the Backoff attribute through reflection, which tests configuration rather than behaviour.",
+    "app/Jobs/ProcessWebhookEvent.php:24 includes the WithoutRelations attribute, which has no effect here."
+   ],
+   "strengths": [
+    "The job claims the event atomically (a conditional update from Received/Processing to Processing), so failed or processed events are never run again even by duplicate jobs.",
+    "Uses WithoutOverlapping per event, RateLimited at 5/s with an explicit reason (fixed windows keep any 1-second span under 10/s), Backoff, MaxExceptions, Timeout, retryUntil and DeleteWhenMissingModels.",
+    "Domain work runs inside DB::transaction, and the receipt implements ShouldQueueAfterCommit and is sent only when the transition is won.",
+    "Uses createOrFirst for both events and refunds against unique indexes.",
+    "failed() refuses to overwrite a Processed event.",
+    "MassPrunable plus a scheduled model:prune; the README covers deployment thoroughly (Supervisor, shared cache, timeout ordering, Retry-After, restart on deploy, single scheduler).",
+    "Uses Sanctum with a policy via ->can(), a FormRequest with Rule::enum, and an API Resource that leaves out the payload.",
+    "The suite is broad: behavioural tests that the rate limiter releases events over the limit, that a held overlap lock blocks the job, a 5xx followed by success, 429 handled through withFakeQueueInteractions, plus Http::preventStrayRequests across the suite."
+   ]
+  },
+  "rationale": "I ranked impl-2 first. Both implementations pass their own suites (49 tests for impl-2, 42 for impl-1) and use similar modern patterns: createOrFirst intake, WithoutOverlapping plus RateLimited, Backoff/MaxExceptions/retryUntil, failed(), ShouldQueueAfterCommit receipts, MassPrunable, and a scheduled redispatch of stuck events.\n\nimpl-2 is ahead on correctness in three ways. First, it claims each event atomically, so an event already marked failed or processed is never run again; my probe confirmed that impl-1 re-runs a Failed event to Processed. Second, it sets the rate limit to 5/s on purpose so that fixed-window limiting stays under the provider's 10/s cap. impl-1's 10/s fixed window can allow about 20 requests in one second when bursts straddle a window boundary. Third, it guards failed() against overwriting a Processed event.\n\nimpl-2's README is focused and complete, while impl-1 adds its docs below the stock Laravel boilerplate. impl-2's tests also check queue behaviour more thoroughly.\n\nimpl-1 is somewhat simpler, validates the payload for each event type, and includes a good end-to-end test. Against that, it identifies event types with plain strings, uses firstOrCreate for refunds, and has a match arm that exists only for its side effects.\n\nBoth share a few small edge cases: an uppercase-hex signature is rejected, and an integer payment_id becomes a permanent failure."
+ },
+ "cost_usd": 0.8924016000000001
+}

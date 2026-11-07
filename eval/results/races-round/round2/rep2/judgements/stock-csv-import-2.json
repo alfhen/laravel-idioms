@@ -1,0 +1,77 @@
+{
+ "key": "stock-csv-import",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 6,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 5,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Imports/StockCsvImporter.php:60-61 counts fgetcsv records, not physical lines. A quoted field that contains a newline puts every later error on the wrong line (probe: an error that is really on line 4 was reported as line 3).",
+    "app/Imports/StockCsvImporter.php:60: one stray or unclosed quote makes fgetcsv swallow the rest of the file into a single field. Probe `A-1,\"5\\nB-2,3\\nC-3,4` imported 0 rows: the good rows were lost, which breaks 'import the valid rows even when other rows are invalid'.",
+    "app/Imports/StockCsvImporter.php:118 puts the raw quantity value into the error message. Combined with the stray-quote case, the response can echo up to roughly 5 MB of file content back in one error message.",
+    "app/Imports/StockCsvImporter.php:63 treats only a truly empty line as blank. A whitespace-only line is reported as 'Expected 2 columns, found 1.' instead of being ignored."
+   ],
+   "antipatterns": [
+    "app/Imports/StockCsvImporter.php:46 the generator yields loosely shaped arrays with optional 'error' keys, then checks them with isset (line 23). A small value object or a clearer split between good rows and errors would read better.",
+    "app/Imports/StockCsvImporter.php:32 hard-codes the chunk size 500 as a magic number while MAX_QUANTITY is a named constant.",
+    "tests/Feature/StockImportAuthTest.php: a separate file holding a single auth test is unnecessary fragmentation.",
+    "tests/Feature/StockImportTest.php:113-123 builds a temp file by hand with tempnam/unlink instead of using UploadedFile::fake()->createWithContent."
+   ],
+   "strengths": [
+    "The fluent File::types(['csv','txt'])->max(5120) rule is current Laravel style.",
+    "The BOM is handled by reading the first bytes from the stream; fgetcsv uses escape '' and the handle is closed in a finally block.",
+    "Rows are upserted in batches of 500 while the file is read, so memory stays bounded. It relies on Eloquent upsert to add timestamps instead of setting them by hand.",
+    "Duplicate sku/quantity header columns are rejected (stricter and safer).",
+    "Error messages include the offending value. Tests assert exact messages, cover a binary file with a .csv name, and use datasets."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 7,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "app/Actions/ImportStockLevels.php:28-39 reads the file line by line with fgets and then calls str_getcsv on each line. A quoted field that contains a newline is split into broken rows (probe: imported a sku value of `1\"`). This is a minor and rare case, and line numbers stay physical.",
+    "app/Actions/ImportStockLevels.php:90 silently uses the first column when the header has duplicate sku or quantity columns."
+   ],
+   "antipatterns": [
+    "app/Actions/ImportStockLevels.php:51 `$columns ?? $this->columns('');` is an obscure side-effect expression used to throw a 422 on an empty file. An explicit check would be clearer.",
+    "app/Actions/ImportStockLevels.php:136-144 sets created_at/updated_at by hand and adds updated_at to the update columns. Eloquent upsert already does this, so it is redundant ceremony.",
+    "app/Actions/ImportStockLevels.php:124 `strlen($quantity) > 10` is checked after the (int) cast comparison. The order is awkward, but the result is correct.",
+    "app/Actions/ImportStockLevels.php:41 parse() returns array|string and the caller tells success from error with is_string. This is a stringly-typed error channel.",
+    "app/Http/Requests/StockImportRequest.php:12 uses the string rules 'mimes:csv,txt|max:5120' rather than the fluent File rule."
+   ],
+   "strengths": [
+    "Line numbers are physical file lines by construction, so blank lines (including whitespace-only and CRLF blank lines) are counted and ignored correctly.",
+    "A malformed or stray-quoted row only affects its own line. Probe: all good rows were still imported.",
+    "The generator streams lines with a finally/fclose. Duplicate skus are collapsed to the last value and upserted in chunks with collect()->chunk().",
+    "The tests are thorough and Pest-style: line-numbered mixed-error file, datasets for bad quantities including overflow, 5 MB boundary (both over and at the limit), chunk overflow, guest rejection, missing and non-file input.",
+    "The action is injected into a thin invokable controller."
+   ]
+  },
+  "rationale": "Both test suites pass: impl-1 ran 27 tests and impl-2 ran 29. Both have similar structure, with a FormRequest, an invokable controller and a streaming parser class.\n\nThe probes decided the ranking. impl-1 parses records with fgetcsv. One stray quote in an untrusted file swallows every row after it, so good rows were lost and the response echoed the rest of the file inside one error message. Quoted newlines also shift the reported line numbers, and whitespace-only lines are reported as errors instead of being ignored. These problems go to the heart of the focus area: report bad rows precisely without blocking good ones.\n\nimpl-2 splits on physical lines with fgets and parses each line with str_getcsv. This keeps line numbers exact and confines damage to a single line. Its only parsing gap is that it does not support quoted newlines, a rare case.\n\nimpl-1 has some idiomatic advantages: the fluent File rule, no hand-set upsert timestamps, and rejection of duplicate headers. impl-2 has a little ceremony: manual timestamps and an odd `??` side-effect line. impl-2's more robust behaviour and broader tests outweigh both, so it ranks first."
+ },
+ "cost_usd": 0.3433734
+}

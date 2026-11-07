@@ -1,0 +1,66 @@
+{
+ "key": "profile-nickname",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 9
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "A guest sending GET or PATCH /api/me without an Accept: application/json header gets HTTP 500 instead of 401. Laravel 13's default redirectGuestsTo(fn () => route('login')) runs before the JSON check, and the app has no 'login' route, so it throws RouteNotFoundException. The base app's shouldRenderJsonWhen('api/*') never runs because the exception happens first. A probe confirmed 500 for both methods."
+   ],
+   "antipatterns": [
+    "tests/Feature/MeTest.php:7: guest tests only use $this->json(), which sends Accept: application/json, so they miss the 500 that non-JSON API clients get",
+    "app/Http/Requests/UpdateProfileRequest.php: the form request is named UpdateProfileRequest but the controller and resource are named Me* (MeController, MeResource). Minor naming inconsistency."
+   ],
+   "strengths": [
+    "Small, proportionate design: a controller with two actions, a form request using validated(), and a JsonResource with $wrap = null that returns exactly id/name/nickname",
+    "The 'present|nullable|string|max:30' rules make the clear intent explicit. The empty string becomes null through ConvertEmptyStringsToNull. max counts multibyte characters correctly (probe: 30\u00d7'\u00e9' accepted, 31 rejected)",
+    "Migration uses string('nickname', 30)->nullable()->after('name') and includes a down()",
+    "Modern #[Fillable] attribute updated; mass-assignment is safe because only validated() data is passed",
+    "Good Pest tests: named datasets, a 30/31 boundary, the missing-field case, a check that the stored value is unchanged after validation failure, and isolation from other users and other attributes"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 9,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "bootstrap/app.php:16: redirectGuestsTo(... ? null : route('login')) still calls route('login') for non-API routes, and none exists. This matches the framework default, so it is harmless here, but redirectGuestsTo could be scoped more simply.",
+    "tests/Feature/ProfileTest.php:50: the clear-nickname dataset is unnamed ([null, '']), so test labels are less descriptive than with named datasets"
+   ],
+   "strengths": [
+    "Spots and fixes a framework gotcha: a guest calling the API without an Accept: application/json header would get a 500 from route('login'). With the fix it gets 401 (probe-verified), and a regression test covers it (ProfileTest.php:10)",
+    "Consistent Profile* naming across the controller, form request and resource",
+    "Same clean structure as impl-1: form request with present|nullable|string|max:30, validated() passed into update(), and an unwrapped JsonResource that exposes only id/name/nickname",
+    "Tests use assertExactJson on both GET and PATCH responses, cover boundaries (30/31), missing, non-string, null and empty-string clearing, an unchanged stored value on failure, and attribute and user isolation",
+    "Real Sanctum token auth also works (probe with createToken + withToken)"
+   ]
+  },
+  "rationale": "The two implementations are nearly identical: the same controller-with-form-request-and-resource structure, the same validation rules, the same migration and very similar Pest tests. Probes on multibyte length, whitespace trimming, non-string input and real token auth behaved the same in both. The deciding difference is how a guest is handled when the request lacks a JSON Accept header. In impl-1 that request reaches Laravel 13's default guest redirect to route('login'), and with no login route it returns 500 for GET and PATCH /api/me. impl-2 changed bootstrap/app.php so API routes get a null redirect, which gives 401, and added a test for it. impl-2 also has more consistent naming and slightly stronger assertions (assertExactJson on PATCH). impl-1 has nicer named datasets, but that does not outweigh the real bug."
+ },
+ "cost_usd": 0.2481194
+}

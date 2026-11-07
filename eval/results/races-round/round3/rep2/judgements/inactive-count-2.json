@@ -1,0 +1,69 @@
+{
+ "key": "inactive-count",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 9
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Console/Commands/CountInactiveUsers.php:24 \u2013 prints a bare number. It gets appended to a shared log with no label or timestamp, so the log line '2' says nothing about what was counted, which works against the 'shows up in our logs' goal",
+    "tests/Feature/CountInactiveUsersTest.php:48-54 \u2013 the schedule test asserts only the cron expression. It never checks that output is sent to a log file, and that is the stated purpose of the schedule",
+    "tests/Feature/CountInactiveUsersTest.php:14,24,30 \u2013 uses assertExitCode(0)/assertExitCode(1) where assertSuccessful()/assertFailed() would be more expressive",
+    "tests/Feature/CountInactiveUsersTest.php:6-25 \u2013 time is only frozen in the boundary test. The other tests depend on 1-day margins, so they are safe, but this is inconsistent",
+    "tests/Feature/CountInactiveUsersTest.php:50 \u2013 the closure parameter has no type",
+    "tests/Feature/CountInactiveUsersTest.php:46 \u2013 the dataset has no labels, so failing cases are harder to read"
+   ],
+   "strengths": [
+    "Uses a modern #[Scope] attribute scope with a correctly grouped whereNull/orWhere closure, so the OR does not leak into other conditions",
+    "Uses the #[Signature]/#[Description] command attributes (verified present in the installed framework)",
+    "Validates --days with FILTER_VALIDATE_INT. Probe: '' and 'abc' are rejected; '0' is accepted and counts everyone not logged in at this exact moment, which is a defensible reading",
+    "Uses $this->components->error for console-styled errors",
+    "Uses the Schedule facade in routes/console.php with dailyAt('06:00') and appendOutputTo, which is proportionate for a single server",
+    "Tests the strict-boundary case (exactly 90 days counts as active)"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 8.8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "database/migrations/2026_11_07_190122_add_last_login_at_to_users_table.php:12 \u2013 ->after() only works on MySQL. It is harmless elsewhere but adds ceremony",
+    "app/Console/Commands/CountInactiveUsers.php:19 \u2013 uses $this->error rather than $this->components->error (minor styling inconsistency with modern commands)",
+    "app/Console/Commands/CountInactiveUsers.php:18 \u2013 rejects --days=0. This is a defensible choice but stricter than the spec requires"
+   ],
+   "strengths": [
+    "Prints a labelled line ('Users inactive for 90 days: N'), so entries in the appended log file are self-describing",
+    "The schedule test asserts both the cron expression and the log destination (storage_path('logs/inactive-users.log'))",
+    "beforeEach freezeTime makes every date-based test deterministic",
+    "Covers default, --days, never-logged-in, exact boundary, the empty table, and a labelled invalid-input dataset (zero/negative/text/decimal) using assertSuccessful/assertFailed",
+    "Uses the same clean #[Scope] attribute scope with a grouped OR closure, plus the #[Signature]/#[Description] attributes and the datetime cast",
+    "Probes: whitespace-padded ' 7 ' is accepted, a huge --days value works, and 0 is rejected with exit 1 and a clear message"
+   ]
+  },
+  "rationale": "I reviewed impl-2 first, then impl-1. The two are almost identical: both add the column, the same #[Scope] attribute scope with a grouped OR, the same attribute-based command, and the same schedule entry (dailyAt('06:00') with appendOutputTo). Both full suites pass (impl-2 12/12, impl-1 11/11). My throwaway probes ('0', a huge value, whitespace, the empty string, text, decimals) found no real bugs in either; I deleted the probe files afterwards. The ranking comes down to how well each meets the task's purpose, getting the number into the logs, and how thorough the tests are. impl-2 prints a labelled, self-describing line, while impl-1 appends a bare integer to the log file. impl-2's schedule test checks the output destination, not just the cron expression. impl-2 also freezes time for every test, uses expressive assertSuccessful/assertFailed, and labels its invalid-input dataset. impl-1 accepts --days=0 where impl-2 rejects it; both readings are defensible, so this did not affect the ranking."
+ },
+ "cost_usd": 0.1877334
+}

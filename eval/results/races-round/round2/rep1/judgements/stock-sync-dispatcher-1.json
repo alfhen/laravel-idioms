@@ -1,0 +1,75 @@
+{
+ "key": "stock-sync-dispatcher",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "failed() clears sync_started_at for every id with no check on who owns the claim (app/Jobs/PushStockAllocations.php:97-100). If a delayed release is only picked up after retryUntil, by which time the dispatcher may have re-claimed the rows, failed() wipes that newer claim and the rows can be dispatched twice. This is a narrow window.",
+    "Marking synced_at with the claim time works at one-second resolution. An edit made after the job reads the rows, but in the same second as the claim, would be counted as synced. In practice this is very unlikely."
+   ],
+   "antipatterns": [
+    "app/Jobs/PushStockAllocations.php:84-91 uses (clone $sent) twice to share a builder. This works, but two named queries would read more clearly.",
+    "tests/Feature/PushStockAllocationsTest.php:103-106 mocks the queue Job contract with Mockery. withFakeQueueInteractions()/assertReleased() is the idiomatic way to do this.",
+    "app/Console/Commands/DispatchStockSync.php:23-28 chains lazyById(100)->pluck->chunk(100). The paging is done twice where one chunkById would do."
+   ],
+   "strengths": [
+    "Uses a proactive shared RateLimited middleware backed by the Redis cache, registered in AppServiceProvider, and also reacts to 429 with a capped Retry-After.",
+    "Claims rows inside a transaction with lockForUpdate and a re-check of the readyToSync scope, which is safe across servers. The schedule uses onOneServer()->withoutOverlapping(5).",
+    "synced_at = sync_started_at (the claim time). A probe confirmed that an edit made while the request is in flight stays ready. A comment records the MySQL left-to-right assignment order, a real constraint that would break if the columns were reordered.",
+    "The job filters on whereNotNull('sync_started_at'), so a duplicate SQS delivery does not resend. A probe confirmed only 1 request was sent.",
+    "retryUntil is fixed in the constructor and ends before the 15-minute claim expires; MaxExceptions and Backoff are set as attributes. Bookkeeping writes use toBase() so updated_at is not bumped.",
+    "Thorough Pest tests: a dataset for the scope, a Retry-After dataset, a schedule assertion, failed() releasing the claim, idempotency, and an index on the migration."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 6,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "synced_at is set to $sentAt, which is now() taken after the rows are read (app/Jobs/PushStockAllocations.php:50,69). An edit made during the slow HTTP call in the same second gives updated_at == synced_at, so the row is never resent. A probe with frozen time confirmed the change was lost (ready after: false).",
+    "handle() does not check that the rows are still claimed (whereNotNull('sync_started_at')). A duplicate SQS delivery or a re-run after success resends the batch to the storefront. A probe confirmed 2 requests were sent.",
+    "There is no proactive rate limiting, only a reaction to 429. At a peak of about 50 jobs across three workers' containers the API will keep returning 429, and retries are bounded by the 14-minute retryUntil, so batches may fail and wait for the next dispatch cycle.",
+    "The claim is identified by the second-precision value sync_started_at = $claimedAt (app/Console/Commands/DispatchStockSync.php:28-32). Two dispatcher runs in the same second would each pick up the other's rows. Only onOneServer prevents this."
+   ],
+   "antipatterns": [
+    "tests/Feature/Stock/PushStockAllocationsTest.php:77 has the odd destructuring `[$job] = [(...)]`.",
+    "app/Jobs/PushStockAllocations.php:56 uses status() === 429 instead of $response->tooManyRequests().",
+    "app/Jobs/PushStockAllocations.php:68-72 runs the synced and disabled updates without a transaction.",
+    "The migration has no index for the readyToSync filter at scale.",
+    "app/Models/StockAllocation.php:30-33 puts a docblock on the scope that documents a convention enforced elsewhere."
+   ],
+   "strengths": [
+    "The claim is a conditional UPDATE followed by a re-select, which is compact and avoids explicit locks.",
+    "Uses partition() to split missing and accepted rows, which reads cleanly.",
+    "The tests use withFakeQueueInteractions()->assertReleased(delay:), travel() for claim expiry, and an in-flight edit test with a different-second edit.",
+    "Uses modern attributes (#[Signature], #[Scope], #[Fillable], #[Backoff], #[MaxExceptions], #[Timeout]), and retryUntil is bounded under the claim TTL.",
+    "failed() releases the claim, and an end-to-end test re-dispatches the rows afterwards."
+   ]
+  },
+  "rationale": "I ran `php artisan test` on both: impl-1 passed 37/37 and impl-2 passed 26/26. I then ran throwaway probe tests on each and deleted them afterwards.\n\nBoth share the same overall design: an attribute-based command and job, a readyToSync scope, toBase() writes that leave updated_at alone, onOneServer with withoutOverlapping, retryUntil under the claim TTL, and failed() releasing the claim.\n\nimpl-1 is stronger on the task's focus:\n- It rate-limits up front with RateLimited middleware backed by the shared limiter, as well as handling 429.\n- It claims rows under a transaction with lockForUpdate.\n- It uses the claim time as synced_at, so edits made mid-flight are not lost.\n- It skips rows that are no longer claimed, so duplicate SQS deliveries do not resend.\n\nimpl-2's probes found two real problems. An edit made while the request is in flight, in the same second the job read the row, is permanently lost. A duplicate delivery resends the batch. It also has no proactive rate limiting for a peak of about 5,000 rows, so it relies on 429 retries.\n\nimpl-2's tests are slightly more idiomatic in places (withFakeQueueInteractions, travel), but impl-1's tests cover more. impl-1's remaining issues are minor: the Mockery usage, the clone-builder pattern, and a narrow race where failed() can clear a newer claim."
+ },
+ "cost_usd": 0.4788186
+}

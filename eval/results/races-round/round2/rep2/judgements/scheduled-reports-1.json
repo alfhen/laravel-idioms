@@ -1,0 +1,72 @@
+{
+ "key": "scheduled-reports",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 8,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.6,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "PruneAbandonedCarts.php:24 deletes by plucked ids without re-applying abandonedFor, so a cart touched between the select and the delete is still removed (a small race)"
+   ],
+   "antipatterns": [
+    "app/Jobs/SyncSupplierStock.php:21-24 sets the connection in a constructor with onConnection() when the #[Connection] attribute is available and fits the other queue attributes",
+    "tests/Feature/SyncSupplierStockTest.php:12 reads the #[Timeout] attribute through reflection inside a test, which is ceremony",
+    "app/Console/Commands/PruneAbandonedCarts.php:22-25 uses a hand-written do/while plus pluck loop where chunkById or lazyById would be the framework idiom"
+   ],
+   "strengths": [
+    "The redis-long connection uses its own 'long' queue with retry_after 3600, so ordinary workers (retry_after 90, timeout 60) can't pick up and kill the 40-minute sync",
+    "Timeout 2700 < UniqueFor 3300 < the hourly interval, and Tries(1) plus FailOnTimeout: a crashed worker's orphaned lock expires before the next hourly dispatch",
+    "Every event uses onOneServer, and withoutOverlapping has bounded expiry so a killed run cannot block for a day",
+    "The scheduling test runs schedule:run three times and asserts a single dispatch, which simulates the three servers",
+    "Datasets check that 07:30 Copenhagen is due in summer and winter, and that the matching UTC time is not",
+    "Uses the batched delete loop with an index on updated_at; the batch test covers 2050 rows",
+    "Uses $this->fail(), #[Scope], #[Fillable] and the console Signature/Description attributes"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 6,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "config/queue.php redis-long uses queue 'default' (env REDIS_QUEUE), which is the same Redis list as the standard redis connection (retry_after 90). A normal queue:work can reserve SyncSupplierStock with a 90s lease and its 60s default timeout, so the job is killed, or re-reserved and failed by MaxAttempts; that releases the unique lock mid-run and lets runs double up",
+    "tests/Feature/SyncSupplierStockTest.php:21-27 claims to test that a second dispatch is blocked, but it only dispatches once, so the uniqueness guarantee is untested"
+   ],
+   "antipatterns": [
+    "tests/Feature/SyncSupplierStockTest.php:12-19 'runs handle() repeatedly' asserts uniqueId, which is a vacuous test",
+    "app/Jobs/SyncSupplierStock.php:14-15 has a multi-line rationale comment; it is useful, but it describes a retry_after contract that the queue config itself breaks",
+    "database/migrations/*: leaves stub docblocks such as 'Run the migrations.'",
+    "routes/console.php: removes the existing inspire command, which is unrelated churn"
+   ],
+   "strengths": [
+    "The #[Connection('redis-long')] attribute is idiomatic, and I confirmed the Bus Dispatcher honours it",
+    "chunkById with the abandonedFor scope re-applied in the delete guards against carts touched mid-run",
+    "Uses ->sole() in the schedule test helper, Schedule::MONDAY, assertSuccessful() and assertFailed()",
+    "Composite index (shipped_at, placed_at) fits the report query",
+    "The 03:00 Copenhagen prune time is chosen to avoid the DST duplicate hour"
+   ]
+  },
+  "rationale": "Both suites pass (24 and 15 tests), and both add onOneServer, bounded withoutOverlapping, Copenhagen timezones, and the ShouldBeUnique job with Tries/Timeout/FailOnTimeout/UniqueFor. impl-2 has more modern touches: the #[Connection] attribute, chunkById with the scope re-applied, and sole(). It also has a real deployment bug: its redis-long connection shares the 'default' Redis queue with the standard redis connection (retry_after 90). An ordinary worker can therefore grab the 20\u201340 minute sync and kill or re-reserve it, which releases the unique lock and allows overlapping runs, the double-run the brief forbids. impl-1 puts the job on a separate 'long' queue. impl-2's tests are also much weaker. Its uniqueness test dispatches only once and so proves nothing, and nothing simulates several servers running schedule:run. impl-1 tests three schedule:run calls with one dispatch, orphaned-lock expiry, summer/winter UTC versus Copenhagen, the singular/plural mail text, and the 48-hour boundary. impl-1's weaknesses are minor idiom points: connection set in the constructor, a hand-written batch loop, and reflection in a test. Probes: both block a second dispatch under Queue::fake; the 30-day boundary keeps the cart in both; schedule:run resolves the redis-long connection in both, with impl-2 via the attribute. My DST probe failed for impl-1 only because it expected 03:00 while impl-1 schedules 03:30, so it is not a defect."
+ },
+ "cost_usd": 0.4011548
+}

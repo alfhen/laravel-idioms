@@ -1,0 +1,77 @@
+{
+ "key": "caching",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Marking a task done without setting completed_at (e.g. $task->update(['status' => 'done'])) leaves completed_at null, so the task never counts in tasks_completed_last_7_days (probe confirmed: 0 instead of 1). Nothing in the model or observer enforces the status/completed_at invariant (app/Models/Task.php:17, app/Observers/TaskObserver.php)."
+   ],
+   "antipatterns": [
+    "app/Observers/TaskObserver.php:30 runs an extra Project query on every task save just to find team_id. $task->project->team_id, or passing the team in, would be clearer.",
+    "app/Support/BuildTeamDashboard.php plus app/Support/TeamDashboardCache.php: an invokable builder class injected into the cache class is one class more than this needs.",
+    "app/Services/ExchangeRates.php:47: lock_wait lives in config/services.php while the other timings are class constants, so the knobs are split between two places.",
+    "app/Services/ExchangeRates.php:56: the inline comment narrates the code."
+   ],
+   "strengths": [
+    "Cache::flexible([60, 300]) with a per-team version token that is a UUID. Invalidation can't collide with an old entry, and a recompute that was already running can't overwrite fresh data.",
+    "Observers use ShouldHandleEventsAfterCommit and #[ObservedBy], and also invalidate the previous team when a task or project moves (getPrevious). A UserObserver handles membership changes too.",
+    "Installs Sanctum so /api/dashboard can actually be authenticated over a stateless API. Plain (non-JSON) guest requests are handled with redirectGuestsTo returning null for api/*.",
+    "The exchange-rate flow is solid: cache lock with block(), double-check after getting the lock, a 15s failure backoff, fresh and last-known keys kept separately, timeout(3) plus connectTimeout(3), baseUrl from config, and a 503 via a ServiceUnavailableHttpException subclass.",
+    "Strong Pest suite: Http::preventStrayRequests set globally, travel() for TTL and the rolling window, query-count assertions for cache hits, datasets for failure kinds, cold-cache single-call test, lock-held test, and tests for moving between teams."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "routes/api.php:7 protects /api/dashboard with the default 'auth' (session/web guard) on a stateless api route. There is no Sanctum and no token guard, so outside actingAs() in tests a real API client has no way to authenticate.",
+    "Membership changes are not invalidated (there is no User observer), so member_count can lag by up to the 60s fresh window plus the stale window. This is minor because the task only requires projects and tasks to be reflected quickly."
+   ],
+   "antipatterns": [
+    "tests/Feature/ExchangeRatesTest.php:117: the lock-held test makes the code block for the full LOCK_WAIT_SECONDS of real time (about 4s), which makes the suite slow.",
+    "tests/Feature/ExchangeRatesTest.php:61,71,118: tests seed internal cache keys ('rates:EUR:v1:last-known') directly instead of driving the real flow with Http::sequence and travel().",
+    "tests/Feature/ExchangeRatesTest.php:51: 'caches each currency separately' only counts requests and never checks that the currencies return different data.",
+    "app/Http/Controllers/DashboardController.php:9 and ExchangeRateController.php:9 don't extend the base Controller, unlike the app's convention.",
+    "app/Observers/TaskObserver.php:39 runs an extra Project query per save to resolve team_id.",
+    "bootstrap/app.php: redirectGuestsTo('/login') points at a route that doesn't exist."
+   ],
+   "strengths": [
+    "Cache::flexible([60, 300]) with a versioned key bumped via add and increment. Invalidation is per team and handled after commit.",
+    "The TaskObserver saving hook keeps completed_at consistent with status (stamps it on done, clears it on reopen), so the 7-day count stays correct.",
+    "FetchExchangeRates is a single cohesive class: lock with block(), double-check inside the lock, cooldown after failure, last-known fallback, Log::warning on failure, and a renderable exception for the 503.",
+    "The FormRequest has a typed currency() accessor and normalises case in prepareForValidation.",
+    "Logic is compact, without much ceremony."
+   ]
+  },
+  "rationale": "Both use nearly the same core design: Cache::flexible with versioned per-team keys, after-commit observers, and a cache lock with double-checking plus a cooldown and a last-known fallback for rates. Both suites pass (30 and 31 tests). Probes: DB::transaction invalidation, non-ASCII codes, the stale-after-an-hour flow, and plain guest GETs all behave correctly in both. impl-1 ranks first because its API is actually usable: it installs Sanctum, while impl-2 puts a session guard on a stateless API route. impl-1 also covers membership changes, uses UUID versions, and sets connectTimeout and baseUrl. Its tests are clearly stronger too: they drive real stale and failure flows with Http::sequence and travel(), assert query counts, cover the cold-cache stampede, and avoid a real-time lock wait. impl-1's one real gap, found by a probe, is that marking a task done without setting completed_at drops it from the 7-day count; impl-2's saving hook handles that case. impl-2 is slightly simpler, but its tests rely on seeding internal cache keys and one test blocks for about 4s."
+ },
+ "cost_usd": 0.7157108000000001
+}

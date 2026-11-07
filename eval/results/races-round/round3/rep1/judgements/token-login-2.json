@@ -1,0 +1,102 @@
+{
+ "key": "token-login",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Rate-limiter key casts input('email') to string before validation; an array `email` payload causes 'Array to string conversion' \u2192 500 instead of 422 (app/Providers/AppServiceProvider.php:25)",
+    "Successful logins count toward the 5/min bucket (shared with all impls; acceptable reading of 'attempts')"
+   ],
+   "antipatterns": [
+    "app/Providers/AppServiceProvider.php:25 \u2013 very long one-line fluent chain; ->trim() is redundant since the global TrimStrings middleware already trims input",
+    "tests/Feature/TokenAuthTest.php:137 \u2013 'does not store the password in plain text' tests the model cast/factory, not the feature",
+    "tests/Feature/TokenAuthTest.php:18 etc. \u2013 passing ['password' => 'password'] to the factory is redundant (the factory default is already 'password')",
+    "app/Http/Controllers/TokenController.php:22 \u2013 token creation packed inline into the response line"
+   ],
+   "strengths": [
+    "Uses $request->validated() for all inputs in the controller",
+    "Invokable MeController that uses only() to return exactly id/name/email",
+    "Throttle key normalises email case and is scoped per IP; covers per-email/per-IP isolation, case-insensitivity and window expiry in tests",
+    "currentAccessToken()->delete() revokes only the token used for the request; test confirms the revoked token stops working"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 9
+   },
+   "overall": 7.3,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "Rate-limiter callback calls $request->string('email') before validation; an array `email` returns 500 instead of 422 (app/Providers/AppServiceProvider.php:25-27)",
+    "Successful logins count toward the 5/min bucket (shared with all impls)"
+   ],
+   "antipatterns": [
+    "app/Http/Controllers/AuthTokenController.php:16,18,22 \u2013 passes Stringable objects from $request->string() into where(), Hash::check() and createToken() instead of plain validated() strings; this only works because of loose type coercion",
+    "tests/Feature/TokenAuthTest.php:9 \u2013 adds uses(RefreshDatabase) per file instead of in Pest.php",
+    "routes/api.php \u2013 /me written as a route closure, which is fine at this size but sits next to a controller for the other endpoints",
+    "No test that the throttle window expires"
+   ],
+   "strengths": [
+    "Smallest diff: one controller, one form request, and /me as a one-line route",
+    "The 'email' validation rule rejects malformed emails before the user lookup",
+    "Thorough throttle tests: case-insensitivity, per email and per IP",
+    "The /me test uses assertExactJson, which proves no extra fields leak"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Rate-limiter key built from $request->string('email') before validation; an array `email` returns 500 instead of 422 (app/Providers/AppServiceProvider.php:26-27)",
+    "Successful logins count toward the 5/min bucket (shared with all impls)"
+   ],
+   "antipatterns": [
+    "tests/Feature/TokenAuthTest.php:40 \u2013 asserts the full framework validation message text, which couples the test to translation strings",
+    "tests/Feature/TokenAuthTest.php:94,104,116 \u2013 throttle-setup loops leave responses unasserted"
+   ],
+   "strengths": [
+    "Controller reads only $request->validated() values; uses User::query() explicitly",
+    "Clean split: TokenController store/destroy plus an invokable MeController; RefreshDatabase enabled once in Pest.php",
+    "Best test suite: describe blocks per endpoint, window expiry tested after an actual 429, and the logout test proves the revoked token fails while the other token still works",
+    "Limiter key is lower-cased email plus IP, so changing the email's letter case doesn't bypass it, and other users on the same IP are not locked out"
+   ]
+  },
+  "rationale": "All three suites pass. The three implementations are almost the same: a FormRequest, Hash::check followed by a 401 with the exact message, createToken returning 201, currentAccessToken()->delete() returning 204, /me using only(id,name,email), and a named RateLimiter keyed on lower-cased email plus IP. I ran the same probes against all three and they behaved identically:\n- An array `email` gives a 500 in every implementation, because the limiter casts it to a string before validation runs.\n- A non-JSON form post still gets JSON 201/401 responses.\n- An email padded with whitespace shares the throttle bucket with the plain email (TrimStrings already trims it).\n- The 429 response has a JSON message.\n- Successful logins also count toward the limit.\n\nSo the ranking comes down to idiom and test quality.\n\nimpl-3 ranks first: it uses validated() throughout, splits the controllers cleanly, has the most rigorous tests (expiry tested after a real 429, the other token still works after logout) and puts RefreshDatabase in Pest.php.\n\nimpl-1 ranks second: the code is nearly the same as impl-3, but the limiter is a long one-liner with a redundant trim(), and it adds a pointless password-hash test and redundant factory overrides.\n\nimpl-2 ranks third: it is the leanest, and its email rule is a plus, but it passes Stringable objects into Hash::check and createToken instead of validated strings, it has no test that the throttle window expires, and it declares RefreshDatabase in each file."
+ },
+ "cost_usd": 0.39355140000000005
+}

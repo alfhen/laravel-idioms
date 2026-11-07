@@ -1,0 +1,78 @@
+{
+ "key": "blade-catalogue",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Searching for \"0\" is ignored: Product::search uses `$query->when($term, ...)` and \"0\" is falsy, so /products?q=0 returns every product (confirmed with a probe). app/Models/Product.php:73. The same falsy-`when` pattern is in inCategory at app/Models/Product.php:85.",
+    "If someone opens /products?sort=bogus directly, the redirect sends them to the welcome page, which never renders $errors. They see neither the error nor the catalogue (routes/web.php:7, IndexProductRequest)."
+   ],
+   "antipatterns": [
+    "Logic in the view: `collect($sorts)->mapWithKeys(fn ($sort) => [$sort->value => $sort->label()])` builds the sort options inside the Blade template (resources/views/products/index.blade.php:20). This belongs in the controller or the enum.",
+    "Product::related() runs a query from a model instance method and uses a RELATED_LIMIT constant (app/Models/Product.php:23,52). That is more ceremony than a relatedTo scope.",
+    "A custom pagination view (resources/views/pagination/catalogue.blade.php) plus Paginator::defaultView. This works but adds code where a built-in simple view would do.",
+    "Every string is wrapped in __(), including trans_choice('{1} :count in stock|[2,*] :count in stock'), where both branches produce the same text (resources/views/products/show.blade.php:10). This is pointless ceremony.",
+    "cascadeOnDelete on category_id silently deletes products when a category is deleted (database/migrations/2026_01_01_000001_create_products_table.php:13).",
+    "The test helper builds route params with a convoluted inline ternary (tests/Feature/Admin/ProductManagementTest.php:27)."
+   ],
+   "strengths": [
+    "Uses modern Blade throughout: @session in the flash component, @props/$attributes->class()->merge() on form components, @selected/@checked, @error extracted into an <x-form.error> component.",
+    "One shared product-form component with a configurable submit label. Uses old() with the model value as fallback, and a hidden checkbox input so an unchecked box saves as inactive.",
+    "Thin controllers. Form requests use prepareForValidation to generate the slug, Rule::enum and Rule::unique()->ignore. Typed accessors on IndexProductRequest.",
+    "Modern Eloquent: #[Scope] attributes, #[Fillable], Attribute::get accessor, whereBelongsTo, whereRelation, LIKE wildcard escaping, deterministic tie-break ordering, eager loading of category.",
+    "Inline CSS, so pages render without compiled assets, and there is a test asserting that. The filter form reuses the shared select component."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "An invalid filter query (for example ?sort=bogus) triggers a redirect-back from the GET form request instead of falling back to defaults. It recovers via / \u2192 /products, which shows the errors, but this UX is harsher than it needs to be (app/Http/Requests/IndexProductRequest.php)."
+   ],
+   "antipatterns": [
+    "The ProductSort enum has an apply(Builder) method, which puts query building inside an enum (app/Enums/ProductSort.php:22). A match inside the sortedBy scope would keep query logic on the model.",
+    "ProductPolicy has four identical is_admin methods, and the route middleware only checks viewAny, so create/update/delete are never consulted (app/Policies/ProductPolicy.php, routes/web.php:13). A single Gate would be simpler.",
+    "formattedPrice() is a plain method rather than an Attribute accessor (app/Models/Product.php:40). Minor.",
+    "The sort filter is hand-rolled markup instead of reusing the x-form.select component, and @selected compares against $filters['category'] ?? null (resources/views/products/index.blade.php:10-24).",
+    "The new checkbox component also renders @error itself, duplicating x-form.field (resources/views/components/form/checkbox.blade.php:9)."
+   ],
+   "strengths": [
+    "Search uses filled(), so \"0\" is a valid search term (probe passed), and LIKE wildcards are escaped.",
+    "Well-composed components: x-form.field wraps label, slot and @error, and input/select/textarea compose on top of it. Uses $attributes->class, @selected/@checked, old() with model fallback, and a hidden input for the checkbox.",
+    "Thin controllers using to_route()->with('status'), relatedTo/inCategory/search/active #[Scope] scopes, whereBelongsTo and whereKeyNot. The filters array comes from $request->safe()->only().",
+    "restrictOnDelete on category FK, composite indexes for the catalogue queries, Model::shouldBeStrict, and eager loading where it is needed.",
+    "Strong Pest tests. Datasets cover access for guests and non-admins on every route and each validation rule. followingRedirects proves errors and old input appear in the rendered form (including the selected category). Covers pagination links with preserved filters, page 2 count, empty filters, invalid query input, and an unchecked checkbox."
+   ]
+  },
+  "rationale": "I ranked impl-2 first. Both suites pass (impl-2: 44 tests, impl-1: 45), and the two apps are structurally almost identical: same FormRequests, #[Scope] scopes, enum sort, shared product-form component, inline-CSS layout and to_route flash redirects.\n\nThe deciding factor was one probe. In impl-1, /products?q=0 returns every product, because the search scope uses `when($term)` and \"0\" is falsy. impl-2 uses filled(), so that search works. impl-1 also sends someone who opens an invalid filter URL directly to a welcome page that never shows errors, while impl-2 lands them on /products with the errors listed.\n\nOn idioms, impl-1 does better in places: @session, an Attribute accessor, a dedicated <x-form.error> component and reuse of the select component in the filter form. It loses ground elsewhere: it builds a collection in the view, wraps everything in __() (including a no-op trans_choice), adds a custom pagination view, and cascade-deletes products when a category is deleted.\n\nimpl-2 also has rough edges: query logic inside the enum, and a four-method policy where only viewAny is ever enforced. Its tests are slightly stronger, since they render the redirected form to check that errors and old input actually appear."
+ },
+ "cost_usd": 0.6591501999999999
+}

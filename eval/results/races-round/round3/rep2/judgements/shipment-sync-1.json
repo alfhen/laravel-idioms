@@ -1,0 +1,75 @@
+{
+ "key": "shipment-sync",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Minor: a 2xx response that is not 201 is retried by throwing a RuntimeException (app/Jobs/SendOrderToWarehouse.php:115), which risks a duplicate shipment if the partner returns 200 with an id. The Idempotency-Key header reduces this risk."
+   ],
+   "antipatterns": [
+    "app/Jobs/SendOrderToWarehouse.php:129-145: the database claim/release logic for the notification is written as raw query-builder code inside the job, not as intent methods on the Order model.",
+    "app/Jobs/SendOrderToWarehouse.php:53: the condition `!== Sent && ! createShipment()` packs the control flow into one boolean expression, which makes it harder to read.",
+    "app/Models/Order.php:48: markAsPaid calls refresh() inside the transaction just to sync state, which costs an extra query.",
+    "tests/Feature/SendOrderToWarehouseTest.php:131: the assertion `fresh()?->... ?? withTrashed()` is convoluted."
+   ],
+   "strengths": [
+    "failed() only marks the shipment failed while shipment_reference is null (whereNull guard), so a mail failure after shipping can never mark a shipped order as failed (confirmed by probe).",
+    "Permanent errors are surfaced without retrying: 422 fails the job with an InvalidShipmentAddress reason, and other 4xx responses such as 401 fail immediately.",
+    "The job refreshes the order at the start of handle() and checks trashed(), unpaid and already-failed before any HTTP call.",
+    "Modern queue attributes (Backoff, MaxExceptions, Timeout, DeleteWhenMissingModels), plus retryUntil, RateLimited with a global key, WithoutOverlapping, an Idempotency-Key header, and connect and request timeouts.",
+    "An atomic conditional update in markAsPaid, with the dispatch deferred by afterCommit.",
+    "The email is sent exactly once via the shipment_notified_at claim, which is released again if sending fails.",
+    "Good tests: 429 honouring Retry-After with a cap, 5xx, a hanging connection, 401, a missing id, the failed() guard, and an end-to-end run."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 7
+   },
+   "overall": 6.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "failed() calls markShipmentFailed with no guard (app/Jobs/SendOrderToWarehouse.php:87-90). If the shipment was created but the mail keeps failing until MaxExceptions or retryUntil runs out, the order's status goes from sent to failed even though shipment_reference is set. Ops are misled and later runs skip the order (confirmed by probe).",
+    "Non-422 client errors (401, 403, 404, 400) are thrown and retried for up to an hour, up to 6 times, instead of being surfaced immediately (confirmed by probe: the job is not failed).",
+    "A missing or HTTP-date Retry-After header becomes 0, which is clamped to a 5s release. That is short for a partner that stays down for minutes, and each release also counts as an attempt."
+   ],
+   "antipatterns": [
+    "app/Jobs/SendOrderToWarehouse.php:52-82: nested status conditionals check shipment_status three separate times.",
+    "app/Models/Order.php:36-40: uses ->value on enums in where()/update() even though the casts make this unnecessary.",
+    "app/Models/Order.php:33-56: the $claimed variable is shadowed inside and outside the closure, and the forceFill()->syncOriginal() after the transaction is extra ceremony.",
+    "app/Jobs/SendOrderToWarehouse.php:20: the retryUntil return type is Illuminate\\Support\\Carbon rather than DateTimeInterface.",
+    "app/Exceptions/ is an empty directory left behind."
+   ],
+   "strengths": [
+    "Intent methods on the model (markShipmentSent, markShipmentFailed, claimShipmentNotification, releaseShipmentNotification) give a clean Eloquent API.",
+    "The failureReason() match expression produces readable, ops-friendly messages for 422, other HTTP failures, connection failures and anything else.",
+    "Uses #[WithoutRelations], DeleteWhenMissingModels, Backoff, MaxExceptions and Timeout attributes, plus RateLimited, WithoutOverlapping and an Idempotency-Key header.",
+    "The atomic conditional update in markAsPaid dispatches with afterCommit.",
+    "Thorough tests: one checks the rate limit is actually enforced, the configured URL is honoured, a real mail transport is used for the retry-once test, and a dataset covers failure reasons."
+   ]
+  },
+  "rationale": "Both implementations use a very similar design: modern queue attributes, RateLimited plus WithoutOverlapping, an Idempotency-Key header, an atomic markAsPaid that dispatches after commit, and a claim column so the email is sent once. Both suites pass. The deciding difference came from the probes. impl-2's failed() handler marks the shipment failed with no guard, so an order that was shipped but whose email kept failing ends up with shipment_status failed even though shipment_reference is set. That misleads ops and breaks the requirement to show failed only when the shipment could not be created. impl-2 also retries permanent 4xx errors such as 401 for up to an hour. impl-1 guards failed() with whereNull('shipment_reference'), fails all non-429 4xx responses immediately, and refreshes the order before checking it. impl-2 has the nicer model API (intent methods) and a slightly richer test suite. impl-1's correctness on the focus area still outweighs that."
+ },
+ "cost_usd": 0.40735639999999995
+}

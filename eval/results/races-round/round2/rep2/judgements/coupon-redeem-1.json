@@ -1,0 +1,71 @@
+{
+ "key": "coupon-redeem",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.3,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Controllers/RedeemCouponController.php:16 - the CouponRedeemed side effect lives in the controller, so any other caller of Coupon::redeemFor (a job, a console command) creates a redemption without firing the event. The 'exactly once per new redemption' rule isn't enforced by the domain method",
+    "app/Models/Coupon.php:39 - throw_if(..., new CouponExhausted) builds the exception eagerly. Passing the class string is the idiomatic form",
+    "app/Models/Coupon.php:45 - copies the locked copy's attributes back onto $this with setRawAttributes, a slightly awkward round-trip through a second model instance",
+    "No test exercises the race directly (for example two transactions or a pre-locked row). Concurrency safety is shown only indirectly through a stale-model test"
+   ],
+   "strengths": [
+    "Locks the coupon row inside a transaction (lockForUpdate) before checking the per-user redemption and the cap. This serialises same-coupon requests across servers, and the unique(coupon_id,user_id) index acts as a backstop",
+    "Uses firstOrNew + wasRecentlyCreated to choose between 201 and 200. The event is dispatched after the transaction commits, so it fires only for the request that created the row",
+    "A user who already redeemed still gets 200 after the coupon is used up, because the existing-redemption check comes before the cap check",
+    "The exception renders its own 409 JSON with a message. Route model binding on {coupon:code} gives the 404",
+    "Good tests: a non-JSON 401, bearer-token auth, assertExactJson on the response, event count and payload, a 4-user sequence against the cap, and a stale-model test against DB state",
+    "Modern touches: the #[Fillable] attribute, an invokable controller, and a grouped auth:sanctum middleware"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.6,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Models/Coupon.php:34-37 - refreshes $this through setRawAttributes(...lockForUpdate()->findOrFail()...) inside the transaction. It works, but it mutates the bound model in place, and the result is a little dense",
+    "app/Models/Coupon.php:53 - fires a domain event from a model method. That's acceptable, though some teams would prefer an action class",
+    "routes/api.php:7-12 - repeats ->middleware('auth:sanctum') on each route instead of using a group (minor)",
+    "No test simulates a real race. Concurrency safety is shown only indirectly through a stale-model test"
+   ],
+   "strengths": [
+    "Same sound concurrency design: a coupon row lock inside a transaction, then the per-user lookup, then the cap check, then create + increment, with a unique composite index as a backstop",
+    "Coupon::redeem dispatches CouponRedeemed after the transaction commits, and only when wasRecentlyCreated is true. The 'exactly once' guarantee is part of the domain method, so the controller is a thin mapping to 201/200",
+    "The exception message is defined in a $message property and reused in render(). throw_if receives the class string",
+    "whereBelongsTo($user) is an idiomatic relation query",
+    "Tests cover 401, bearer-token auth, 404, 201 with exact JSON and event payload, a repeat returning 200 with the same body, 409 after the cap is reached through real requests, zero capacity, a returning user after exhaustion, a stale model that doesn't double-count, and the factories"
+   ]
+  },
+  "rationale": "Both suites pass (11 and 12 tests). I also ran throwaway probes against both implementations, then deleted them: 409/404 without an Accept header, a listener that throws on the first call followed by a retry (which returns 200 without creating a second row), and a pre-seeded redemption on an exhausted coupon (200, with integer JSON fields). Both behaved correctly.\n\nThe two designs are nearly identical and both correct for MySQL across several servers. Each locks the coupon row inside a transaction, checks for the user's existing redemption before checking the cap, has a unique (coupon_id, user_id) index as a backstop, and dispatches the event after commit only when wasRecentlyCreated is true. I found no real bugs in either.\n\nimpl-2 ranks first because it puts the 'event exactly once per new redemption' rule inside the domain method, Coupon::redeem. In impl-1 the controller has to remember to dispatch the event, so another caller of redeemFor would skip it. impl-2 also has slightly tidier exception idioms (a $message property and throw_if with a class string) and somewhat broader edge-case tests (zero capacity, exhaustion reached through real requests, factories). impl-1 does have a nice non-JSON 401 test and a clean firstOrNew. The margin is small."
+ },
+ "cost_usd": 0.331773
+}

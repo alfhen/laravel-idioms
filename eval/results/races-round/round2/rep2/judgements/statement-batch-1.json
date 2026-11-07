@@ -1,0 +1,80 @@
+{
+ "key": "statement-batch",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 9
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "If the seeder job QueueAccountStatements fails, the batch counts it in failedJobs, so failed_accounts is one too high (and some accounts were never attempted). FinishStatementRun.php:15 uses $batch->failedJobs without separating seeder failures from account failures.",
+    "total_accounts is counted once, before fan-out (StartStatementRun.php:18). Accounts activated or deactivated during the chunked dispatch make it inaccurate, though completion is still correct because the batch drives it."
+   ],
+   "antipatterns": [
+    "Pruning is not scheduled: no queue:prune-batches or queue:prune-failed in routes/console.php, so job_batches and failed_jobs (Tries(1) failures) grow forever",
+    "app/Jobs/SendAccountStatement.php:18 #[Tries(1)]: a passing SMTP or storage glitch is counted as a permanent account failure, with no retry",
+    "app/Jobs/SendAccountStatement.php:32 and QueueAccountStatements.php:24: the cancelled() checks are ceremony, since nothing ever cancels the batch",
+    "app/Mail/StatementReady.php:31: a private escapedName() helper wraps a single e() call",
+    "app/Actions/StartStatementRun.php:17: passes 'failed_accounts' => 0 even though the column already defaults to 0"
+   ],
+   "strengths": [
+    "Idiomatic Bus::batch with allowFailures plus a finally callback: the run always reaches a final status, and the failed count comes from the framework",
+    "A seeder job inside the batch adds chunks of 500 with chunkById, so the batch cannot finish early and the request side does only a count and one dispatch",
+    "FinishStatementRun claims the run with a conditional update (where status = running), which stops duplicate summaries if finally re-fires after queue:retry",
+    "#[DeleteWhenMissingModels] works with batches (the framework records it as a success), and Timeout plus Tries attributes use modern Laravel 12/13 style",
+    "Enum cast, #[Scope], #[Fillable], and a configurable queue name",
+    "Tests drain a real database queue with queue:work, which exercises the actual batch completion path, including the failure and zero-account cases"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 7,
+    "architecture_fit": 6,
+    "modern_laravel": 8,
+    "focus_area": 5,
+    "tests": 8,
+    "correctness": 5,
+    "simplicity": 5
+   },
+   "overall": 5.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Confirmed by probe: if an account is deactivated or deleted between StartStatementRun (which counts total_accounts at StartStatementRun.php:20) and DispatchStatementRun running its query (DispatchStatementRun.php:29-34), fewer jobs are dispatched than the total, processed_accounts never reaches total_accounts, and the run stays 'running' forever with no summary email. The reverse case (an account activated with id <= lastAccountId) makes the run complete before all accounts are attempted.",
+    "DispatchStatementRun is #[Tries(1)] with no failed() handler (DispatchStatementRun.php:13). A crash or timeout partway through the 40k fan-out leaves the run stuck in 'running' forever.",
+    "Manually retrying a failed GenerateStatement (queue:retry) increments processed_accounts again, and failed_accounts is never decremented, so the counters drift past total.",
+    "If mail is sent but recordAttempt then throws (for example a lock timeout on the hot row), the retry sends the owner a duplicate StatementReady email."
+   ],
+   "antipatterns": [
+    "Hand-rolled completion tracking (processed_accounts counter, a lockForUpdate transaction on one hot row for 40k jobs) instead of Bus::batch, which already provides this: app/Models/StatementRun.php:28-73",
+    "Domain model sends mail and runs completion workflow: app/Models/StatementRun.php:70-72",
+    "Catching Throwable and calling $this->fail() inside handle (GenerateStatement.php:38-44) to bypass retries is awkward control flow",
+    "Calls Queue::bulk directly with a '' payload and an explicit queue name (DispatchStatementRun.php:35-39) instead of dispatching jobs or using Bus",
+    "lazyById(500)->chunk(500) is redundant when chunkById would do (DispatchStatementRun.php:33-34)",
+    "app/Models/StatementRun.php:65: setRawAttributes syncing hack",
+    "Pruning is not scheduled for failed_jobs",
+    "tests/Feature/StatementRunTest.php:146-147: Storage::shouldReceive partial facade mocking is brittle"
+   ],
+   "strengths": [
+    "Snapshotting max id is a thoughtful attempt to make total_accounts stable",
+    "Generator throws fail immediately, while other errors retry with backoff, and an idempotent file-exists check avoids regenerating on retry",
+    "Uses modern queue attributes (Tries, Backoff, Timeout), an enum cast, #[Scope], and a composite (active, id) index",
+    "Its placeholder generator returns a valid, minimal PDF",
+    "Broad tests, covering the not-yet-finished state, summary idempotence, exhausted retries, mailable rendering and the storage failure path"
+   ]
+  },
+  "rationale": "Both apps keep slow work on a dedicated 'statements' queue, keep the request side fast (a count plus one dispatch), and isolate failures per account. Both suites pass. impl-1 uses Laravel's built-in tool for this: a job batch with allowFailures(), a seeder job inside the batch that adds chunks of 500, a finally callback, and a conditional update so only one worker finishes the run. Probes with 1,203 accounts across chunks (3 failures), an account deleted mid-run, and SMTP failures all ended in a correct final status, an accurate failed count and exactly one summary. Its weak points are minor: no retries (Tries(1)), a seeder failure would inflate failed_accounts by one, and no batch or failed-job pruning is scheduled. impl-2 builds its own counter with a row lock on the run. That adds more code and puts completion logic and mail sending in the model, and it is fragile. A probe showed that deactivating an account between the start and the dispatcher job leaves the run stuck in 'running' forever, and a failed dispatcher job also strands the run. Those break the core requirement that the run always reaches a final status, so impl-1 ranks clearly ahead."
+ },
+ "cost_usd": 0.4755976
+}

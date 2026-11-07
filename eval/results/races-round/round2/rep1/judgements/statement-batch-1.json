@@ -1,0 +1,78 @@
+{
+ "key": "statement-batch",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 6
+   },
+   "overall": 6.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Run counters can't handle the same job running twice. GenerateStatement::handle \u2192 StatementRun::recordAttempt (app/Models/StatementRun.php:36-43) increments processed_accounts on every run. If SQS delivers a job twice (it guarantees at-least-once), the run reaches 'completed' before every account is attempted. Probe: running the same account's job twice with total=2 gave status=completed, processed=2, with the second account never processed.",
+    "The finance summary is sent inline in the last worker (app/Jobs/GenerateStatement.php:70-71) after the status has already been set to finished. If that send throws, the summary is lost for good because finishIfAllAttempted no longer returns true. The job then retries or fails, and failed() increments processed and failed_accounts again. Probe: the run ended as 'completed' with processed=2/1 and failed_accounts=1, which contradicts its status.",
+    "ShouldBeUnique/UniqueFor on GenerateStatement does nothing. The jobs are pushed with Queue::bulk (app/Jobs/DispatchStatementChunk.php:43), which skips the Dispatcher, so the unique lock is never taken. A probe confirmed the lock is still free while the job sits in the queue."
+   ],
+   "antipatterns": [
+    "app/Jobs/GenerateStatement.php:25-27 adds ShouldBeUnique + UniqueFor ceremony that Queue::bulk bypasses",
+    "app/Jobs/GenerateStatement.php:71 and app/Jobs/DispatchStatementChunk.php:56-57 duplicate the summary-mail logic and send it synchronously inside the worker instead of queueing it",
+    "app/Models/StatementRun.php:38-42 uses two separate increments instead of one atomic update",
+    "app/Jobs/GenerateStatement.php:22 retries a broken generator 3 times, so each broken account adds a failed_jobs row, and nothing prunes failed_jobs",
+    "Hand-rolled counters plus a CAS claim where Bus::batch()->allowFailures()->finally() with queue:prune-batches would have been the framework-native fan-out"
+   ],
+   "strengths": [
+    "Bounds the fan-out with maxId, and settleTotal() resets total_accounts to the number actually dispatched. Accounts deactivated or activated mid-run can't leave the run stuck (probe confirmed).",
+    "The chunk dispatcher is cheap and runs on the default queue, so the whole fan-out is queued quickly. Only the slow PDF jobs go to the 'statements' queue.",
+    "Atomic compare-and-set (UPDATE ... WHERE status=running) so only one worker finishes the run",
+    "Skips regeneration when the PDF already exists on retry, and only mails once the file is stored",
+    "Uses modern attributes (#[Tries], #[Backoff], #[Timeout], #[Fillable], #[Scope]), an enum cast and keyset pagination",
+    "Tests use a real database queue worker end to end, including the failing-account, no-accounts and deactivated-mid-run cases"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 5,
+    "tests": 8,
+    "correctness": 5,
+    "simplicity": 7
+   },
+   "overall": 6,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "total_accounts is captured once in StartStatementRun (app/Actions/StartStatementRun.php:18), but DispatchStatementJobs re-queries active accounts chunk by chunk without an upper bound. If an account is deactivated or deleted before its chunk is dispatched, the run never finishes: probe left it 'running' with processed=1/2 and no summary email. New accounts created during the run let it finish early, with processed exceeding total (probe gave completed with processed=2, total=1).",
+    "That window spans almost the whole run, so the stuck-run bug is likely in production. DispatchStatementJobs sits on the same 'statements' queue as the slow PDF jobs (app/Jobs/DispatchStatementJobs.php:14), so each next chunk waits behind 500 slow PDF jobs. With 40k accounts the fan-out takes about as long as the processing itself.",
+    "Every generator exception is caught and counted as final (app/Jobs/GenerateStatement.php:40-49), so transient generator or storage errors are never retried even though the job declares Tries(3)."
+   ],
+   "antipatterns": [
+    "app/Jobs/DispatchStatementJobs.php:43 makes 500 separate dispatch calls per chunk instead of Queue::bulk or a batch",
+    "app/Jobs/GenerateStatement.php:39 has a narrating comment justifying the catch-all",
+    "app/Actions/StartStatementRun.php:16-17 passes failed_accounts/processed_accounts that already default to 0",
+    "app/Mail/*: HTML is built inline with htmlString instead of a view (acceptable as a placeholder, but less idiomatic)",
+    "Hand-rolled counters plus lockForUpdate on every one of the ~40k outcomes, where Bus::batch would have been the framework-native fan-out; nothing prunes failed_jobs"
+   ],
+   "strengths": [
+    "Each account's outcome is counted once using Cache::add on Redis with a 7-day TTL, so duplicate SQS deliveries are safe (tested)",
+    "A single atomic increment updates processed_accounts and failed_accounts together",
+    "The finishing transition is guarded by lockForUpdate, and the summary goes out through a queued, retried SendStatementRunSummary job, so the email isn't lost if SMTP fails",
+    "StatementReady attaches the stored PDF with Attachment::fromStorageDisk, which ties the email to the file existing",
+    "A broken generator becomes a counted failure instead of a failed_jobs row, which limits queue-table growth",
+    "Clean #[Queue(...)] attributes; tests cover failed(), a vanished account, idempotency, a pending run and mailable rendering"
+   ]
+  },
+  "rationale": "Both suites pass (impl-1: 11 tests; impl-2: 13 tests). Neither uses Bus::batch. Both keep their own counters, and both have real bugs affecting whether the run finishes with an accurate count.\n\nimpl-1 wins narrowly. It ties the fan-out to the accounts it actually queued (a maxId bound plus settleTotal), and its chunk dispatcher runs on the fast default queue, so the whole fan-out is queued quickly and the stuck-run window is small. Its bugs are:\n- Counters break if SQS delivers a job twice (probe: run completed with one account never processed).\n- The summary email is sent inline and lost if sending fails, which also double-counts the account.\n- ShouldBeUnique does nothing because Queue::bulk skips the unique lock.\n\nimpl-2 handles duplicate deliveries properly (Cache::add on Redis), queues the summary with retries and attaches the PDF. But it takes the total once at the start while dispatching against live data. Its chunk dispatcher also waits behind slow PDF jobs on the same queue, so the fan-out takes as long as the run. Any account deactivated or deleted during those hours leaves the run 'running' forever with no summary (confirmed by probe). New accounts can make it finish early with processed > total. A run that never finishes is the more likely failure in production on a 40k-account run, so impl-2 ranks second."
+ },
+ "cost_usd": 0.4799076
+}

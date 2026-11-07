@@ -1,0 +1,104 @@
+{
+ "coupon-redeem": {
+  "impl-1": "prev",
+  "impl-2": "mid",
+  "impl-3": "plain"
+ },
+ "orders-api": {
+  "impl-1": "mid",
+  "impl-2": "plain",
+  "impl-3": "prev"
+ },
+ "stock-csv-import": {
+  "impl-1": "mid",
+  "impl-2": "prev",
+  "impl-3": "plain"
+ },
+ "document-vault": {
+  "impl-1": "plain",
+  "impl-2": "prev",
+  "impl-3": "mid"
+ },
+ "orders-customer-link": {
+  "impl-1": "plain",
+  "impl-2": "mid",
+  "impl-3": "prev"
+ },
+ "carrier-quote": {
+  "impl-1": "prev",
+  "impl-2": "plain",
+  "impl-3": "mid"
+ },
+ "ship-order": {
+  "impl-1": "prev",
+  "impl-2": "mid",
+  "impl-3": "plain"
+ },
+ "token-login": {
+  "impl-1": "mid",
+  "impl-2": "plain",
+  "impl-3": "prev"
+ },
+ "thread-mentions": {
+  "impl-1": "mid",
+  "impl-2": "prev",
+  "impl-3": "plain"
+ },
+ "profile-nickname": {
+  "impl-1": "plain",
+  "impl-2": "prev",
+  "impl-3": "mid"
+ },
+ "sales-report": {
+  "impl-1": "mid",
+  "impl-2": "prev"
+ },
+ "blog-crud": {
+  "impl-1": "prev",
+  "impl-2": "mid"
+ },
+ "csv-import": {
+  "impl-1": "mid",
+  "impl-2": "prev"
+ },
+ "blade-catalogue": {
+  "impl-1": "prev",
+  "impl-2": "mid"
+ },
+ "caching": {
+  "impl-1": "mid",
+  "impl-2": "prev"
+ },
+ "webhook-worker": {
+  "impl-1": "prev",
+  "impl-2": "mid"
+ },
+ "shipment-sync": {
+  "impl-1": "mid",
+  "impl-2": "prev"
+ },
+ "statement-batch": {
+  "impl-1": "prev",
+  "impl-2": "mid"
+ },
+ "scheduled-reports": {
+  "impl-1": "mid",
+  "impl-2": "prev"
+ },
+ "export-purge-command": {
+  "impl-1": "prev",
+  "impl-2": "mid"
+ },
+ "stock-sync-dispatcher": {
+  "impl-1": "mid",
+  "impl-2": "prev"
+ },
+ "queue-bugfix": {
+  "impl-1": "prev",
+  "impl-2": "mid"
+ },
+ "inactive-count": {
+  "impl-1": "mid",
+  "impl-2": "prev"
+ }
+}

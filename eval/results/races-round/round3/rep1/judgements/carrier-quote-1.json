@@ -1,0 +1,104 @@
+{
+ "key": "carrier-quote",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 8.8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Carrier rate items are not shape-checked: {\"rates\":[\"x\"]} is passed through as estimated:false (minor)"
+   ],
+   "antipatterns": [
+    "app/Http/Controllers/ShippingQuoteController.php:22 fallback_cents not cast to int at use site (relies on config cast)",
+    "tests/Feature/ShippingQuoteTest.php:9 global const and global helper function (expectFallback) in a test file can collide across files",
+    "tests/Feature/ShippingQuoteTest.php:85 manual closure counters instead of Http::sequence()->pushFailedConnection()"
+   ],
+   "strengths": [
+    "Http::retry(3, 0, when) with a named isTransient predicate: retries only ConnectionException and 5xx, no sleeps, 3\u00d71.5s timeout inside 5s",
+    "handleFailure(): never cleanly maps 404\u2192UnknownPostcode, 401\u2192report original RequestException + fallback",
+    "Form Request with validated('postcode'); invokable controller",
+    "Http::preventStrayRequests globally in Pest.php; Exceptions::fake with assertReported predicate on status 401 and assertNothingReported for transient failures",
+    "Covers 5xx recovery, timeout recovery, exhaustion, configured fallback, malformed body, array postcode"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 5,
+    "validation_form_requests": 6,
+    "eloquent_idioms": 7,
+    "architecture_fit": 6,
+    "modern_laravel": 6,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 6,
+    "simplicity": 6
+   },
+   "overall": 5.8,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "Malformed rate items from the carrier (e.g. {\"rates\":[\"x\"]} or a rate missing price_cents) cause an uncaught TypeError/ErrorException \u2192 HTTP 500 instead of the fallback (CarrierClient.php:74-77)",
+    "Every transient 5xx/timeout fallback is report()ed (ShippingQuoteController.php:25), so normal carrier flakiness triggers alerts, drowning out the 401 signal"
+   ],
+   "antipatterns": [
+    "app/Services/CarrierClient.php:30-63 hand-rolled retry loop instead of Http::retry() with a when-callback",
+    "app/Http/Controllers/ShippingQuoteController.php:15 inline $request->validate instead of a Form Request",
+    "app/Services/CarrierClient.php:74 array_values(array_map(...)) where collect()->map() or plain pass-through would do; normalisation without guarding shape",
+    "tests/Feature/ShippingQuoteTest.php:102 resolving ExceptionHandler and registering reportable()->stop() instead of Exceptions::fake()",
+    "app/Services/CarrierClient.php:53 401 reported as a wrapper exception without previous/response context"
+   ],
+   "strengths": [
+    "Explicit connectTimeout + timeout; 3\u00d71.5s within budget with no sleeps",
+    "Clear status branching: 404 no retry, 401 no retry, other 4xx no retry, 5xx retried",
+    "Http::preventStrayRequests in tests; dataset for invalid postcodes including empty and array",
+    "Tests cover retry-then-success, connection failure exhaustion with configured fallback, malformed body"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 7,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.4,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Carrier rate items are not shape-checked: {\"rates\":[\"x\"]} is passed through as estimated:false (minor)"
+   ],
+   "antipatterns": [
+    "tests/Pest.php:4-5 unused imports of Http and Sleep left behind",
+    "tests/Feature/ShippingQuoteTest.php: Sleep is never faked, so the 100ms retry backoff really sleeps in tests (suite 1.4s vs ~0.2s); no Http::preventStrayRequests",
+    "app/Services/CarrierClient.php:42,56-61 side-effecting report() hidden inside a match arm helper",
+    "app/Services/CarrierClient.php:29-30 magic timeout numbers inline with an explanatory comment rather than named constants"
+   ],
+   "strengths": [
+    "Http::retry with ConnectionException/serverError predicate; 3\u00d71.4s + 2\u00d7100ms within 5s, connectTimeout set",
+    "UnknownPostcode renders its own 422 JSON via render(); both exceptions implement ShouldntReport; controller only handles the fallback",
+    "throw match on status is concise error mapping; 401 reports the original RequestException",
+    "Form Request with digits:4",
+    "Tests use pushFailedConnection, a dataset of 5xx/connection/mixed exhaustion asserting nothing reported, Exceptions::assertReportedCount for 401, wide invalid-postcode dataset"
+   ]
+  },
+  "rationale": "All three suites pass. Probes checked the timeouts passed to each request, malformed carrier bodies, a 503 followed by a 401, 429/400 responses, whether transient failures get reported, and unusual postcode inputs. impl-1 and impl-3 behave correctly in every probe. Their only gap is that individual rate items are not shape-checked. impl-1 wins narrowly on test hygiene: it blocks real network calls for the whole suite, never sleeps, and asserts exactly what was reported. impl-3 has the most elegant error design (a self-rendering unknown-postcode exception, ShouldntReport, throw match) and the broadest test coverage, but leaves unused imports in tests/Pest.php, does real 100ms sleeps in tests, and doesn't block stray network calls. impl-2 is last: malformed rate items crash it with a 500 instead of serving the fallback, it reports every transient failure (alert noise), it hand-rolls the retry loop instead of using Http::retry, it validates inline, and its 401 test registers a custom reporting hook instead of using Exceptions::fake()."
+ },
+ "cost_usd": 0.46810979999999996
+}

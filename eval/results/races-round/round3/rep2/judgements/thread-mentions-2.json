@@ -1,0 +1,70 @@
+{
+ "key": "thread-mentions",
+ "judge": 2,
+ "v": {
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 8.6,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Actions/NotifyMentionedUsers.php:25 mail and notifications are sent synchronously in the request and are not queued. If mail fails partway through the loop, only some users get their mail and notification, and the client gets a 500 even though the reply was saved.",
+    "tests/Feature/ThreadReplyTest.php:161 the failure test only covers a failure while creating the reply. Nothing tests a failure during the reply_count increment, so the transaction's rollback of the reply is never proven.",
+    "database/migrations/2026_11_07_190000_add_username_to_users_table.php:12 username is nullable, so the 'unique, lowercase username' rule is only enforced by the factory and the mutator, not the schema."
+   ],
+   "strengths": [
+    "Thread::addReply (app/Models/Thread.php:31) keeps the reply save and the counter increment in one transaction on the model, and notifications are sent only after the commit returns.",
+    "`protected $attributes = ['reply_count' => 0]` means a freshly created Thread already has reply_count 0 in memory (my probe confirmed this).",
+    "str()->matchAll()->map()->unique() is clean, fluent mention parsing. The lookbehind `(?<![\\w@])` with /u rejects email addresses and `@@name`, and it handles Unicode usernames (probe: `@J\u00f6s\u00e9` matched).",
+    "mb_strtolower in both the username mutator and the parser keeps them consistent.",
+    "whereKeyNot excludes the author, and one whereIn query fetches every mentioned user.",
+    "Tests are focused: setUp fakes Mail, a reply() helper keeps them short, they check that each mail has exactly one `to` recipient, and they cover dedupe across case, self-mentions, email addresses, unknown usernames, lowercase storage and uniqueness."
+   ]
+  },
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8.2,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Models/Thread.php: there is no `$attributes` default for reply_count, so a newly created Thread has reply_count === null in memory until refreshed, even though the DB holds 0 (probe: Thread::factory()->create()->reply_count is null).",
+    "app/Actions/StoreReply.php:41 the mention regex is ASCII-only and strtolower is used instead of mb_strtolower. Combined with the ASCII-only User mutator, `@J\u00f6s\u00e9` does not match the user 'j\u00f6s\u00e9' (probe: 0 mails), and `@@bob` is treated as a mention of bob (probe: 1 mail)."
+   ],
+   "antipatterns": [
+    "app/Actions/StoreReply.php:41 uses raw preg_match_all plus collect($matches[1]) where Str::matchAll would be the fluent helper.",
+    "app/Actions/StoreReply.php:28 mail and notifications are sent synchronously and are not queued, so a mail failure partway through leaves a partial fan-out and returns a 500 after the reply has been saved.",
+    "database/migrations/2026_11_07_205317_add_username_to_users_table.php:12 username is nullable."
+   ],
+   "strengths": [
+    "A single invokable StoreReply action holds the transaction (save plus increment), and it notifies only after the commit. The invokable controller is a clean fit.",
+    "The strongest tests: they include a failure in the increment that proves the reply is rolled back and nothing is sent, they assert there is no cc/bcc on each mail, they check exact validation messages, they test the mail subject and rendering, and they test guest 401 with and without a JSON Accept header.",
+    "They use Sanctum::actingAs and Http::preventStrayRequests.",
+    "The markdown mailable uses x-mail components.",
+    "whereKeyNot excludes the author, and one whereIn query fetches the mentioned users."
+   ]
+  },
+  "rationale": "The two are very close in structure: both use a FormRequest, a transaction around the save and increment, notifications sent after the commit, whereIn with whereKeyNot, the #[Fillable] attribute, and the same notification payload. Both pass all their tests and my probes for punctuation around mentions and rollback on an increment failure. impl-1 has the better tests, notably the increment-rollback case and the cc/bcc privacy check. But my probes found small correctness gaps in impl-1 that impl-2 does not have. A new Thread's reply_count is null in memory because there is no attribute default. Mention parsing and lowercasing are ASCII-only, so a Unicode username is never notified. `@@bob` is also treated as a mention. impl-2 is also slightly more idiomatic: Str::matchAll instead of raw preg_match_all, and the reply-adding logic lives on the Thread model. Because real bugs weigh more than test breadth, impl-2 ranks first by a narrow margin."
+ },
+ "cost_usd": 0.37293980000000004
+}

@@ -1,0 +1,69 @@
+{
+ "key": "thread-mentions",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Models/Reply.php:34 \u2014 the mention regex `/(?<!\\w)@(\\w+)/` has no `/u` flag, so `\\w` works on bytes. The lookbehind does not see a multibyte letter: 'caf\u00e9@bob.example' notifies and emails @bob (probe confirmed), even though the task's own tests treat email addresses as non-mentions.",
+    "app/Models/Reply.php:34 \u2014 '@bob\u00e9' is truncated to 'bob' and notifies bob (probe confirmed). '@@bob' also counts as a mention.",
+    "app/Models/Thread.php \u2014 there is no `$attributes` default for reply_count, so a freshly created Thread has reply_count === null in memory until it is refreshed (probe confirmed). The DB default is correct."
+   ],
+   "antipatterns": [
+    "app/Models/Reply.php:34-36 \u2014 uses raw preg_match_all plus collect($matches[1]) where str()->matchAll() would do the same job.",
+    "app/Models/Reply.php:32 \u2014 mentionedUsers() puts a cross-model User query and text parsing on the Reply model, while a separate NotifyMentionedUsers action also exists. The responsibility is split across two places.",
+    "app/Actions/NotifyMentionedUsers.php:15-16 \u2014 the mail is queued but the database notification is sent synchronously. The delivery semantics are inconsistent, though harmless here."
+   ],
+   "strengths": [
+    "The reply insert and the counter increment share one DB::transaction in Thread::addReply. Notifications are dispatched only after it returns, so a failed write sends nothing.",
+    "The mailable is queued (ShouldQueue + SerializesModels), which suits production. Each mail goes through Mail::to($user), addressed to one recipient.",
+    "Thorough tests: the failure path through a 500 response, a check for no cc/bcc, case-insensitive deduplication, self-mention, email addresses, validation messages, guest access with and without the Accept header, and a username uniqueness/lowercase test.",
+    "Uses Sanctum::actingAs, Reply::sole(), and the modern #[Fillable] attribute with an Attribute mutator."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Actions/NotifyMentionedUsers.php:26 \u2014 the mailable is sent synchronously inside the request (not ShouldQueue). If an SMTP failure hits partway through the loop, the reply is committed but only some users are notified, and the API returns a 500.",
+    "tests/Feature/ThreadReplyTest.php:169-173 \u2014 uses a try/catch plus $this->fail() where asserting a 500 response (or expectException with assertions in a finally block) would be cleaner.",
+    "tests/Feature/ThreadReplyTest.php:34 \u2014 the reply() helper has no return type."
+   ],
+   "strengths": [
+    "Mention parsing uses str()->matchAll() with a unicode-aware regex and a `(?<![\\w@])` lookbehind. Probes confirmed that 'caf\u00e9@bob.example', '@bob\u00e9' and '@@bob' do not notify anyone, while '(@bob)' and '@bob.' do.",
+    "Insert and increment share one transaction in Thread::addReply; notifications go out only after the commit. The failure test fakes both Mail and Notification and checks that the counter and replies are unchanged.",
+    "Thread sets `$attributes = ['reply_count' => 0]`, so in-memory models match the DB default.",
+    "Lean, cohesive code: one invokable action holds both the parsing and the dispatch, the controller is thin, the FormRequest is minimal, and relations go through make/associate. The username mutator lowercases on write, and the factory generates unique lowercase usernames.",
+    "The tests cover distinct and case-insensitive mentions, unknown names, email addresses, self-mention, recipient privacy (count of to === 1), the 2000/2001 boundary, a 404, and mail rendering."
+   ]
+  },
+  "rationale": "The two implementations are almost structurally identical: the same migrations, the same transactional Thread::addReply, the same controller and action layout, and the same notification payload. The ranking comes down to mention parsing. Probes showed that impl-1's regex has no /u flag and its lookbehind does not exclude '@'. As a result, 'caf\u00e9@bob.example' and '@bob\u00e9' wrongly notify and email @bob, and '@@bob' counts as a mention. This contradicts impl-1's own intent of ignoring email addresses. impl-2 handles all three cases correctly, and its fluent str()->matchAll() pipeline is more idiomatic. impl-1 also leaves reply_count null in memory on new Threads, where impl-2 sets a model default. In impl-1's favour: it queues the mailable, which is better for production resilience, and its tests are slightly more thorough (an explicit no-cc/bcc check, the guest case without an Accept header, and the failure path asserted through the HTTP 500). Those are not enough to outweigh a real false-positive notification bug, so impl-2 ranks first."
+ },
+ "cost_usd": 0.3951658
+}

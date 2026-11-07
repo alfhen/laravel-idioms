@@ -1,0 +1,90 @@
+{
+ "key": "csv-import",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 6
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "app/Imports/ProductRow.php:23-27 builds reasons that include the raw cell value (for example `price \"{$price}\" is not numeric`). import_row_errors.reason is a varchar(255). In a probe, a 300-character price produced a 323-character reason. SQLite stored it, but MySQL/Postgres in strict mode would throw, roll back the chunk, and eventually fail the whole import.",
+    "If a job dies after some chunks have committed, the retry resets the totals. Products upserted in earlier chunks are then counted as 'updated' instead of 'created', so the counts are wrong on retry (impl-2 shares this problem).",
+    "app/Imports/ProductRow.php:41 calls number_format, which silently rounds prices with more than 2 decimals (1.999 becomes 2.00) instead of rejecting them."
+   ],
+   "antipatterns": [
+    "app/Imports/ProductRow.php:11-29 hand-rolls row validation with a static match(true) and regexes instead of using the Validator, so the rules are duplicated outside Laravel's validation layer.",
+    "app/Jobs/ProcessImport.php:83 passes the totals array by reference (&$totals) through a transaction closure, which is awkward mutable state.",
+    "app/Jobs/ProcessImport.php:93 sets created_at/updated_at by hand inside the bulk insert payload.",
+    "app/Http/Controllers/ImportController.php:17 and app/Imports/ProductCsvReader.php:20 hardcode the 'local' disk in two places.",
+    "database/migrations/2026_11_07_194732_create_imports_table.php:27 adds an index on (status, started_at) that nothing queries.",
+    "app/Http/Controllers/ImportController.php:18 adds a defensive abort_if(503) when the file fails to store.",
+    "app/Jobs/ProcessImport.php:102-107 computes created/updated by counting existing SKUs before the upsert; this is clever but harder to read than counting per row."
+   ],
+   "strengths": [
+    "Installs Sanctum and protects the routes with auth:sanctum, so the API can actually be called by stateless clients.",
+    "bootstrap/app.php redirectGuestsTo returns null for api/* paths, so guests get a 401 instead of a 500 from a missing login route (confirmed with a probe).",
+    "Route-level ->can('view','import') keeps the controller to two short methods.",
+    "A LazyCollection streaming reader with chunk(500), a transaction per chunk, and a bulk upsert scales well to 5MB files.",
+    "An atomic status claim (update ... whereIn status) makes the job idempotent; re-running it does not repeat work or send a second email.",
+    "Structural CSV problems (missing columns, missing file) are surfaced through $this->fail() into failure_message, which the API exposes.",
+    "Uses modern Laravel 13 features: queue attributes (Tries/Backoff/Timeout/DeleteWhenMissingModels/WithoutRelations), the #[Fillable] attribute, the casts() method, and an enum cast.",
+    "Thorough tests: BOM handling, header case and column order, blank lines, duplicate SKUs, the exact 5MB boundary, a missing file, re-run idempotency, mail content, and auth (401/403/404)."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 6,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "routes/api.php:6 protects the API with middleware('auth'), which falls back to the session-based 'web' guard. The api group has no session middleware and no token guard was added (the only guard is 'web'), so real API clients can never authenticate. The endpoints only work in tests through actingAs.",
+    "A guest who sends a non-JSON request to GET /api/imports/{id} gets a 500 (Route [login] not defined) instead of a 401. Confirmed with a probe.",
+    "app/Jobs/ProcessProductImport.php:106-112: failed() records no failure reason, so a failed import tells the user nothing.",
+    "The header check in the job throws a RuntimeException, which gets retried 3 times even though the error can never recover.",
+    "app/Jobs/ProcessProductImport.php:79-80 stores price and stock untrimmed (only sku and name are trimmed), and decimals beyond 2 places are silently rounded.",
+    "A partial failure followed by a retry produces wrong created/updated counts, because upserts are not in a transaction and the counters restart."
+   ],
+   "antipatterns": [
+    "app/Http/Controllers/ImportController.php:17 together with app/Policies/ImportPolicy.php:10-13 is a create policy that always returns true: pure ceremony.",
+    "app/Jobs/ProcessProductImport.php:75 runs updateOrCreate per row with no transaction or batching, which means two or more queries per row for files up to 5MB.",
+    "app/Models/Import.php:35 names the relation `errors`, which is ambiguous next to validation 'errors' and reads poorly in the resource.",
+    "app/Models/Import.php:19 puts the CSV column list (COLUMNS) on the Eloquent model, mixing parser concerns into the model.",
+    "app/Http/Requests/StoreImportRequest.php:31-42 duplicates the BOM/header parsing that lives in the job's readHeader.",
+    "app/Jobs/ProcessProductImport.php:59 builds every row error in an in-memory array before inserting."
+   ],
+   "strengths": [
+    "Row validation uses Laravel's Validator with declarative rules, so reasons come from standard, fixed-length messages.",
+    "The FormRequest uses File::types()->max() and an after() hook that rejects files with missing headers at upload time (422), with no side effects.",
+    "Uses apiResource()->only(), dispatch()->afterCommit(), the #[Table(timestamps:false)] attribute, queue attributes, and an enum cast.",
+    "The resource uses whenLoaded for errors, and the controller stays thin.",
+    "The job is simple and readable; wasRecentlyCreated gives straightforward created/updated counting.",
+    "Good tests: quoted commas, extra columns, BOM, an exact 5MB file with real content, double runs, and the missing-file failure path."
+   ]
+  },
+  "rationale": "Both suites pass (impl-1: 17 tests; impl-2: 22 tests). impl-1 ranks first because it delivers a working authenticated API: it installs Sanctum with auth:sanctum and returns a 401 to guests on api/* routes. impl-2 guards the API with the session-based 'auth' guard but registers no token guard, so stateless clients can never authenticate, and a guest's non-JSON request returns a 500 (missing login route). Both of these were confirmed with probes. impl-1 also handles jobs better: an atomic claim makes it idempotent, it streams the file and bulk-upserts in chunks inside transactions, and it records a failure_message the API exposes. impl-1's weak points are hand-rolled row validation instead of the Validator, a little extra ceremony (an unused index, a reference-passed totals array), and a real but database-dependent bug: reasons that embed the raw cell value can exceed the varchar(255) reason column on strict databases. impl-2 is more idiomatic in places: Validator-based row rules, header validation in the FormRequest, apiResource, and afterCommit. But it carries a do-nothing create policy, runs one or more queries per row with no transaction, and stores no failure reason. The auth defect, which makes the feature unusable outside tests, outweighs those idiom advantages."
+ },
+ "cost_usd": 0.572926
+}

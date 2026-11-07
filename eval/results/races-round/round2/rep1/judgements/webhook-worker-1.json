@@ -1,0 +1,84 @@
+{
+ "key": "webhook-worker",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "StoreWebhookEventRequest.php:17 'data' => required|array rejects a validly signed event with an empty data object ({}) with 422 (probe confirmed), so the provider will keep redelivering it; 'present' would accept it",
+    "ReceiveWebhookController.php:16 stores only the validated keys, so the stored payload silently drops any extra top-level fields the provider sends (probe confirmed); the raw event is not kept as delivered",
+    "README stopwaitsecs=3660 is sized against --max-time instead of the longest job, which is the wrong bound (minor documentation issue)"
+   ],
+   "antipatterns": [
+    "app/Jobs/ProcessWebhookEvent.php:106 uses `markPaid(...) && $order->user->notify(...)` inside a match arm, so side effects are driven by a boolean short-circuit. An if statement would be clearer",
+    "app/Console/Commands/RedispatchStuckWebhookEvents.php plus routes/console.php:13 add a stuck-event recovery command and a 5-minute schedule the task didn't ask for. This is extra moving parts",
+    "app/Models/Order.php:73 transitionTo() calls refresh() after every conditional update, which costs an extra query each time (minor)"
+   ],
+   "strengths": [
+    "Order transitions are claimed atomically with a conditional UPDATE ... WHERE status IN (...), so a repeated or out-of-order event can't overwrite a later state, and the receipt is sent only when the transition actually happened",
+    "Refunds are deduplicated by provider refund_id, which the job validates together with amount, so the same refund delivered under different event ids doesn't create a second row",
+    "Job is idiomatic: Backoff/MaxExceptions/Timeout attributes, retryUntil, WithoutOverlapping keyed by event, RateLimited with a named perSecond(10) limiter, failed() marks the event failed, 429 releases using a capped Retry-After, 4xx/validation/missing order call fail()",
+    "The receipt notification uses ShouldQueueAfterCommit and is sent inside the transaction",
+    "Failed events can be reprocessed with queue:retry, because handle() only short-circuits on Processed",
+    "MassPrunable plus a scheduled model:prune, and route-level ->can() with policy auto-discovery",
+    "Thorough Pest tests: 429 release, 4xx/5xx/connection errors, rate limiter behaviour across 12 jobs, idempotent refund, out-of-order events, an end-to-end test through the HTTP endpoint, and a schedule assertion",
+    "Detailed README on worker deployment (shared cache, --tries=0, timeout nesting, queue:restart, scheduler)"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 7.3,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Refund is keyed by webhook event_id (Order.php:65), not by the provider's refund id, so the same refund delivered under two event ids creates two Refund rows (probe: 2 rows)",
+    "ProcessWebhookEvent.php:121 refund amount falls back to the provider payment amount or the full order amount when the payload has none. A refund event without an amount silently records a full refund (probe: 9999)",
+    "Order::refund (Order.php:70) sets status Refunded from any state, including a Pending or PaymentFailed order that was never paid",
+    "A Failed event can never be reprocessed: handle() returns early on isFinished(), queue:retry is a no-op, and provider redelivery is deduplicated as 'duplicate'. Recovery needs a manual DB edit (the README admits this)",
+    "markAsFailed doesn't record when the failure happened (only updated_at)"
+   ],
+   "antipatterns": [
+    "bootstrap/app.php: apiPrefix '' with both the public webhook and the admin route put in routes/api.php mixes concerns and hides the /api prefix inside route strings",
+    "app/Jobs/ProcessWebhookEvent.php:82 fetchDetails returns null as a 'released' sentinel and [] for unknown types. This is control flow by magic return values",
+    "app/Models/Order.php:38 markAsPaid checks the in-memory status rather than using an atomic conditional update. It relies on lockForUpdate, which SQLite ignores",
+    "tests/Pest.php: Sleep::fake() is applied globally but nothing in the code uses Sleep",
+    "tests/Feature/ProcessWebhookEventTest.php:170 hand-builds the RateLimiter cache key md5('payment-provider'.'payment-provider'), which couples the test to framework internals"
+   ],
+   "strengths": [
+    "Request validation is more precise: data is 'present' and data.payment_id is required_if for known types, so empty data is accepted for unknown types",
+    "Strong queue idioms: Timeout/MaxExceptions/Backoff/DeleteWhenMissingModels attributes, retryUntil, WithoutOverlapping by event_id, RateLimited, failed() using fresh(), ShouldQueueAfterCommit receipt, and a dedicated PermanentWebhookFailure exception",
+    "Pruning is scheduled with onOneServer and withoutOverlapping, and an attempts counter is exposed in the admin resource",
+    "Model::shouldBeStrict is enabled outside production",
+    "Good tests: holds the real overlap lock to show the job is skipped, a 5xx-then-success sequence, 429 release, receipt rendering, and prune boundaries",
+    "Clear README on workers, timeouts, a shared cache and failed-job handling"
+   ]
+  },
+  "rationale": "Both suites pass (impl-1: 42 tests, impl-2: 43). They share the same core design: createOrFirst for dedup, a queued job with WithoutOverlapping and RateLimited, Backoff/MaxExceptions attributes, retryUntil, failed() and MassPrunable. They differ in correctness of the domain logic. In impl-1, order transitions are atomic conditional updates. Refunds are deduplicated by the provider refund id, and the job requires the refund amount. Failed events can be retried. Its only real gaps are that a signed event with empty data gets a 422, and extra payload keys are dropped on storage. In impl-2, refunds are keyed by webhook event id, so the same refund under two event ids creates two rows (probe confirmed). It silently records the full order amount when the payload has no amount, and it marks unpaid orders as refunded. A failed event can't be reprocessed at all, not through queue:retry and not through redelivery. impl-2 does have somewhat better intake validation and nice extras (onOneServer, DeleteWhenMissingModels, lock-holding test), but those don't outweigh the refund-handling bugs. impl-1 adds a stuck-event recovery command the task didn't ask for, which costs a little on simplicity. It still ranks first."
+ },
+ "cost_usd": 0.7748328
+}

@@ -1,0 +1,106 @@
+{
+ "key": "carrier-quote",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 9,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Minor: the fallback price_cents is not cast to int in ShippingQuoteController.php:22. It only becomes a string if someone sets config at runtime as a string (a probe returned \"1295\"). The config file already casts it, so production is unaffected."
+   ],
+   "antipatterns": [
+    "app/Services/CarrierClient.php:31 sets only timeout(1.5) and no connectTimeout. The total timeout still caps each attempt, so this is acceptable, but the connect budget is implicit.",
+    "app/Services/CarrierClient.php:41 checks only that rates is an array, not the shape of each item. A probe showed a malformed item passes straight through to checkout.",
+    "tests/Feature/ShippingQuoteTest.php:9 declares a global const in the test file, which leaks into the global namespace."
+   ],
+   "strengths": [
+    "Http::retry(3, 0, when) uses a transient-only predicate (ConnectionException or serverError), so 404 and 401 are never retried. Probes confirmed a single call for 429/400/401/404.",
+    "Worst case is 3 \u00d7 1.5s = 4.5s with zero sleep, which stays inside the 5s budget. A comment documents that invariant.",
+    "Exception mapping is clean: domain exceptions plus a `never`-typed handleFailure. Only the 401 calls report(), so flaky 5xx responses don't create alert noise.",
+    "Uses a FormRequest with validated('postcode'), and the controller is thin.",
+    "Http::preventStrayRequests is applied globally in Pest.php. Tests use Exceptions::fake/assertReported and cover the 401-not-retried case, no reports for transient failures, a malformed body, a configured fallback, timeouts and recovery after a 5xx."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 5,
+    "validation_form_requests": 6,
+    "eloquent_idioms": 7,
+    "architecture_fit": 6,
+    "modern_laravel": 6,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 6,
+    "simplicity": 6
+   },
+   "overall": 5.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "app/Services/CarrierClient.php:74-77: a 200 response with a rate item missing service or price_cents crashes with ErrorException 'Undefined array key' and returns HTTP 500 to checkout instead of the fallback (confirmed by probe). The defensive normalisation it adds is itself the crash site.",
+    "ShippingQuoteController.php:25 reports every CarrierUnavailableException, including ordinary transient 5xx and timeouts. Reporting the 401 alone, which is the alerting signal the task asks for, gets drowned in flaky-carrier noise."
+   ],
+   "antipatterns": [
+    "app/Services/CarrierClient.php:30-61 hand-rolls a for/continue retry loop with a $last variable instead of using Http::retry() with a when-callback.",
+    "ShippingQuoteController.php:15-17 validates inline with $request->validate(...)['postcode'] rather than through a FormRequest.",
+    "ShippingQuoteController.php:19-33 uses mutable $estimated/$rates assignments across the try/catch branches, which is harder to follow than returning early.",
+    "app/Services/CarrierClient.php:74 uses array_values(array_map(...)) where collect()->map()->values() would be the idiomatic choice.",
+    "tests/Feature/ShippingQuoteTest.php:101-105 hooks into reportable()->stop() on the handler instead of using Exceptions::fake().",
+    "app/Services/CarrierClient.php:13 has a misleading comment ('1s connect + 1.5s total'). Guzzle's timeout already includes the connect time."
+   ],
+   "strengths": [
+    "Sets both connectTimeout(1) and timeout(1.5) with no sleeps, giving a 4.5s worst case.",
+    "Retries only connection errors and 5xx. 401, 404 and other 4xx fail fast, and probes confirmed single calls.",
+    "Http::preventStrayRequests is used, and tests cover the 401 no-retry case, malformed bodies, retry-then-success and a configured fallback."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 6,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "The test suite really sleeps: retry(3, 100) runs without Sleep::fake(), so the suite takes about 1.5s versus about 0.2s for the others. Pest.php imports Sleep and Http but never uses them.",
+    "There is no Http::preventStrayRequests. Tests such as 'requires a postcode' run without a fake, so a regression could hit the real network."
+   ],
+   "antipatterns": [
+    "tests/Pest.php:4-5 has unused imports for Http and Sleep, apparently a fake-sleep/stray-request setup that was planned but never wired in.",
+    "tests/Feature/ShippingQuoteTest.php:61-63 is a reflection test (is_subclass_of ShouldntReport) rather than a behavioural one.",
+    "tests/Feature/ShippingQuoteTest.php:126-131 and 146-151 register reportable() closures that return false instead of using Exceptions::fake().",
+    "tests/Feature/ShippingQuoteTest.php:7-8 shares fixtures through file-scope $rates/$fallback variables captured by `use`, which is awkward in Pest.",
+    "routes/api.php:11 adds a throttle:60,1 middleware nobody asked for.",
+    "app/Services/CarrierClient.php:27 puts an inline comment inside the fluent chain. app/Services/CarrierClient.php:41 also reports every other 4xx and malformed payloads, which is broader than asked but defensible."
+   ],
+   "strengths": [
+    "Uses Http::retry with a when-callback and a 100ms sleep, and retries 429 sensibly. The budget is 3 \u00d7 1.4s + 0.2s = 4.4s, and it also sets connectTimeout(1).",
+    "UnknownPostcode implements ShouldntReport and render(), so the controller only handles the fallback. The digits:4 rule is idiomatic.",
+    "Reports only the 401 and other non-transient failures, never 5xx or 429.",
+    "Tests use Http::failedConnection/pushFailedConnection, which are the modern fake helpers, and cover the 401 no-retry case, no reports for transient failures, malformed payloads and the configured fallback."
+   ]
+  },
+  "rationale": "I ran the test suite for all three; every one passes. I also put nine throwaway probes through each one (429, 400, a malformed rate item, an HTML 200, a connection error then 404, 500 then 401, a string fallback config, newline and fullwidth-digit postcodes, and the timeout options), then deleted them.\n\nimpl-1 is the cleanest. It uses Http::retry with a transient-only predicate and zero sleep inside a documented 4.5s budget. It maps the domain exceptions with a never-typed helper and reports only the 401. It uses a FormRequest, a global preventStrayRequests and Exceptions::fake in tests. I found no real bugs.\n\nimpl-3 is close behind on production code: ShouldntReport/render on the exception, digits:4, and a sensible 429 retry. It loses ground on test hygiene: real sleeps because Sleep is never faked, no preventStrayRequests, unused imports in Pest.php, a reflection-only test and hand-rolled reportable hooks. It also adds an unrequested throttle middleware.\n\nimpl-2 hand-rolls the retry loop, validates inline and reports every transient failure, which buries the 401 alert in noise. It also has a real bug I confirmed with a probe: a 200 response with a malformed rate item crashes with an undefined-key ErrorException and returns 500 to checkout instead of the fallback."
+ },
+ "cost_usd": 0.501713
+}

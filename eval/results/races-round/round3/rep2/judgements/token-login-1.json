@@ -1,0 +1,68 @@
+{
+ "key": "token-login",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 9
+   },
+   "overall": 6.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Unauthenticated requests without an `Accept: application/json` header, such as `DELETE /api/auth/token` or `GET /api/me`, return 500 instead of 401. The Authenticate middleware tries to redirect to a `login` route that doesn't exist (probe: `$this->delete('/api/auth/token')` and `$this->get('/api/me')` both returned 500). The fix is `redirectGuestsTo` in bootstrap/app.php.",
+    "Sending `email` as an array (`{\"email\":[\"a@b.c\"]}`) returns 500 instead of 422, because the throttle key is built with `str($request->input('email'))` (app/Providers/AppServiceProvider.php:25-27) before validation runs."
+   ],
+   "antipatterns": [
+    "app/Providers/AppServiceProvider.php:26 uses `str($request->input('email'))` instead of `$request->string('email')`. It breaks on non-string input, and the `->trim()` does nothing because the TrimStrings middleware has already trimmed the value.",
+    "app/Providers/AppServiceProvider.php:25 relies on the throttle middleware, which counts successful logins and 422 responses towards the limit. That is acceptable for this spec, but it was not stated as a deliberate choice.",
+    "tests/Feature/TokenAuthTest.php:183 asserts `Hash::check` on the stored password inside the end-to-end test. This is unrelated noise."
+   ],
+   "strengths": [
+    "Thin controllers in an Auth namespace. Login and revoke use the same `TokenController` with `store` and `destroy` methods, plus an invokable `MeController`.",
+    "FormRequest uses `validated()`. The same generic 401 message is returned for an unknown email and a wrong password, so the endpoint does not reveal which emails have accounts.",
+    "The named RateLimiter is keyed on lowercased email plus IP, so changing the email's letter case does not reset the limit.",
+    "Thorough Pest tests: required fields via a dataset, case-insensitive throttling, limits per email and per IP, reset after `travel`, revoking only the current token, a revoked token becoming unusable, and an exact JSON body for `/me`."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 9
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Sending `email` as an array returns 500 instead of 422, because the throttle key is built from `$request->string('email')` (app/Providers/AppServiceProvider.php:25-26) before validation runs."
+   ],
+   "antipatterns": [
+    "app/Providers/AppServiceProvider.php:25 relies on the throttle middleware, which also counts successful logins and validation failures towards the 5-per-minute limit. This is a minor point.",
+    "tests/Feature/TokenAuthTest.php:20 has a class-wide `beforeEach` user. It is used even by tests that don't need it, such as the guest tests."
+   ],
+   "strengths": [
+    "bootstrap/app.php:16 adds `redirectGuestsTo(... is('api/*') ? null ...)`, so guests without an `Accept: application/json` header get 401 instead of 500. The tests cover this with `$this->delete` and `$this->get` (TokenAuthTest.php:157,177).",
+    "The rate-limit key uses `$request->string('email')->lower()`, the idiomatic request helper.",
+    "The tests are slightly broader: a malformed email, `assertTooManyRequests`, checking that even correct credentials are blocked after the limit, case-insensitive throttling, limits per email and per IP, reset after `travel`, revoking only the current token, rejecting a revoked token, and exact JSON for `/me`.",
+    "Uses the spread operator in the `credentials()` test helper. Controllers stay thin and use a FormRequest."
+   ]
+  },
+  "rationale": "The two implementations are almost the same: the same FormRequest, the same generic 401 for bad credentials, the same named rate limiter keyed on lowercased email plus IP, `currentAccessToken()->delete()` with a 204 response, and `only(['id', 'name', 'email'])` for `/me`. Both pass their test suites (19 tests each). My probes showed both return 429 when the same email is resent with extra spaces or different letter case. Both return 500 when `email` is sent as an array, because the throttle key is built before validation runs.\n\nThe deciding difference is clients that don't send an `Accept: application/json` header. In impl-1, an unauthenticated request without that header returns 500 because the app has no `login` route. That breaks the \"correct status codes for every client\" part of the focus area. impl-2 handles it with `redirectGuestsTo` and tests it. impl-2 also has slightly better tests (a malformed email, and checking that correct credentials are still blocked after the limit) and uses the more idiomatic `$request->string()`. impl-2 ranks first."
+ },
+ "cost_usd": 0.275976
+}

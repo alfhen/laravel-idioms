@@ -1,0 +1,72 @@
+{
+ "key": "sales-report",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 10,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 8
+   },
+   "overall": 8.8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Reports/BuildSalesReport.php:31 re-states the revenue expression with DB::raw even though the REVENUE constant at line 15 already holds the same SQL; it could use selectRaw(self::REVENUE)->value() instead",
+    "app/Reports/BuildSalesReport.php:43-82 keeps all three aggregate queries inline in one long return array, and repeats the orders/customers join twice; named private methods would read better",
+    "app/Http/Requests/SalesReportRequest.php:30 docblock promises CarbonImmutable, but $this->date() returns whatever the Date facade is configured for",
+    "app/Http/Requests/SalesReportRequest.php:37-40 calls filled(... ?? null) on every key, which is a bit of ceremony"
+   ],
+   "strengths": [
+    "Thin invokable controller with a FormRequest that exposes typed filters(); the report logic lives in a dedicated invokable class",
+    "Rules use nullable, so empty params such as ?status= or ?from=&to=X fall back to defaults (probe confirmed); uses alpha:ascii plus size:2, Rule::enum, after_or_equal, and uppercases/trims country in prepareForValidation",
+    "Modern Laravel throughout: #[Scope] attribute scopes, #[Fillable], casts() method, enum cast, Number::currency",
+    "Uses whereIn subqueries, so order count isn't inflated by joins; toBase() avoids hydrating models for aggregate rows; tie-breaking ordering is deterministic",
+    "Thorough tests: inclusive date boundaries, orders with no items counted in AOV, empty-string params, array params, thousands separators, the top-5/top-3 caps, and unit_price used over product price"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Empty optional params return 422 instead of being treated as absent. ConvertEmptyStringsToNull turns them into null, and the rules lack nullable, so ?status= gives 422 rather than defaulting to paid. ?from=&to=2026-03-31 and ?country= fail too (probe confirmed). Rules are at app/Http/Requests/SalesReportRequest.php:22-25"
+   ],
+   "antipatterns": [
+    "app/Http/Controllers/SalesReportController.php:13 spreads the filters() array as named arguments into the report, which silently couples array keys to parameter names",
+    "app/Http/Requests/SalesReportRequest.php:24 uses plain 'alpha' instead of 'alpha:ascii', so non-ASCII letters pass that rule",
+    "app/Reports/BuildSalesReport.php:59-63 calls ->get() on the Eloquent builder, hydrating OrderItem models for raw aggregate rows; toBase() would avoid that",
+    "tests/Feature/SalesReportTest.php:30 calls Http::preventStrayRequests() in a test that makes no HTTP calls, which is noise",
+    "app/Models/Order.php:16 and app/Models/OrderItem.php:11 leave the foreign keys (customer_id, order_id) out of Fillable, which is inconsistent with the other models"
+   ],
+   "strengths": [
+    "Clean split into revenuePerCountry, topProducts and topCustomers private methods, plus a typed __invoke signature",
+    "Idiomatic Eloquent: whereRelation for the country scope, #[Scope] attributes, clone for builder reuse, orderByDesc on aliases",
+    "Expressive factory states (priced(), paid(), placedAt()) and a DataProvider for the invalid-input cases",
+    "Tests cover order count not being inflated by multiple items, AOV rounding, spend summed across orders, and the ranking caps"
+   ]
+  },
+  "rationale": "The two implementations are structurally very close: an invokable controller, a FormRequest with filters(), a BuildSalesReport class, attribute scopes, whereIn subqueries and Number::currency. The probes found one real difference. impl-2's rules lack `nullable`, so after ConvertEmptyStringsToNull an empty query param fails validation. `?status=` returns 422 instead of defaulting to paid, and `?from=&to=...` also fails. impl-1 handles all of these as \"no filter\" and has a test for it (test_empty_filter_values_mean_no_filter). impl-1 also has the stricter `alpha:ascii` country rule, uses toBase() for its aggregate rows, and covers more edge cases in its tests (orders with no items in AOV, thousands formatting, unit_price vs product price). impl-2 has a slightly nicer structure (separate private methods, whereRelation, typed invoke parameters), but the named-argument spread in the controller is fragile, and the empty-param behaviour is a user-facing defect. impl-1 ranks first."
+ },
+ "cost_usd": 0.45176940000000004
+}

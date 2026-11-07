@@ -1,0 +1,103 @@
+{
+ "key": "orders-api",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 6,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 5,
+    "tests": 7,
+    "correctness": 5,
+    "simplicity": 7
+   },
+   "overall": 5.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "Ability check for store lives in the controller body (app/Http/Controllers/OrderController.php:32) after StoreOrderRequest has already validated, so a token lacking orders:write gets 422 (not 403) for invalid/duplicate payloads; also lets a read-only token probe whether a reference exists",
+    "GET /api/orders/{id} with a token lacking orders:read: existing foreign order -> 403, nonexistent id -> 404 (route-model binding runs before Gate), an existence oracle and inconsistent with 'token without the ability gets 403'"
+   ],
+   "antipatterns": [
+    "Token ability checks implemented in policy (app/Policies/OrderPolicy.php:13,18,27) instead of Sanctum's abilities middleware, mixing authentication-scope and ownership concerns and running after validation",
+    "Http::preventStrayRequests() in beforeEach is irrelevant ceremony (tests/Feature/OrdersApiTest.php:9)",
+    "Most tests use Sanctum::actingAs instead of real bearer tokens; only one test exercises the actual personal-access-token path",
+    "bootstrap/app.php:19 redirectGuestsTo closure with Route::has('login') juggling is more ceremony than needed"
+   ],
+   "strengths": [
+    "denyAsNotFound in policy gives identical 404 body for foreign and missing orders",
+    "Integer cast on total_cents, composite index (user_id, created_at), latest()->latest('id') tie-breaker",
+    "404 renderer normalises ModelNotFound messages so no class names leak",
+    "Concise Pest dataset for validation, assertion that the 404 bodies are identical"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 7,
+    "modern_laravel": 7,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "No integer cast on Order::total_cents: POST with total_cents \"7\" returns \"total_cents\":\"7\" (string) in the 201 body while reads return an int, so the response type is inconsistent for API clients",
+    "show(string $order) has no numeric route constraint (routes/api.php:13); on SQLite /api/orders/abc gives 404, but on Postgres the cast error would likely be a 500 (not verified)"
+   ],
+   "antipatterns": [
+    "Bypasses route-model binding with string $order + findOrFail (app/Http/Controllers/Api/OrderController.php:23): it works, but a scoped binding or policy is the more idiomatic choice",
+    "Unsorted use imports in bootstrap/app.php:7-9",
+    "Weak assertion expect(status)->toBeIn([404, 405]) (tests/Feature/OrdersApiTest.php:139)",
+    "Http::preventStrayRequests() ceremony; RefreshDatabase applied per file instead of in Pest.php",
+    "Missing return-type docblocks / casts() on the model"
+   ],
+   "strengths": [
+    "Sanctum abilities middleware per route, so ability failures are 403 before validation or lookup, with no existence oracle at all",
+    "Query scoped through $request->user()->orders(), so foreign orders are unreachable by construction",
+    "Every test uses real bearer tokens and no Accept header, and runs with debug off",
+    "Reusable expectNoInternals helper and a ability-failure dataset that checks nothing was written"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "GET /api/orders/{id} with a token lacking orders:read: existing foreign order -> 403, nonexistent id -> 404 (binding resolves before the abilities middleware), a minor existence oracle and inconsistent 403"
+   ],
+   "antipatterns": [
+    "redirectGuestsTo(fn () => null) applies to every route, including any future web routes (bootstrap/app.php:19)",
+    "total_cents max:4294967295 couples validation to the column type (unsignedInteger), which is arguably arbitrary (app/Http/Requests/StoreOrderRequest.php:13)",
+    "Http::preventStrayRequests() ceremony in beforeEach (tests/Feature/OrdersApiTest.php:9)"
+   ],
+   "strengths": [
+    "Abilities middleware plus can:view,order with Response::denyAsNotFound(): idiomatic route-level authorization, and 403 comes before validation on store",
+    "Integer cast and composite index, plus a max rule so oversized values get 422 instead of a database error",
+    "Most thorough Pest suite: describe blocks, real bearer tokens, no-Accept-header cases for 201/401/403/422, an exact list-order assertion, and a debug-off server error that hides internals",
+    "Compact, readable 404 renderer on HttpExceptionInterface"
+   ]
+  },
+  "rationale": "impl-1 has a real requirement bug. Its write-ability check is in the controller and runs after FormRequest validation, so a read-only token gets 422 instead of 403 for bad payloads and can probe reference uniqueness. It also answers 403 vs 404 depending on whether an order exists. impl-2 returns the right status in every case I probed because the abilities middleware runs first and lookups go through the owner's own orders. Its weaknesses are a missing integer cast (the 201 response can echo total_cents as a string), a lookup that skips route-model binding, and a few weak tests. impl-3 is the most idiomatic: abilities middleware plus a can:view policy with denyAsNotFound, a cast and an index, and the strongest Pest suite. Its only flaw is a minor 403/404 inconsistency for a token without orders:read, because the route binding resolves before the ability check (impl-1 has the same flaw). Ranking: impl-3 > impl-2 > impl-1."
+ },
+ "cost_usd": 0.6785596
+}

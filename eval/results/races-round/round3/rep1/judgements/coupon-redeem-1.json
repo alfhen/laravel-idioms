@@ -1,0 +1,105 @@
+{
+ "key": "coupon-redeem",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "An unauthenticated POST without an `Accept: application/json` header returns 500 (RouteNotFoundException: Route [login] not defined), not 401. The base app's Authenticate redirect was left in place, and mobile/API clients without that header will hit it. Confirmed with a probe test."
+   ],
+   "antipatterns": [
+    "app/Models/Coupon.php:28 redeemFor returns null to mean 'sold out', so the controller has to interpret the sentinel (app/Http/Controllers/RedeemCouponController.php:15). A domain exception or result type would be clearer.",
+    "app/Models/Coupon.php:35,41,48 copies redeemed_count back onto the route-bound $this in three places to hand state to the controller. This is a hidden side effect and is repeated three times.",
+    "app/Models/Coupon.php:31 the comment mostly says what lockForUpdate does."
+   ],
+   "strengths": [
+    "The coupon row is locked with lockForUpdate inside DB::transaction before the per-user lookup, so the cap check and the increment are serialised across servers. A unique(coupon_id, user_id) index backs this up.",
+    "The event is dispatched after the transaction commits, and only when wasRecentlyCreated is true, so it fires exactly once per new redemption.",
+    "The controller is a thin invokable with {coupon:code} route model binding, so unknown codes get a 404 for free. Models use #[Fillable] and redeemed_count is not mass-assignable.",
+    "Tests are broad: guest, 404, 201 with event payload, 200 on repeat, 409, a pre-exhausted coupon, a repeat by an existing redeemer after the coupon is exhausted, a sequential cap check, and the DB unique index. There is also a useful exhausted() factory state."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 10,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Models/Coupon.php:40 the model throws Symfony ConflictHttpException, which puts an HTTP-layer concern in the domain model. A domain exception rendered to 409 would separate the layers better.",
+    "An empty app/Http/Requests directory was left behind.",
+    "tests/Feature/RedeemCouponTest.php:122 the test name claims a 'competing redemption inserted mid-request', but it only seeds an existing redemption before the request.",
+    "tests/Feature/RedeemCouponTest.php:114 uses an inline FQCN instead of an import."
+   ],
+   "strengths": [
+    "Same correct design as impl-1: the coupon row is locked and checked inside a transaction, the unique index is the safety net, and the event is dispatched after commit only when wasRecentlyCreated is true.",
+    "firstOrNew plus throw_if keeps redeemFor compact. setRelation('coupon', $coupon) hands back the fresh count without mutating the route-bound model.",
+    "The controller is the thinnest of the three: no branching, one response.",
+    "It fixed bootstrap/app.php redirectGuestsTo so a guest api/* request without an Accept header gets a 401 JSON response instead of a 500, and it tests this. That is a real robustness point for mobile clients.",
+    "Tests cover guest (with and without the JSON header), 404, 201 with event payload, 200 repeat with no event, a repeat after the coupon is exhausted, 409 with no side effects, the cap, and the unique index."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 6,
+    "thin_controllers": 4,
+    "validation_form_requests": 7,
+    "eloquent_idioms": 6,
+    "architecture_fit": 6,
+    "modern_laravel": 6,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 6.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "An unauthenticated POST without an `Accept: application/json` header returns 500 (Route [login] not defined), not 401. Confirmed with a probe test.",
+    "app/Models/Coupon.php:15 redeemed_count is mass-assignable, so the counter that enforces the cap can be overwritten through fill/create."
+   ],
+   "antipatterns": [
+    "app/Http/Controllers/Api/CouponRedemptionController.php:15-54 the whole transaction, locking, cap logic and event dispatch live in the controller. It is a fat controller with no reusable domain method.",
+    "app/Http/Controllers/Api/CouponRedemptionController.php:22-26 looks up the code by hand with first() plus `if null abort(404)` instead of route model binding ({coupon:code}) or firstOrFail.",
+    "app/Http/Controllers/Api/CouponRedemptionController.php:31,41,44 returns an untyped positional tuple [$redemption, $coupon, $created] from the transaction instead of using wasRecentlyCreated.",
+    "app/Http/Controllers/Api/CouponRedemptionController.php:28 uses where('user_id', $user->id) instead of whereBelongsTo.",
+    "app/Models/Coupon.php:15 and app/Models/CouponRedemption.php:15 use the legacy protected $fillable, while the base app uses the #[Fillable] attribute.",
+    "app/Events/CouponRedeemed.php:12-14 has an empty constructor body on separate lines, which is inconsistent with the codebase style.",
+    "tests/Feature/CouponRedemptionTest.php:77 uses assertStatus(409) instead of assertConflict(). Line 41 uses CouponRedemption::firstOrFail() instead of scoping to the user/coupon."
+   ],
+   "strengths": [
+    "The concurrency approach is correct: SELECT ... FOR UPDATE on the coupon row inside a transaction, the existing-redemption check before the cap check, a unique index, and the event dispatched after commit only when the redemption was created.",
+    "The API contract is right: 404, 201/200 with the same redemption, and 409 with a message.",
+    "Tests cover the main paths: guest, 404, 201 with event, repeat 200, 409, a repeat after the coupon is exhausted, the cap, and the unique index."
+   ]
+  },
+  "rationale": "All three get the concurrency right on MySQL. Each locks the coupon row with lockForUpdate inside a transaction. They check for an existing redemption before the cap, so a repeat by the same user still gets 200 after the coupon is used up. A unique (coupon_id, user_id) index backs the once-per-user rule. Each dispatches CouponRedeemed once, after commit, and only for a newly created redemption. All test suites pass (11, 11, 10 tests). The probes (a guest POST without an Accept header, max_redemptions=0, the count shown on a repeat, the transaction level inside the listener, a listener that throws) found one real difference: impl-1 and impl-3 return 500 (Route [login] not defined) for a guest API request without an Accept header. impl-2 fixed redirectGuestsTo and tests it. impl-2 also has the cleanest code: firstOrNew/throw_if, setRelation instead of mutating the bound model, and a controller with no branching. Its weak point is throwing ConflictHttpException from the model. impl-1 is nearly identical in quality but uses a null sentinel and writes redeemed_count back onto $this in three places. impl-3 puts all the logic in a fat controller, looks up the code by hand instead of using route model binding, returns a tuple, uses the legacy $fillable, and makes redeemed_count mass-assignable. So the ranking is impl-2, then impl-1, then impl-3."
+ },
+ "cost_usd": 0.5924708
+}

@@ -1,0 +1,75 @@
+{
+ "key": "scheduled-reports",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 6,
+    "modern_laravel": 8,
+    "focus_area": 6,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 7
+   },
+   "overall": 6.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "config/queue.php:81 \u2014 the 'redis-long' connection uses queue env('REDIS_QUEUE','default'), the same Redis list as the normal 'redis' connection (probe: long queue = default queue = 'default'). Any ordinary `queue:work redis` worker can pop SyncSupplierStock and reserve it with retry_after=90. A 20\u201340 min run then gets redelivered while it is still running, so it ends up running twice or failing with MaxAttemptsExceeded. That is the exact doubling the task forbids.",
+    "app/Jobs/SyncSupplierStock.php:26 + config/queue.php:18 \u2014 the connection comes from env('SUPPLIER_SYNC_QUEUE_CONNECTION') with no default. If the env var is missing, the probe shows connection=null, so the job silently falls back to the default connection (retry_after 90) and gets redelivered mid-run. Only .env.example protects against this."
+   ],
+   "antipatterns": [
+    "app/Jobs/SyncSupplierStock.php:24-27 \u2014 the job constructor reads config to choose its connection. Routing belongs at the dispatch site (Schedule::job(..., connection:)) or in a #[Connection] attribute.",
+    "app/Jobs/SyncSupplierStock.php:36 \u2014 the placeholder comment claims 'idempotent by design', which is untrue for an empty stub.",
+    "tests/Feature/ScheduleTest.php:14 \u2014 uses ->first() instead of ->sole(), so a duplicate or missing event is not caught (missing gives a null TypeError).",
+    "tests/Feature/SyncSupplierStockTest.php:11 \u2014 expect(true)->toBeTrue() filler assertion.",
+    "tests/Feature/ScheduleTest.php:44 \u2014 reflects on attributes instead of testing behaviour."
+   ],
+   "strengths": [
+    "Prune command fixes the cutoff once and deletes in pluck-ids/whereKey batches of 1000. It is memory-safe and terminates cleanly.",
+    "Prune runs at 03:30 Copenhagen with onOneServer and a bounded withoutOverlapping(120), so a crashed run cannot block the next night. The probe showed it fires exactly once on both DST-change nights.",
+    "ShouldBeUnique with UniqueFor(3300) > Timeout(2700), Tries(1) and FailOnTimeout is a sound design for the long hourly job, and the probe confirms that a second dispatch is deduplicated.",
+    "Updates .env.example to CACHE_STORE=redis / QUEUE_CONNECTION=redis, making the shared-lock requirement explicit.",
+    "Richer tests: exact 48h and 30-day boundaries with freezeTime, multi-batch deletion, mail body rendering with plural forms, and a CacheSchedulingMutex test showing that a second server cannot claim the same tick.",
+    "The text Blade mail view uses Str::plural."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 7.8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "No real functional bugs found. Small gap: .env.example still has CACHE_STORE=database / QUEUE_CONNECTION=database. onOneServer and the unique lock depend on the shared Redis cache, and nothing in the repo signals that dependency."
+   ],
+   "antipatterns": [
+    "tests/Feature/SyncSupplierStockTest.php:28-34 \u2014 'does not queue a second copy while one is pending' dispatches only once, so it does not test what its name says.",
+    "tests/Feature/SyncSupplierStockTest.php:6-11 \u2014 expect(true)->toBeTrue() filler; the double dispatchSync proves nothing.",
+    "tests/Feature/SyncSupplierStockTest.php:17,22 \u2014 reflects on queue attributes instead of testing behaviour.",
+    "routes/console.php:18 \u2014 withoutOverlapping(30) on a weekly report that already has onOneServer adds little (harmless ceremony).",
+    "app/Mail/UnshippedOrdersReport.php:20 \u2014 inline htmlString with no pluralisation; fine for a minimal mail but less idiomatic than a view."
+   ],
+   "strengths": [
+    "A dedicated 'redis-long' connection on its own 'long' queue with retry_after 3000 > Timeout 2700 keeps the 40-minute job from being redelivered by regular workers. The schedule chooses it explicitly via Schedule::job(new SyncSupplierStock, connection: 'redis-long').",
+    "ShouldBeUnique + UniqueFor(3300) + Tries(1) + FailOnTimeout means a killed worker's lock expires before the next hourly tick, and the probe confirmed that a second dispatch is deduplicated.",
+    "All tasks use onOneServer. Copenhagen timezone is set on the time-of-day tasks, and the probe verified 07:30 Monday is correct in both winter and summer. Prune at 03:00 avoids the DST gap and fired exactly once on both DST nights in the probe.",
+    "Prune deletes in batches of 5000 via pluck/whereKey with an indexed updated_at, which is memory-safe; there is a test above the batch size.",
+    "Modern L13 idioms: #[Signature]/#[Description] on commands, the #[Scope] attribute, #[Fillable], queue attributes, and the Schedule facade in routes/console.php.",
+    "The schedule tests use ->sole() and include a test that runs the scheduled event and asserts the job was pushed on the long connection."
+   ]
+  },
+  "rationale": "I ranked impl-2 first. Both apps are on Laravel 13.40 and their full suites pass (impl-2: 16 tests, impl-1: 18 tests).\n\n**Probes (run in both apps, then deleted):**\n- The Monday 07:30 report is due at the right UTC time in both winter and summer.\n- The nightly prune fires exactly once on both DST-change nights.\n- A second dispatch of the supplier sync job is deduplicated.\n- A cart updated exactly 30 days ago is kept.\n- Job connection with no env set: in impl-1 the \"long\" queue name is the same as the default one.\n\nOne probe of mine was broken: it built the overlap lock the wrong way and errored in both apps. I judged crash recovery from the code instead. Both apps cap the overlap lock (impl-2: 3 hours, impl-1: 2 hours), so a killed run cannot block the next night.\n\n**Main difference: the long supplier job.**\n- **impl-2** gives the job its own queue, `long`, on a separate connection that waits 3000 seconds before re-offering a job. The schedule chooses that connection explicitly.\n- **impl-1** creates the same kind of connection but leaves it on the `default` queue. Ordinary workers read that queue too, and they re-offer a job after only 90 seconds. So a 20\u201340 minute run can be handed out a second time while it is still running, which is exactly the \"ran more than once\" problem the task rules out.\n- impl-1 also picks the connection from an environment variable with no default. If the variable is missing, the job quietly falls back to the 90-second connection.\n\n**Where impl-1 is better:**\n- More thorough tests: exact 48-hour and 30-day boundaries, a mail-rendering test, and a test that a second server cannot claim the same scheduler tick.\n- It updates `.env.example` to point the cache and queue at Redis, which the cross-server locks depend on.\n\n**impl-2's weaknesses** are small: a test whose name promises a \"second copy\" check but only dispatches once, an `expect(true)` filler test, and an untouched `.env.example`.\n\nThe real double-run risk in impl-1 outweighs its better tests."
+ },
+ "cost_usd": 0.4594064
+}

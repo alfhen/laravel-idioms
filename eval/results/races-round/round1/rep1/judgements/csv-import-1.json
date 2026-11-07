@@ -1,0 +1,85 @@
+{
+ "key": "csv-import",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 7
+   },
+   "overall": 7.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Duplicate SKUs within a single 500-row chunk are collapsed by keying $valid on sku (app/Jobs/ProcessImport.php:133), so the extra rows are counted in total_rows but not in created, updated or failed. Probe: 3 rows (A1, A1, B) gave total=3, created=2, updated=0, failed=0. The test test_duplicate_sku_in_file_keeps_last_row only asserts created+updated==1, so it hides the gap.",
+    "Stock has no upper bound, so 99999999999 passes validation for an unsignedInteger column (ProcessImport.php:123). On MySQL the upsert throws and the whole job fails instead of recording a row error.",
+    "POST returns 200 instead of 201, because $import->fresh() loses wasRecentlyCreated (ImportController.php:27).",
+    "On retry after a mid-run crash, products upserted in the earlier attempt are counted as 'updated' instead of 'created'."
+   ],
+   "antipatterns": [
+    "app/Jobs/ProcessImport.php:53: the queued job depends on an HTTP FormRequest constant (StoreImportRequest::REQUIRED_COLUMNS). The domain constant belongs on the model or CsvReader.",
+    "app/Http/Requests/StoreImportRequest.php:31: app(CsvReader::class) service-located inside after(), with manual fopen/fclose even though CsvReader already has a header() helper.",
+    "app/Http/Controllers/ImportController.php:17: abort_if(503) for a store() failure is ceremony.",
+    "app/Jobs/ProcessImport.php:124: custom attribute names mapped to themselves (['sku'=>'sku',...]) do nothing useful.",
+    "tests/Feature/ProductImportTest.php:26: Http::preventStrayRequests() is irrelevant here, and inline FQCN \\App\\Imports\\CsvReader is used in tests."
+   ],
+   "strengths": [
+    "Uses LazyCollection streaming with chunk() and a bulk Product::upsert. This scales to 5MB files within the timeout.",
+    "Raises queue retry_after to 360 to match Timeout(300), and adds FailOnTimeout, so a long import is not run twice.",
+    "Stores failure_reason. Missing columns fail the job immediately through $this->fail() with no pointless retries.",
+    "Validates the header in the FormRequest after() hook, handling BOM, header case and column order.",
+    "Uses modern attributes throughout (#[Fillable], #[WithoutTimestamps], queue attributes), enum casts, and route ->can() authorization with an auto-discovered policy.",
+    "Has a unique (import_id,row) index and orders errors explicitly in show.",
+    "Tests are thorough (BOM, CRLF, short rows, fractional stock, idempotency, re-run of a processing import, mail content)."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "The 202 response from POST returns total_rows/created/updated/failed as null, because the model is not refreshed after create and the DB defaults are not loaded (ImportController.php:29). Confirmed by probe.",
+    "Each row runs updateOrCreate, which is 2\u20133 queries per row (ProcessProductImport.php:75). A full 5MB file (~100k rows) can approach Timeout(300). The default database queue retry_after (90s) is shorter than the timeout, so a long import can be picked up and processed again while still running.",
+    "A missing-columns header in the job throws RuntimeException and is retried 3 times with backoff even though the failure is deterministic. No failure reason is stored on the import.",
+    "All row errors are buffered in memory until the end of the file. On a mid-run crash, any partial progress on errors is lost."
+   ],
+   "antipatterns": [
+    "app/Http/Controllers/ImportController.php:17 and app/Policies/ImportPolicy.php:10: Gate::authorize('create') against a policy that always returns true is ceremony.",
+    "app/Jobs/ProcessProductImport.php:61: a manual for/fgetcsv loop with row-by-row updateOrCreate instead of chunked upsert or LazyCollection.",
+    "app/Http/Requests/StoreImportRequest.php:31-36: header parsing and BOM handling are duplicated between the FormRequest and the job's readHeader().",
+    "app/Models/Import.php:35: naming the relation errors() is ambiguous next to validation 'errors' terminology; rowErrors would be clearer.",
+    "app/Jobs/ProcessProductImport.php:42: forceFill is used to bypass a narrow fillable list instead of declaring the fields fillable."
+   ],
+   "strengths": [
+    "Counts are consistent: duplicate SKUs are counted as updated, so created+updated+failed == total.",
+    "Uses apiResource()->only(), returns 202 Accepted, and dispatches with afterCommit().",
+    "Import::COLUMNS lives on the model, avoiding the job\u2192FormRequest coupling.",
+    "Stock is capped at the unsignedInteger maximum and extra CSV columns are tolerated.",
+    "The job is simple and readable, with a clear rejectionReason() helper that uses Validator.",
+    "Tests include a 5MB boundary (accepted at exactly 5MB), quoted fields, extra columns, a failure path with no mail, and a mail content assertion."
+   ]
+  },
+  "rationale": "Both suites pass (21 and 22 tests). Both implementations meet the core spec and use modern Laravel 12/13 idioms: attribute-based models and queued jobs, enum casts, a FormRequest with an after() header check, policies and JSON resources. impl-1 is built for production: it streams the file with a LazyCollection, writes products with a chunked bulk upsert, matches queue retry_after to the job timeout, records failure_reason, and fails deterministically when columns are missing. Its main defects are the duplicate-SKU count gap (created+updated+failed can be less than total) and the coupling of the job to a FormRequest constant. impl-2 is simpler and its counts always add up, and it returns 202 through apiResource. However, it does per-row updateOrCreate (N queries) under a 300s timeout without adjusting retry_after, returns null counts in the POST response, adds an always-true create policy, duplicates the header parsing, and retries deterministic failures. Overall the two are close; impl-1 ranks first for better scalability, failure handling and idiomatic collection use, despite its count-reporting bug."
+ },
+ "cost_usd": 0.5542948000000001
+}

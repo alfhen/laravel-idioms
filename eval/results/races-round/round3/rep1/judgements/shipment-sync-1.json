@@ -1,0 +1,73 @@
+{
+ "key": "shipment-sync",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "A 201 with no id throws and retries, which sends a second POST. Only the Idempotency-Key header protects against a duplicate shipment (app/Jobs/SendOrderToWarehouse.php:121). This is minor and impl-2 does the same."
+   ],
+   "antipatterns": [
+    "The mail is sent synchronously inside the job, and an extra shipment_notified_at column with claim/unclaim logic was added to make 'exactly once' hold. It is correct but adds ceremony that a queued mailable would mostly avoid (app/Jobs/SendOrderToWarehouse.php:155-173).",
+    "shipment_status, shipment_reference and failure_reason are fillable, so internal state can be mass-assigned (app/Models/Order.php:15-24).",
+    "'total_cents' => 'integer' is a redundant cast (app/Models/Order.php:35).",
+    "Two separate early-return guards in handle() could be one (app/Jobs/SendOrderToWarehouse.php:51-57)."
+   ],
+   "strengths": [
+    "Classifies responses precisely: 201 is recorded, 422 marks the shipment failed directly with no retry, 429 is released honouring a clamped Retry-After, 5xx and connection errors throw for backoff, and other 4xx call fail() so they are not retried.",
+    "failed() is guarded with where shipment_status = pending and withTrashed, so a late failure can never overwrite a sent shipment (tested).",
+    "Handles an array 422 message robustly by falling back to a truncated body (verified with a probe).",
+    "markAsPaid uses an atomic conditional update in a transaction and dispatches with afterCommit, so double calls and cancelled orders do not queue jobs.",
+    "Uses modern queue attributes (Backoff, MaxExceptions, Timeout), RateLimited middleware with an account-wide 5/s limiter, WithoutOverlapping, retryUntil, and HTTP timeouts.",
+    "Thorough Pest suite with describe blocks, datasets for Retry-After, withFakeQueueInteractions assertions, an end-to-end path, and a mail-failure claim release; Http::preventStrayRequests and Sleep::fake are set globally."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "failed() overwrites shipment_status unconditionally. If the job fails after the shipment is saved (e.g. the mail push or a timeout), a sent order with a reference is flipped to failed. A probe confirmed Sent\u2192Failed (app/Jobs/SendOrderToWarehouse.php:78-84).",
+    "rejectionReason() has a string return type, but $response->json('message') can be an array (e.g. Laravel-style validation errors). A probe confirmed a TypeError. The 422 is then treated as a transient exception and re-POSTed on retries, and ops see a TypeError message instead of the address reason (app/Jobs/SendOrderToWarehouse.php:101-104).",
+    "Permanent non-422 4xx responses (401/403/404) go through $response->throw() and are retried up to MaxExceptions instead of failing at once. A probe confirmed the job was not failed. This hammers the partner with requests that can never succeed (app/Jobs/SendOrderToWarehouse.php:65).",
+    "Exactly-once mail is not guaranteed. The reference is saved before Mail::send queues the mailable; if queueing throws, the retry returns early on shipment_reference !== null and the customer is never emailed (app/Jobs/SendOrderToWarehouse.php:47,69-75)."
+   ],
+   "antipatterns": [
+    "A dedicated InvalidShippingAddress exception class exists only so fail() can carry it into failed(), which couples permanent-error recording to the generic failed() handler (app/Exceptions/InvalidShippingAddress.php).",
+    "The mixed ?? / ?: chain in rejectionReason is hard to read and not type-safe (app/Jobs/SendOrderToWarehouse.php:103).",
+    "WithoutOverlapping uses $this->order->id without casting to a string (minor) (app/Jobs/SendOrderToWarehouse.php:35)."
+   ],
+   "strengths": [
+    "Leaner job; fillable is limited to customer fields and internal state is written with forceFill.",
+    "markAsPaid is atomic and uses afterCommit dispatch (the same sound design as impl-1).",
+    "The mailable is queued and uses a markdown component template.",
+    "Uses modern queue attributes, RateLimited with a global key, WithoutOverlapping, retryUntil, connect and request timeouts, and an Idempotency-Key header.",
+    "The tests cover 422, 429 with cap, 5xx, a missing id, cancellation and the rate limiter config in clean Pest style."
+   ]
+  },
+  "rationale": "I ran `php artisan test` on both: impl-1 passed 23 tests and impl-2 passed 16. I read every added or changed file, ran four throwaway probe tests against each implementation, then deleted the probe files.\n\nThe two share almost the same skeleton: the same atomic markAsPaid with afterCommit dispatch, the same queue attributes, rate-limiting middleware and retryUntil.\n\nThey differ in how the job's failure handling holds up:\n- **impl-1** handles failures carefully:\n  - A 422 marks the order failed directly, and an array message falls back to the response body (probe confirmed).\n  - Other 4xx call fail() at once, so they are not retried.\n  - failed() only changes orders whose shipment is still pending, so it cannot overwrite a sent order.\n  - The mail claim makes 'email exactly once' hold even when sending throws.\n- **impl-2** has several real bugs, all confirmed by probes or by reading the code:\n  - failed() overwrites a sent shipment as failed.\n  - A 422 with an array message causes a TypeError, which leads to retries that re-POST and a wrong failure reason for ops.\n  - 401/403/404 are retried instead of failing permanently.\n  - The customer is never emailed if queueing the mail fails after the reference is saved.\n\nimpl-1 has a little more ceremony (the shipment_notified_at column and claim logic), but it is more correct and its tests are clearly better."
+ },
+ "cost_usd": 0.4693468
+}

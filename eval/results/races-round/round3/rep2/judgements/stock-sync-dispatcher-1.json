@@ -1,0 +1,79 @@
+{
+ "key": "stock-sync-dispatcher",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 9
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Jobs/PushStockAllocations.php:57 caps the 429 release at 600s, but retryUntil is 13 minutes (line 34). A 429 arriving after about minute 3 with a long Retry-After makes the job run after the 15-minute claim has expired. By then another dispatcher run has re-claimed the rows and queued a second job. The late job is then failed for passing retryUntil, and its failed() clears the new claim, so the rows are dispatched a third time while another job is still in flight (probe confirmed: 2 dispatches where 1 was expected).",
+    "app/Jobs/PushStockAllocations.php:79-84 failed() sets sync_started_at to null for its ids without checking that the claim is still its own. A stale job can therefore clear a newer dispatcher's claim (probe confirmed).",
+    "app/Jobs/PushStockAllocations.php:70 sets synced_at to sync_started_at. Timestamps only have second precision, so an edit in the same second as the claim, made after the job has read the row, gives updated_at == synced_at. That change is never sent again (probe confirmed with a frozen clock).",
+    "A non-429 4xx response (for example 422) is retried 3 times, then failed() releases the claim. Every later dispatcher run picks up the same bad batch, so a poison batch loops forever."
+   ],
+   "antipatterns": [
+    "app/Jobs/PushStockAllocations.php:57 release cap (600s) does not match the retryUntil window (13 min) against the 15-minute claim TTL",
+    "tests/Feature/StockSyncTest.php:46 `$fresh->id not->toBe($abandoned->id)` asserts nothing useful",
+    "app/Console/Commands/DispatchStockSync.php no withoutOverlapping. Overlapping runs are safe because of the claims, but it costs nothing to add",
+    "tests/Feature/StockSyncTest.php:11-16 global const/function helpers in a test file can collide across files"
+   ],
+   "strengths": [
+    "Claim loop is simple and correct: each group of 100 is claimed with lockForUpdate in its own transaction, re-checked through the readyToSync scope, and dispatched after commit",
+    "withoutTimestamps keeps claim/sync writes from bumping updated_at, and a test covers this",
+    "Setting synced_at = sync_started_at makes edits made while the job is in flight count as newer than the sync (whole-second precision aside)",
+    "#[Scope] attributes, PHP queue/console/model attributes, tooManyRequests(), json('missing', []), partition(), modelKeys()",
+    "Job writes wrapped in a transaction; index on (disabled_at, sync_started_at); connectTimeout set",
+    "Tests are well structured with describe blocks and use withFakeQueueInteractions/assertReleased; they cover the in-flight edit, the second-run no-op, failed(), and retryUntil"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 7.5,
+    "simplicity": 8
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "app/Jobs/PushStockAllocations.php:83-89 failed() sets sync_started_at to null without checking that the claim is still its own. A job failed late (retryUntil of 10 min plus up to 300s of release delay plus SQS lag can reach the 15-minute TTL) can clear a newer claim and cause a duplicate dispatch (probe confirmed).",
+    "app/Jobs/PushStockAllocations.php:74 sets synced_at to the job start time. With whole-second timestamps, an edit in the same second as the read gives updated_at == synced_at, and that change is lost (probe confirmed).",
+    "A non-429 4xx response is retried, then failed() releases the claim, so the same poison batch is re-dispatched on every run forever.",
+    "app/Jobs/PushStockAllocations.php:71-80 two separate updates with no transaction (low impact)"
+   ],
+   "antipatterns": [
+    "app/Jobs/PushStockAllocations.php:61 `status() === 429` where `tooManyRequests()` exists",
+    "app/Jobs/PushStockAllocations.php:73,79 and the dispatcher's ->toBase()->update() skip timestamps implicitly, which is less clear than withoutTimestamps",
+    "app/Console/Commands/DispatchStockSync.php:23-35 chunkById over the ready set plus a second locked re-select per chunk: two queries per group where one claim loop would do",
+    "tests/Feature/PushStockAllocationsTest.php:120-123 empty try/catch to swallow the exception in a test",
+    "tests/Feature/StockAllocationTest.php:44 meaningless id inequality assertion",
+    "Deleted the base ExampleTest.php"
+   ],
+   "strengths": [
+    "withoutOverlapping(5) together with onOneServer, plus row-locked re-checks of readiness. Safe across the three schedulers",
+    "Retry-After handling is a small named helper with a default and a cap (300s), which fits inside the claim TTL better",
+    "$allocations->map->only(['sku','quantity']) is a concise payload",
+    "retryUntil is set 5 minutes before the claim TTL, leaving more margin",
+    "More thorough tests split by concern: dataset for Retry-After cap/default, 14- vs 16-minute abandonment shown with time travel, scheduler withoutOverlapping asserted, unique sku, failed() leaves other rows untouched"
+   ]
+  },
+  "rationale": "The two implementations are close to identical in design: a #[Scope] readyToSync, claims taken in transactions with lockForUpdate, a job with retryUntil set below the claim TTL, release() on 429, throw() on other errors, and failed() releasing the claim. Throwaway probes showed both share two latent bugs. First, failed() clears whatever claim is on the rows, including a newer dispatcher's re-claim. Second, an edit in the same second as the sync is lost because timestamps have whole-second precision. impl-1 makes the first bug easier to hit: it caps the 429 release at 600s while allowing retries for 13 minutes, so a released job can easily outlive its 15-minute claim. impl-2 caps the release at 300s with a 10-minute retryUntil. impl-2 also adds withoutOverlapping on the schedule and has broader tests (a Retry-After dataset, abandonment shown with time travel). impl-1 has nicer Eloquent touches (withoutTimestamps, tooManyRequests, a transaction around the job writes, an index) and a simpler claim loop. Because of the tighter retry/claim timing, the extra scheduler safety and the stronger tests, impl-2 ranks first by a small margin. All 22 tests pass in impl-1 and all 26 in impl-2; the probe files were deleted afterwards."
+ },
+ "cost_usd": 0.4560678
+}

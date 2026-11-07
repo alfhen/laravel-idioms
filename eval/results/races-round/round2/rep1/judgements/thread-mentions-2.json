@@ -1,0 +1,102 @@
+{
+ "key": "thread-mentions",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 9,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Mention regex `/(?<![\\w@])@(\\w+)/u` (app/Models/Reply.php:34) cannot match usernames containing '.', yet the impl's own factory (`fake()->unique()->userName()`, database/factories/UserFactory.php) produces dotted usernames ~half the time (28/50 in probe), and nothing restricts the username format. Probe: user 'john.doe' mentioned as '@john.doe' got no notification or mail."
+   ],
+   "antipatterns": [
+    "tests/Feature/ReplyMentionTest.php:32 Http::preventStrayRequests() is unrelated noise in setUp",
+    "tests/Feature/ReplyMentionTest.php:63 calls $this->app['auth']->forgetGuards() as a workaround instead of skipping actingAs for the guest test",
+    "routes/api.php restructures the existing /user route outside the task's scope (harmless)",
+    "Mail and notification dispatch run inline in the controller (ReplyController.php:18-21) while the write lives on the model, so the side effects aren't part of the same unit"
+   ],
+   "strengths": [
+    "Thread::addReply() (Thread.php:29-39) is a domain method on the model: make()->author()->associate() inside DB::transaction with increment, and only fillable 'body' is mass-assigned",
+    "Notifications are sent only after the transaction returns, so nothing goes out when the insert fails or rolls back (probe that throws in Thread::updating confirmed the rollback)",
+    "Uses an `author()` relation with an explicit FK, and the /u flag makes mentions unicode-aware with Str::lower",
+    "Strongest tests: one mail and one notification per user, private recipients (to count, no cc/bcc), a case-insensitive self-mention, email addresses that aren't mentions, multibyte 2000-char bodies, a uniqueness exception, the failure path, the notification payload and the mailable rendering",
+    "Uses Reply::query()->sole() in a test assertion"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 6.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "Mention regex `/(?<![\\w@])@(\\w+)/` (app/Models/Reply.php:34) cannot match dotted usernames, which the factory's userName() produces about half the time (28/50 in probe). Probe: '@john.doe' notified nobody. With no /u flag, non-ASCII usernames are also truncated."
+   ],
+   "antipatterns": [
+    "app/Actions/PostReply.php: an invokable Action class for a single call site is a little ceremonious, though it's a reasonable pattern",
+    "app/Models/Reply.php:32 mentionedUsers() runs a DB query from what looks like a plain accessor-style method; fine, but it hides the query",
+    "tests/Feature/ThreadReplyTest.php:21 helper is missing a return type",
+    "Mailable uses a plain text view without markdown or an HTML layout (minor)"
+   ],
+   "strengths": [
+    "Clean separation: FormRequest \u2192 invokable Action (DB::transaction holding the insert and increment) \u2192 notifications after commit",
+    "make()->user()->associate() avoids putting user_id in fillable",
+    "Collection pipeline with map/unique plus a whereKeyNot query is concise",
+    "Tests cover guests, 404s, validation messages, duplicate and case-insensitive mentions, private recipients, self and unknown mentions, email addresses, lowercase storage and the rollback path"
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 6,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 7,
+    "architecture_fit": 6,
+    "modern_laravel": 7,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 7.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Controllers/ReplyController.php:21-42 puts the whole workflow (transaction, increment, user lookup, mail and notify loop) in the controller, and splits mention logic between the model (usernames) and the controller (query)",
+    "app/Http/Controllers/ReplyController.php:33 `if ($usernames !== [])` is a needless guard; whereIn with an empty array already returns nothing",
+    "app/Models/Reply.php:11 has user_id and thread_id in Fillable, and app/Models/Thread.php:12 makes reply_count mass-assignable",
+    "app/Models/Reply.php:34 uses array_values(array_unique(array_map('strtolower'))) instead of a collection or Str::lower pipeline, and strtolower isn't multibyte-safe",
+    "app/Models/Thread.php:18 sets $attributes reply_count default, duplicating the migration default",
+    "app/Mail/MentionedInReply.php:14 imports the Queueable/SerializesModels boilerplate with no ShouldQueue, and the constructor has empty braces"
+   ],
+   "strengths": [
+    "Mention regex `@([A-Za-z0-9_.-]*[A-Za-z0-9_])` handles dotted and hyphenated usernames (which the factory generates) and trims trailing punctuation. It was the only implementation that passed the dotted-username probe",
+    "The transaction wraps the insert and increment, and mails and notifications run only after commit. The rollback probe passed",
+    "Tests cover auth, a repeated increment, validation boundaries, private recipients, case-insensitive dedupe, self and unknown mentions, email addresses, no mentions, the failure path with Notification::fake, and lowercase plus unique usernames",
+    "Markdown mailable with a sensible template"
+   ]
+  },
+  "rationale": "All three pass their own suites (12, 12 and 13 tests). All three wrap the reply insert and the reply_count increment in DB::transaction and dispatch mail and notifications only after commit. They de-duplicate mentions case-insensitively, exclude the author with whereKeyNot, and send one private Mail::to per user plus a database notification. My probes found the same results for each: punctuation handling and '@bob's' de-duplication worked, and a forced failure in the increment rolled everything back with nothing sent. The deciding difference was the dotted-username probe. Every implementation seeds usernames with faker's userName(), and about half of those contain dots (e.g. 'john.doe'). impl-1 and impl-2 match mentions with `@(\\w+)`, so those users can never be mentioned; their own factories produce data their feature can't handle. Only impl-3's regex supports dots and hyphens while trimming trailing punctuation, so it is ranked first despite weaker structure: logic in the controller, a needless empty guard, overly broad fillables and array_* functions instead of collections. impl-1 beats impl-2 on idioms and tests: Thread::addReply domain method, an author() relation, a unicode-aware /u regex, and tests for mailable rendering, the notification payload, a case-insensitive self-mention and multibyte length. Its only extra is some test noise (preventStrayRequests, forgetGuards). impl-2 is clean (an Action class plus associate), but it shares the dotted bug, lacks /u and has slightly thinner tests."
+ },
+ "cost_usd": 0.4466672
+}

@@ -1,0 +1,102 @@
+{
+ "key": "carrier-quote",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 9,
+    "correctness": 9,
+    "simplicity": 9
+   },
+   "overall": 9,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Minor: individual rate entries are passed through unchecked. A body of `{rates:['junk']}` comes back as 200 with estimated:false and rates:['junk'] (app/Services/CarrierClient.php:41)"
+   ],
+   "antipatterns": [
+    "app/Services/CarrierClient.php:17 - the 5s budget is enforced only by a comment (ATTEMPTS * TIMEOUT). Nothing in the code or tests checks it.",
+    "app/Http/Controllers/ShippingQuoteController.php:17 - catches UnknownPostcodeException in the controller. A render() method on the exception would have been the more idiomatic choice.",
+    "tests/Pest.php:19 - preventStrayRequests is set globally (good). Using a top-level const CARRIER_RATES in the test file can leak into the global namespace."
+   ],
+   "strengths": [
+    "Uses the native Http::retry(3, 0, when) with a transient-only predicate (ConnectionException or 5xx). 404 and 401 are never retried, and there are no sleeps.",
+    "Only the 401 is reported. Transient 5xx and timeouts serve the fallback without paging anyone, and a probe confirmed Exceptions::assertNothingReported.",
+    "Has a FormRequest, uses validated('postcode'), keeps the controller small, and has a typed handleFailure(): never.",
+    "Tests are the most idiomatic of the three: Exceptions::fake/assertReported, Http::sequence, assertSentCount, a dataset of invalid postcodes, and a check that transient failures are not reported.",
+    "Probes passed: a 500 followed by a 404 gives 422 after 2 calls; a 401 is reported exactly once; a 429 serves the fallback after 1 call; a request without an Accept header still gets a JSON 422."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 5,
+    "validation_form_requests": 6,
+    "eloquent_idioms": 7,
+    "architecture_fit": 6,
+    "modern_laravel": 6,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 6,
+    "simplicity": 6
+   },
+   "overall": 5.5,
+   "rank": 3,
+   "tests_pass": true,
+   "bugs": [
+    "A 200 response containing a malformed rate entry (e.g. `{rates:['junk']}`) causes a TypeError at app/Services/CarrierClient.php:75. Checkout gets a 500 instead of the fallback.",
+    "app/Http/Controllers/ShippingQuoteController.php:25 calls report() on every CarrierUnavailableException, including expected transient 5xx/timeout fallbacks. That floods alerting, when the task asked for the 401 specifically to be reported. A probe confirmed it."
+   ],
+   "antipatterns": [
+    "app/Services/CarrierClient.php:30-61 - a hand-rolled for/continue retry loop with a $last variable instead of Http::retry() with a when-callback.",
+    "app/Http/Controllers/ShippingQuoteController.php:15 - inline $request->validate() where the other two use a FormRequest. This is acceptable, but $estimated/$rates are set as mutable locals across the try/catch branches.",
+    "app/Services/CarrierClient.php:74 - array_values(array_map(...)) where collect()->map() or a typed DTO would be cleaner, and it lacks key guards.",
+    "tests/Feature/ShippingQuoteTest.php:102 - registers a reportable() handler manually instead of using Exceptions::fake()/assertReported."
+   ],
+   "strengths": [
+    "Bounds time explicitly with connectTimeout(1) plus timeout(1.5) per attempt, with no sleeps.",
+    "401 and 404 are correctly not retried, and 404 maps to a 422 with a message.",
+    "The tests cover the main paths: success, a 5xx followed by recovery, connection failures, a 401, and a malformed body. preventStrayRequests is used."
+   ]
+  },
+  "impl-3": {
+   "scores": {
+    "collections_helpers": 7,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 7,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Services/CarrierClient.php:38,42 calls report() on every exhausted 5xx and on every connection failure, not only the 401. Expected carrier flakiness will page on-call. A probe confirmed it: a 500 response produced a reported RequestException.",
+    "Minor: rate entries are passed through unchecked. `{rates:['junk']}` comes back as 200 with estimated:false (app/Services/CarrierClient.php:51)."
+   ],
+   "antipatterns": [
+    "app/Services/CarrierClient.php:28-31 - calls retry(..., throw: false) followed by ->throw(). This round trip is harder to read than letting retry throw.",
+    "app/Services/CarrierClient.php:26-27 - the 1.4 timeout, connectTimeout of 1, and 3 attempts / 100ms are magic numbers inside the call, with the budget explained in a comment instead of named constants.",
+    "tests/Feature/ShippingQuoteTest.php:110 - registers a reportable() handler manually instead of using Exceptions::fake().",
+    "app/Exceptions/*.php - exception names drop the Exception suffix (UnknownPostcode, CarrierUnavailable), which departs from the app's conventions."
+   ],
+   "strengths": [
+    "UnknownPostcode::render() returns the 422 itself, so the controller handles only the fallback. This is idiomatic exception rendering.",
+    "Uses the digits:4 rule in a FormRequest and has the most thorough set of invalid postcodes ('21 0', '-210', '21.0', empty, array).",
+    "Uses Http::failedConnection()/pushFailedConnection() and Sleep::fake(). It also asserts the backoff sequence, so the time budget is actually tested.",
+    "Uses the native Http::retry with a transient-only predicate. 401 and 404 are not retried, and connectTimeout plus timeout bound each attempt."
+   ]
+  },
+  "rationale": "I ranked impl-1 first, impl-3 second and impl-2 third. All three test suites pass on Laravel 13.40. For each implementation I ran a throwaway probe file of 7 tests and then deleted it.\n\n**impl-1 (rank 1)** meets every requirement. It retries only on connection failures and 5xx responses, using Http::retry with no sleeps. It never retries a 404 or a 401, and it reports only the 401, which is exactly what the task asked for. It uses a FormRequest, and its tests are the most idiomatic (Exceptions::fake, assertNothingReported for transient failures). Every probe passed. The one small issue is that rate entries are not checked individually.\n\n**impl-3 (rank 2)** also uses Http::retry and has the most idiomatic structure in places: a render() method on the exception for the 422, the digits:4 rule, Http::failedConnection, and a Sleep::fake test of the time budget. However, it reports every failure, so expected flakiness pages on-call. The retry(throw:false) followed by ->throw() is also more roundabout than it needs to be.\n\n**impl-2 (rank 3)** has two real bugs and a weaker structure:\n- A malformed rate entry in a 200 response causes a TypeError, so checkout gets a 500 instead of the fallback.\n- It reports every fallback from the controller, which floods alerting.\n\nIt also uses a hand-rolled retry loop instead of Http::retry and validates inline rather than with a FormRequest."
+ },
+ "cost_usd": 0.5278066
+}

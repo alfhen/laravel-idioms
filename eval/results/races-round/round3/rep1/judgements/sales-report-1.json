@@ -1,0 +1,82 @@
+{
+ "key": "sales-report",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 8,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Inconsistent money shape: top-level totals are {cents, formatted} objects but nested rows use flat revenue_cents/revenue_formatted and spend_cents/spend_formatted keys (app/Reports/BuildSalesReport.php:118-130), so clients need two different parsers",
+    "Because from/to accept any `date` and are only compared after validation, `from=2026-01-01T10:00&to=2026-01-01T09:00` is rejected with 422 even though both fall on the same day and the report uses whole days anyway"
+   ],
+   "antipatterns": [
+    "app/Http/Requests/SalesReportRequest.php:15 trim() duplicates the global TrimStrings middleware",
+    "app/Http/Requests/SalesReportRequest.php:39-42 the `filled(... ?? null)` checks and OrderStatus::tryFrom('') fallback are needed only because of the permissive 'sometimes|nullable' rules",
+    "app/Reports/BuildSalesReport.php:113-131 has both money() and moneyFields() helpers, which is why the output shape is inconsistent",
+    "app/Reports/BuildSalesReport.php:23-27 uses closure factories ($orders(), $items()) to rebuild builders where a builder plus clone would be clearer",
+    "tests/Feature/SalesReportTest.php:22 preventStrayRequests via app(Http::class) in setUp is ceremony that has nothing to do with the feature",
+    "tests/Feature/SalesReportTest.php:26 calls a factory state dynamically with ->{$state}(), which is stringly typed"
+   ],
+   "strengths": [
+    "The FormRequest's filters() returns typed CarbonImmutable start/end-of-day values and the status enum, and is spread as named arguments into an invokable report class",
+    "The controller is one line, and the route is invokable",
+    "Uses modern #[Scope] attributes (placedBetween, inCountry, withStatus, forOrders), the #[Fillable] attribute and casts() method, and Rule::enum",
+    "Aggregation is done in SQL with a whereIn subquery and grouped joins, ordered deterministically with tie-breakers",
+    "Empty query params fall back to defaults without errors, and country validation is strict (alpha:ascii, size:2)",
+    "Thorough tests: inclusive date boundaries, country filtering checked across every section, top-N caps and ordering, AOV rounding, unit_price vs product price, and a 422 data provider that includes array input"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 7,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Order #[Fillable] leaves out customer_id and OrderItem #[Fillable] leaves out order_id/product_id (app/Models/Order.php:16, app/Models/OrderItem.php:11), so Order::create([...'customer_id'=>...]) silently drops the foreign key. Only the factories work, because they run unguarded",
+    "The 'alpha' rule accepts non-ASCII letters: country=\u00e6\u00f8 passes validation and returns 200 with filters.country '\u00e6\u00f8'",
+    "Empty params (`?status=`, `?from=`) return 422 instead of falling back to the defaults. This is defensible, but it is strict for optional filters"
+   ],
+   "antipatterns": [
+    "app/Reports/BuildSalesReport.php:20 __invoke takes an untyped array shape instead of typed arguments, and parses date strings in the report (lines 44-47) instead of the FormRequest",
+    "app/Models/Order.php:43-44 calls $from->startOfDay() and $to->endOfDay(), which mutates the Carbon instances passed in",
+    "app/Models/Order.php:16 has a #[Fillable] list without the FK columns (see bugs)",
+    "app/Reports/BuildSalesReport.php mixes whereHas correlated subqueries with Order-rooted joins across sections, so the query style is inconsistent",
+    "tests/Feature/SalesReportTest.php:236 test_the_endpoint_makes_no_network_calls is a noise test"
+   ],
+   "strengths": [
+    "Consistent money shape everywhere: {cents, formatted} objects, including nested rows",
+    "date_format:Y-m-d is strict and rejects impossible dates",
+    "The filters() method on the FormRequest uses validated() with a default, and the controller is one line",
+    "Uses the tap($matching) closure for a shared order constraint with modern #[Scope] scopes, plus Rule::enum and an enum cast",
+    "Tests use assertExactJson for the empty report, check thousand-separator formatting, check that pending/refunded orders are excluded from top-N, and include a solid 422 data provider",
+    "Smaller, readable report class with a single money() helper"
+   ]
+  },
+  "rationale": "The two are structurally almost identical: a FormRequest with filters(), a one-line invokable controller, an invokable BuildSalesReport, #[Scope] scopes, and SQL aggregation. Both full test suites pass (23 and 24 tests). Probes on order totals with several items per order, orders with no items, array params, and bad dates gave correct and matching numbers in both. impl-1 comes out ahead. Its FormRequest does more: it turns input into typed CarbonImmutable day boundaries and the enum, empty params fall back to the defaults, and alpha:ascii strictly validates the country code. Its scopes don't mutate their inputs, and its tests are slightly broader. Its main flaw is an inconsistent money shape (nested objects at the top level, flat prefixed keys in the rows), plus some extra code: a redundant trim and the filled() fallbacks. impl-2 has the cleaner, consistent money shape and a simpler report class. However, its #[Fillable] lists leave out the foreign-key columns (a latent mass-assignment bug), it accepts non-ASCII 'country' values, it passes untyped array filters, it parses dates inside the report, and its scopes mutate the Carbon instances passed in. On balance, impl-1 has fewer real defects."
+ },
+ "cost_usd": 0.45198380000000005
+}

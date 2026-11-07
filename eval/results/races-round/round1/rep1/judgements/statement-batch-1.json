@@ -1,0 +1,82 @@
+{
+ "key": "statement-batch",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 7,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 6,
+    "simplicity": 6
+   },
+   "overall": 6.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "DispatchStatementChunk is not idempotent: it increments dispatched_accounts and bulk-pushes before deciding what to do next, so a retry after a partial failure dispatches every account in the chunk again. The probe ran the chunk twice for 2 accounts: total_accounts became 4, processed_accounts 4, and 4 StatementReady mails went out, so each customer was emailed twice (app/Jobs/DispatchStatementChunk.php:41-46).",
+    "GenerateStatement implements ShouldBeUnique, but the jobs are pushed with Queue::bulk, which calls push() directly and never takes the unique lock. The uniqueness guard does nothing, so it cannot prevent the duplicates above (app/Jobs/GenerateStatement.php:25-27, DispatchStatementChunk.php:43).",
+    "The finance summary is sent synchronously inside the last account's job, after the run has already been claimed as complete. If that send throws, the retry finds the claim taken and never resends the summary. The retry also re-sends StatementReady to the customer and increments processed_accounts again (GenerateStatement.php:55-71).",
+    "The counters are not idempotent across retries. Any exception after recordAttempt() leads to a double increment, and failed() then adds another processed and another failed count, so the failure count can drift (StatementRun.php:36-43).",
+    "A failure of DispatchStatementChunk after its tries are exhausted has no failed() handler, so the run stays 'running' forever."
+   ],
+   "antipatterns": [
+    "app/Jobs/GenerateStatement.php:25-27: ShouldBeUnique/#[UniqueFor] on a job that is only ever bulk-pushed, so the attributes are ceremony with no effect",
+    "app/Jobs/GenerateStatement.php:35: onQueue() in the constructor, when the installed version has an #[Queue] attribute that matches the other attribute usage",
+    "app/Jobs/GenerateStatement.php:71 and DispatchStatementChunk.php:57: duplicated summary-mail send logic in two jobs instead of one place (model event or a dedicated job)",
+    "app/Models/StatementRun.php:33: settleTotal uses fresh() and then forceFill, mixing a stale instance with re-reads; an atomic UPDATE would be clearer",
+    "Failed accounts stay in failed_jobs after 3 tries, and nothing schedules queue:prune-failed"
+   ],
+   "strengths": [
+    "Fan-out scales: dispatch is chunked by keyset (id > afterId, limit 1000), the dispatcher re-dispatches itself, and Queue::bulk keeps each dispatcher job short",
+    "Counting with O(1) atomic increments, plus a guarded UPDATE so exactly one worker wins the completion claim",
+    "Retries with backoff on the generation job (#[Tries], #[Backoff], #[Timeout]); failed() records the failure only once the retries are exhausted",
+    "Skips regeneration when the PDF already exists on retry; accounts deactivated or deleted mid-run are handled without getting the run stuck",
+    "Tests run the real database queue with queue:work and cover chunk splitting, failure isolation, no active accounts, mid-run deactivation and retry idempotency",
+    "Modern attributes throughout (#[Fillable], #[Scope], queue attributes) and an enum cast for status"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 6.5,
+    "simplicity": 7
+   },
+   "overall": 7,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Hard-deleting an account while a run is in progress leaves the run stuck in 'running' forever. findOrFail throws, the catch calls recordDelivery(false), and the statement_deliveries.billing_account_id foreign-key constraint rejects the insert. failed() repeats the same insert and fails the same way. The probe confirmed a QueryException with the status still Running (GenerateAccountStatement.php:36-46, migration:34).",
+    "A single DispatchStatementRun job dispatches all ~40k jobs one by one in a loop, with Timeout(900). On SQS, a visibility timeout shorter than the job's run time means a second worker re-runs the whole dispatch. The ledger check prevents most duplicates, but two copies running at once can both pass the exists() check and email the customer twice (DispatchStatementRun.php:29-36, GenerateAccountStatement.php:31).",
+    "completeIfFinished() runs COUNT(*) over the run's deliveries after every account. That is O(n) per job and O(n\u00b2) for a 40k run, about 800M index reads in total (StatementRun.php:46-48).",
+    "Every Throwable is caught, so a transient SMTP or storage error permanently marks the account as failed with no retry (GenerateAccountStatement.php:44-48).",
+    "config('billing.finance_email') has no default; if the env variable is unset, Mail::to(null) fails in the summary job."
+   ],
+   "antipatterns": [
+    "app/Jobs/DispatchStatementRun.php:29-36: a manual counter loop dispatching 40k jobs individually, instead of chunking with Queue::bulk or self-chained chunks",
+    "app/Jobs/*.php: onQueue(config(...)) repeated in three constructors",
+    "app/Models/StatementRun.php:44-66: completion logic and dispatching a job inside the model, which couples the model to the queue layer",
+    "app/Models/StatementDelivery.php: the per-account ledger table grows by about 40k rows a month and nothing prunes it",
+    "GenerateAccountStatement.php:54: comment on failed() restates standard framework behaviour"
+   ],
+   "strengths": [
+    "The idempotent per-account ledger (unique run+account, insertOrIgnore) makes the failure count exact and retries safe; the probe that ran the dispatcher twice produced no duplicate emails and a correct status",
+    "The guarded UPDATE gives a single winner for completion, and the summary goes out as its own queued job with tries/backoff, so a mail failure does not lose it",
+    "failed() covers timeouts and worker crashes where the catch block never runs",
+    "If accounts were deactivated before dispatch, total_accounts is reduced to the number actually dispatched, so the run still finishes",
+    "The queue name comes from config; StatementReady attaches the stored PDF, so the mail can only go out after the file exists",
+    "Fast, focused Pest tests covering partial failure, all accounts failing, no active accounts, the failed() path, idempotency, total shrinking, mailable rendering and the factories"
+   ]
+  },
+  "rationale": "Impl-2 ranks first, narrowly: 7 overall against 6.5. The two are close. Both test suites pass (impl-1: 11 tests, impl-2: 14), both claim completion with a guarded UPDATE, and both keep the slow work on a 'statements' queue. Probes found one real bug in each.\n\n**Impl-1** has the more scalable fan-out: keyset-chunked dispatcher jobs, Queue::bulk and O(1) counters. Its weak spot is idempotency:\n- A retried chunk dispatches every account again. The probe produced total=4 for 2 accounts and emailed each customer twice.\n- The ShouldBeUnique guard is never applied, because Queue::bulk skips the unique lock.\n- The summary mail can be lost on a retry, and the counters can drift.\n\n**Impl-2** keeps a per-account delivery ledger with a unique key and insertOrIgnore. That makes the failure count exact and retries safe; the probe that ran the dispatcher twice sent no duplicate emails. The summary goes out as its own retried job, failed() covers timeouts, and the stored PDF is attached to the email. Its problems:\n- Hard-deleting an account mid-run leaves the run stuck in 'running' forever, because of the foreign-key constraint on the ledger. The probe confirmed this.\n- One long job dispatches all ~40k accounts, which is risky on SQS.\n- Completion is checked with an O(n\u00b2) series of COUNT queries.\n- Transient errors are never retried.\n\nImpl-2 wins because its counts are more trustworthy and its tests cover more failure paths (the failed() path, idempotency, the total shrinking). Impl-1 is better on fan-out scaling and handles deleted accounts more gracefully."
+ },
+ "cost_usd": 0.5796942
+}

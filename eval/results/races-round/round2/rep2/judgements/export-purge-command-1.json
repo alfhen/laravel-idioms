@@ -1,0 +1,76 @@
+{
+ "key": "export-purge-command",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 7,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 7,
+    "correctness": 8,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "--days=0 is accepted and purges every export older than 'now' (probe: a 5-minute-old export was deleted). That's a footgun for an operator running it by hand in production (app/Console/Commands/PurgeExports.php:24)",
+    "Lock TTL is 3600s. On a multi-million-row backlog a run can outlast it, and then a second run can start (PurgeExports.php:42)"
+   ],
+   "antipatterns": [
+    "app/Console/Commands/PurgeExports.php:78-79 throws a RuntimeException only to catch it a few lines later in the same try, using an exception for control flow",
+    "app/Console/Commands/PurgeExports.php:70 purge($expired) has an untyped Builder parameter",
+    "app/Console/Commands/PurgeExports.php:76 lazyById loads full rows (select *) when only id and path are needed",
+    "database/factories/ExportFactory.php:22 uses an inline FQCN \\DateTimeInterface instead of an import",
+    "tests/Feature/PurgeExportsTest.php:135-146 an anonymous FilesystemAdapter subclass to fake a failed delete is heavier than a Mockery partial",
+    "No test for production + --no-interaction without --force"
+   ],
+   "strengths": [
+    "Uses ConfirmableTrait, so production asks for confirmation, --force skips it, and a refusal returns FAILURE",
+    "Dry-run happens before confirmation and before the lock, and only runs a count()",
+    "Cache::lock on the shared Redis store excludes manual and scheduled runs from each other, alongside onOneServer on the schedule",
+    "lazyById(500) is memory-safe and stays correct while rows are deleted. The created_at index is in place",
+    "Catches Throwable per row, so even a DB error on one row doesn't stop the rest (probe confirmed)",
+    "Uses modern attributes: #[Signature], #[Description], #[Scope], #[Fillable]",
+    "Prompt::fallbackWhen(true) is a neat, minimal way to test the production confirmation"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 8,
+    "simplicity": 7
+   },
+   "overall": 8.2,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "An exception from $export->delete() (DB error) is not caught. It aborts the whole run instead of moving on, though the lock is released and the exit code is still non-zero (probe confirmed; PurgeExports.php:74)",
+    "The 7200s lock TTL can still expire during a very long backlog purge (PurgeExports.php:45)"
+   ],
+   "antipatterns": [
+    "tests/Feature/PurgeExportsTest.php:42-55 overrides getDefaultConfirmCallback in an anonymous subclass and re-declares the signature. That's heavy ceremony, and the docblock is inaccurate: Prompt::fallbackWhen is sticky, so it could just be forced on",
+    "app/Console/Commands/PurgeExports.php:84 duplicates the $failed > 0 check right after the if-block above it"
+   ],
+   "strengths": [
+    "Validates --days with ctype_digit and >= 1, which rejects 0, decimals and empty values. That's safer for manual production use",
+    "lazyById over select(['id','path']) keeps memory use low on millions of rows",
+    "Small deleteFile() helper turns both false and thrown exceptions into 'keep row and retry', with report()",
+    "Prints each failed export id at -v, which helps support",
+    "Same well-placed ConfirmableTrait + dry-run-first + shared Cache::lock design, plus onOneServer",
+    "Thorough tests: a data provider for invalid days, the 30-day boundary, a throwing disk, retry on the next run, lock release, --no-interaction refusal in production, 1100 rows across pages, schedule assertion with sole()",
+    "Mockery partial on the disk is a clean way to simulate failed deletes"
+   ]
+  },
+  "rationale": "I ran both suites and both pass (impl-1: 15 tests, impl-2: 25 tests). They share the same core design, which is correct: ConfirmableTrait for the production prompt, dry-run handled before confirmation, lazyById, a shared Cache::lock that keeps manual and scheduled runs apart, and onOneServer on the 03:00 schedule.\n\nI probed --days=0, production with --no-interaction, a DB exception during a row delete, and the SQL each command selects. Both refuse correctly when production runs with --no-interaction.\n\nWhat separates them:\n- **impl-1** accepts --days=0 and wiped a 5-minute-old export, which is risky for an operator running it by hand against production. It loads full rows instead of only id and path, uses throw-to-catch control flow, and has no test for a non-interactive refusal. It does handle a DB exception on one row more gracefully than impl-2.\n- **impl-2** validates days more strictly, selects only the columns it needs, keeps file-failure handling in one clean helper, and has a noticeably broader test suite with real failure-path tests. Its downsides are a clumsy test-only command subclass with an inaccurate docblock, and no recovery from a DB exception mid-run (that still surfaces as a non-zero exit).\n\nOverall impl-2 ranks first."
+ },
+ "cost_usd": 0.3220464
+}

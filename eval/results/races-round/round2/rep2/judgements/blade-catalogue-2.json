@@ -1,0 +1,85 @@
+{
+ "key": "blade-catalogue",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 9,
+    "tests": 8,
+    "correctness": 9,
+    "simplicity": 7
+   },
+   "overall": 8.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Minor: no attributes() on ProductRequest, so the messages say 'The category id field is required.' / 'The selected category id is invalid.' (app/Http/Requests/Admin/ProductRequest.php; the test at tests/Feature/Admin/ProductManagementTest.php:94 locks in this wording).",
+    "Minor: a slug the admin types is quietly normalised in prepareForValidation (e.g. 'Not A Slug!!' is saved as 'not-a-slug') with no validation feedback (app/Http/Requests/Admin/ProductRequest.php:13).",
+    "Design risk: categories FK uses cascadeOnDelete, so deleting a category silently deletes all its products (database/migrations/2026_01_01_000001_create_products_table.php:13)."
+   ],
+   "antipatterns": [
+    "View-side collection shaping: collect($sorts)->mapWithKeys(...) inside the Blade template; should be prepared in the controller or the enum (resources/views/products/index.blade.php:20).",
+    "Ceremony: __() on every string, plus trans_choice with identical singular/plural forms '{1} :count in stock|[2,*] :count in stock' (resources/views/products/show.blade.php:10).",
+    "Model::shouldBeStrict added globally in AppServiceProvider is scope creep for this task (app/Providers/AppServiceProvider.php:26).",
+    "related() returns an executed Collection rather than a query or relation, so callers can't compose it (app/Models/Product.php:52).",
+    "Overwrote the base welcome page (resources/views/welcome.blade.php), which wasn't required."
+   ],
+   "strengths": [
+    "Checkbox uses a hidden 0 input plus filter_var on old(), so an unchecked 'Active' stays unchecked after a failed submit (verified by probe).",
+    "LIKE wildcards are escaped in the search scope, with a test proving '%' is treated literally (app/Models/Product.php:74).",
+    "The shared form is a real <x-product-form> component taking props; there is also a reusable <x-form.error> and $attributes->class(['is-invalid' => ...]) on inputs.",
+    "Uses the @session directive for flash messages, an Attribute accessor for formatted_price, #[Scope] attribute scopes, and the #[Fillable] attribute.",
+    "The index filter form shows validation errors (e.g. for q) and is fed from validated $filters rather than raw request() in the view.",
+    "The sort default is resolved in the FormRequest, giving a non-nullable enum in the scope with an exhaustive match.",
+    "Slug is auto-generated from the name when left empty.",
+    "Tests use route() names, datasets, and cover the wildcard search, invalid filters with redirect, related-product constraints, and the guard on every admin route."
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 7,
+    "simplicity": 9
+   },
+   "overall": 7.3,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Old input is lost for the 'Active' checkbox: if the admin unticks it and the submit fails, the box comes back ticked on the create form. The checkbox has no hidden 0 input and uses @checked(old($name, $checked)) with a default of true, so the absent key falls back to the default. Confirmed by probe (resources/views/components/form/checkbox.blade.php:4).",
+    "Invalid public filters (?category=nope, ?sort=bogus, ?page=abc) redirect back with validation errors, but products/index.blade.php never renders $errors, so the user is silently bounced to an unfiltered list (app/Http/Requests/ProductIndexRequest.php:15-17, resources/views/products/index.blade.php).",
+    "LIKE wildcards in the search aren't escaped: q=% matches every product (app/Models/Product.php:66)."
+   ],
+   "antipatterns": [
+    "The view reads raw request('q'), request('category') and request('sort') instead of validated filters passed from the controller (resources/views/products/index.blade.php:5,9,14).",
+    "Opens and closes the grid <div> through @if($loop->first)/@if($loop->last) inside @forelse, which is fragile markup (resources/views/products/index.blade.php:20-27).",
+    "The shared form is an @include partial with implicit $action/$method variables rather than a view component with @props (resources/views/admin/products/_form.blade.php).",
+    "@error markup is duplicated in each form component instead of being extracted (resources/views/components/form/*.blade.php).",
+    "formattedPrice() is a plain method rather than an Attribute accessor (app/Models/Product.php:40).",
+    "The sortedBy scope takes a nullable enum and relies on a match default to cover null (app/Models/Product.php:79-83)."
+   ],
+   "strengths": [
+    "Very lean and readable; the controllers are thin, with the query composed from #[Scope] attribute scopes.",
+    "FormRequest has accessor methods (term/categorySlug/sort) with Rule::enum and Rule::exists, and the admin request has attributes() for a friendly 'category' label.",
+    "Slug format regex plus unique()->ignore(route('product')).",
+    "related() returns a composable Builder, eager-loaded in the controller.",
+    "Composite indexes on (is_active, created_at/price) suit the listing queries.",
+    "Thorough Pest tests with datasets for per-field validation messages, the forbidden matrix, pagination query-string preservation, and related-product constraints."
+   ]
+  },
+  "rationale": "I'd rank impl-1 first and impl-2 second. Both test suites pass (impl-1: 45 tests, impl-2: 48), and I deleted my probe tests afterwards.\n\nThe backends are almost identical: same controllers, the same attribute-style scopes, the same enum and FormRequest accessors, and the same admin guard via a can: middleware. The Blade layer is what separates them.\n\n**The bug that decides it:** in impl-2, if an admin unticks \"Active\" and the submit fails validation, the box comes back ticked. The task explicitly requires previously entered input to be kept, and a probe confirmed the failure. impl-1 handles this correctly with a hidden 0 input.\n\n**impl-2's other problems:**\n- Invalid filters (an unknown category or sort) redirect with errors that the listing page never shows, so the user is silently sent back to an unfiltered list.\n- The search doesn't escape `%`, so searching for `%` matches every product.\n- The view reads raw query-string values instead of validated filters.\n- The shared form is an `@include` partial rather than a component.\n\n**What impl-1 does better:**\n- The shared form is a real `<x-product-form>` view component, with a reusable error component and highlighting on invalid fields.\n- The search escapes wildcards, with a test proving it.\n- The filter form receives validated values and shows its errors.\n- It uses current idioms such as the `@session` directive and an attribute accessor for the formatted price.\n\n**impl-1's weaknesses:**\n- Some ceremony: `__()` on every string, a pointless `trans_choice`, and global strict mode in the service provider.\n- A little collection logic sits inside a template.\n- Validation messages read \"category id\" rather than \"category\".\n- Deleting a category quietly deletes all its products.\n\nThese cost impl-1 on simplicity, but they don't outweigh impl-2's real input-retention bug."
+ },
+ "cost_usd": 0.7101359999999999
+}

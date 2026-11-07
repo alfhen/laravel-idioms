@@ -1,0 +1,79 @@
+{
+ "key": "statement-batch",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 9,
+    "focus_area": 6,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "app/Jobs/QueueAccountStatements.php:28 - one job walks all ~40k active accounts with chunkById(500) and runs 80 batch()->add() calls. Each call pushes to SQS and updates job_batches. The job has no #[Timeout], so it runs under the worker's default 60s timeout. With #[Tries(1)], a timeout means the job fails and is not retried. The rest of the accounts are then never queued, yet the run still finishes as completed_with_errors with failed_accounts=1.",
+    "Nothing schedules queue:prune-batches or queue:prune-failed (routes/console.php is unchanged). With #[Tries(1)], every failed account goes into failed_jobs, and job_batches rows are never removed, so both tables grow forever.",
+    "If the dispatcher job itself fails, it is counted in $batch->failedJobs. failed_accounts can then include a job that isn't an account (FinishStatementRun.php:15).",
+    "total_accounts is counted when the run starts. If accounts are deleted mid-run (DeleteWhenMissingModels counts that as success), the run finishes as completed even though fewer statements were produced than total_accounts says."
+   ],
+   "antipatterns": [
+    "app/Jobs/QueueAccountStatements.php:28 - the whole 40k fan-out happens inside one long, unbounded job instead of small paged jobs that each add the next page",
+    "app/Jobs/QueueAccountStatements.php:21 - the comment uses // instead of a docblock. It is useful, though.",
+    "tests/Feature/StatementRunTest.php:48-53 - a trivial test with an unneeded Bus::fake() that only checks a constructor property",
+    "tests/Feature/StatementRunTest.php:78 - hard-codes run id 1 in the path instead of using the returned run",
+    "app/Actions/StartStatementRun.php:23 - the batch has no name, which makes it harder to find in Horizon or job_batches"
+   ],
+   "strengths": [
+    "Bus::batch with allowFailures and a finally callback, so failures are isolated and the run always reaches a final status",
+    "The finish step only updates rows still marked running, so the summary is sent exactly once",
+    "Jobs pass only $runId instead of serialising the run model",
+    "#[DeleteWhenMissingModels] marks a deleted account as a successful batch job, so the batch never hangs (I checked this with a probe)",
+    "Checks the return value of Storage::put() before emailing, which makes sure the file exists. StatementReady attaches the PDF from the disk.",
+    "Tests run a real database queue worker, cover inactive accounts, a failing account, zero accounts, the stored file contents and the factories",
+    "Modern attributes: #[Fillable], #[Scope], #[Tries], #[Timeout], plus an enum cast"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 7,
+    "tests": 8,
+    "correctness": 7.5,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Nothing schedules queue:prune-batches or queue:prune-failed (routes/console.php is unchanged). With #[Tries(1)], failed account jobs build up in failed_jobs, and job_batches is never pruned.",
+    "If a DispatchStatementJobs page job fails, it is counted in $batch->failedJobs. The remaining pages are then never queued, and failed_accounts is off: it counts the page job as one failed account, and the skipped accounts are not counted at all (StartStatementRun.php:28).",
+    "total_accounts is counted when the run starts, but the pages query again later. If an account is deleted mid-run (counted as success because of DeleteWhenMissingModels), total_accounts no longer matches the statements actually produced."
+   ],
+   "antipatterns": [
+    "app/Jobs/GenerateStatement.php:23 - serialises the full StatementRun model into each of 40k payloads when only the id is used",
+    "app/Jobs/GenerateStatement.php:34 - ignores the return value of Storage::put(), so a failed write would still send the email",
+    "tests/Feature/StatementRunTest.php:45-63 - most tests rely on the sync queue from phpunit.xml, so the batch runs inline. Only the failure test uses a real worker.",
+    "app/Jobs/DispatchStatementJobs.php:31-36 - hand-written keyset pagination with where/orderBy/limit, where a lazyById cursor or chunkById per page could be used"
+   ],
+   "strengths": [
+    "Fan-out is split into 1000-account pages. Each page job adds the next page to the batch before it finishes, so no single job is long-running and the batch cannot finish early. This scales to 40k accounts on SQS.",
+    "Bus::batch with a name, allowFailures, a dedicated statements queue and a finally callback. The run always reaches a final status, and failed_accounts comes from batch->failedJobs.",
+    "CompleteStatementRun only updates rows still marked running, so the summary is sent once. A test covers this.",
+    "#[DeleteWhenMissingModels] means a deleted account does not hang the batch (I checked this with a probe)",
+    "Tests cover the paging boundary (1001 accounts), a failing account under a real worker, zero accounts, the send-once summary and HTML escaping in the mailable",
+    "Modern attributes: #[Fillable], #[Scope], #[Tries, Timeout], plus an enum cast. The queue name is configurable."
+   ]
+  },
+  "rationale": "The two implementations are nearly identical in design: a Laravel job batch with allowFailures and a finally callback, a run update that only applies while the run is still marked running, a dedicated 'statements' queue, Tries(1) and DeleteWhenMissingModels. Both test suites pass (impl-2: 9 tests, impl-1: 11 tests). My probes behaved the same in both. When an account was deleted mid-run, the run completed with 0 failures. When StatementReady mail failed after the file was stored, it counted as a failed account. With more than one page of accounts on a database queue, the run completed and sent exactly one summary. Neither implementation schedules pruning of job_batches or failed_jobs, so both miss the requirement that queue tables do not grow forever. The deciding difference is how they fan out at production scale. impl-2 pages 1000 accounts per job, each page adds the next one to the batch, and each has an explicit 120s timeout. impl-1 queues all ~40k accounts from one job with no timeout set, so on SQS it can hit the worker's 60s default. With Tries(1) it would then not be retried, leaving most accounts unqueued while the run reports a single failure. impl-1 has some nice touches: it attaches the PDF, checks that the file was written, and passes only the run id to jobs. Its tests also use a real worker more consistently. impl-2's tests cover the paging boundary and the send-once summary. On balance, impl-2's sturdier fan-out is what ranks it first."
+ },
+ "cost_usd": 0.3876976
+}

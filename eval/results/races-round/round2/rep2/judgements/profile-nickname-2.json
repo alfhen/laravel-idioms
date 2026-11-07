@@ -1,0 +1,66 @@
+{
+ "key": "profile-nickname",
+ "judge": 2,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 9,
+    "architecture_fit": 9,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 10,
+    "simplicity": 8
+   },
+   "overall": 8.4,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Requests/UpdateProfileRequest.php:7 - naming inconsistent with MeController/MeResource (Profile vs Me)",
+    "routes/api.php:10-13 - prefix('me') with '/' sub-routes is extra ceremony for two routes on one URI",
+    "tests/Feature/MeTest.php:34-36 - PATCH success asserts only nickname path, not the full response shape"
+   ],
+   "strengths": [
+    "MeResource (JsonResource, $wrap = null, @mixin User) is the idiomatic Laravel way to shape API output and gives typed controller returns",
+    "FormRequest with present|nullable|string|max:30; update via validated() blocks mass assignment",
+    "Migration enforces the 30-character limit at the column level, with after('name') and a proper down()",
+    "Pest tests use named datasets for guest methods, clearing (null and empty string), and invalid inputs, and check that the stored value is unchanged after a failed update",
+    "Covers the 30/31 boundary, ignored extra fields, and isolation from other users"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 8,
+    "validation_form_requests": 9,
+    "eloquent_idioms": 8,
+    "architecture_fit": 8,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 9,
+    "correctness": 10,
+    "simplicity": 9
+   },
+   "overall": 8.2,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [],
+   "antipatterns": [
+    "app/Http/Controllers/MeController.php:24-27 - private profile() helper using $user->only() hand-rolls what an API Resource normally does; less conventional for API response shaping",
+    "tests/Feature/MeTest.php:56-84 - separate near-identical validation tests where a dataset would remove repetition",
+    "tests/Feature/MeTest.php:21-25 - several unrelated assertions packed into one guest test"
+   ],
+   "strengths": [
+    "Very lean and proportionate: one controller, one FormRequest, one migration",
+    "FormRequest rules are correct; update via validated() blocks mass assignment",
+    "Consistent naming (MeController/UpdateMeRequest)",
+    "Uses assertExactJson on both GET and PATCH, which locks down the response shape",
+    "Broad tests: clearing via null and empty string, 30/31 boundary, non-string, missing field, ignored name/email, isolation from other users, non-JSON guest request"
+   ]
+  },
+  "rationale": "Both behave identically: all suites pass, and probes (multibyte length, whitespace trimmed to null, integer rejected, real Sanctum token response shape, PUT returns 405) passed for both. Neither has a bug. impl-1 ranks first because it uses a JsonResource to shape the response (the standard Laravel API convention) and its Pest tests are tidier, using named datasets. impl-2 is slightly simpler and has marginally broader assertions, but its $user->only() helper is a hand-rolled resource. The gap is small; impl-1's naming mismatch and prefix ceremony keep it close."
+ },
+ "cost_usd": 0.2267766
+}

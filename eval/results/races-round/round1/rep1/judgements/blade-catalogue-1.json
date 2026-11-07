@@ -1,0 +1,87 @@
+{
+ "key": "blade-catalogue",
+ "judge": 1,
+ "v": {
+  "impl-1": {
+   "scores": {
+    "collections_helpers": 8,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 9,
+    "architecture_fit": 8,
+    "modern_laravel": 9,
+    "focus_area": 8,
+    "tests": 8,
+    "correctness": 6,
+    "simplicity": 8
+   },
+   "overall": 7,
+   "rank": 2,
+   "tests_pass": true,
+   "bugs": [
+    "Old input is lost for an unchecked 'Active' box after a failed submit. Browsers don't send unchecked checkboxes, so old('is_active', $checked) falls back to the model default (true) and the box comes back checked. The merged is_active from prepareForValidation lives only on the FormRequest copy, not on the request that gets flashed. Confirmed with a probe (resources/views/components/form/checkbox.blade.php:5). The existing test hides this by posting is_active => null explicitly (tests/Feature/AdminProductTest.php:171).",
+    "Search uses whereRaw(\"... like ? escape '\\\\'\"), which produces escape '\\' in SQL. MySQL (default sql_mode) treats the backslash as an escape and fails to parse it, so this only works on SQLite/Postgres (app/Models/Product.php:77-78).",
+    "Submitting an empty name with an empty slug shows a second, confusing 'slug field is required' error, because the slug is derived from the empty name."
+   ],
+   "antipatterns": [
+    "Builds the sort options in the view with collect(App\\Enums\\ProductSort::cases())->mapWithKeys(...) instead of passing them from the controller (resources/views/products/index.blade.php:16)",
+    "Reads request('q') and request('category') in the view instead of passing validated values (resources/views/products/index.blade.php:5,11)",
+    "Opens and closes the <ul> inside @forelse using $loop->first/$loop->last, which is awkward markup (resources/views/products/index.blade.php:23-29)",
+    "Ad-hoc 'manage' policy ability used as route middleware; the authorization is fine, but it isn't a standard resource ability (app/Policies/ProductPolicy.php:9)",
+    "Inline style attribute in the show view (resources/views/products/show.blade.php:7)"
+   ],
+   "strengths": [
+    "Good library of reusable form components (input/select/textarea/checkbox/error) built on @props, $attributes->class, @error, @selected and @checked",
+    "@session directive for flash; shared x-layouts.app layout with inline CSS and no compiled assets",
+    "Admins enter price in currency units; productData() converts to cents, and the edit form formats cents back",
+    "LIKE wildcards are escaped in search, and a test covers it",
+    "Clean #[Scope] attribute scopes, Fillable attribute, enum-backed sort with Rule::enum, whereBelongsTo/whereKeyNot in related()",
+    "Category association via the relation (associate / ->products()->create); i18n via __()",
+    "52 Pest tests with datasets for validation messages, the access matrix, sort orders and pagination query strings"
+   ]
+  },
+  "impl-2": {
+   "scores": {
+    "collections_helpers": 7,
+    "thin_controllers": 9,
+    "validation_form_requests": 8,
+    "eloquent_idioms": 8,
+    "architecture_fit": 7,
+    "modern_laravel": 8,
+    "focus_area": 8,
+    "tests": 7,
+    "correctness": 7,
+    "simplicity": 8
+   },
+   "overall": 7.5,
+   "rank": 1,
+   "tests_pass": true,
+   "bugs": [
+    "Search doesn't escape LIKE wildcards: q=% matches every product (confirmed with a probe) (app/Models/Product.php:50)",
+    "Admin price field is entered in raw cents ('Price (cents)'), which is poor UX for a shop admin. It's technically valid, but the form never converts between currency and cents (resources/views/components/product-form.blade.php:29-30)",
+    "page=abc or page=0 redirects with a validation error instead of falling back to page 1. Probably intended, but harsh for a public listing (app/Http/Requests/IndexProductRequest.php:19)",
+    "Filter validation errors show twice: once in the summary box and again next to each field (resources/views/products/index.blade.php:4-10 plus x-field)"
+   ],
+   "antipatterns": [
+    "Uses the viewAny policy ability to gate create, update and delete; the ability name doesn't match what it guards (app/Policies/ProductPolicy.php:9, routes/web.php:15)",
+    "x-flash component reads session('status') with @if instead of the @session directive (resources/views/components/flash.blade.php:1-2)",
+    "Reads request('q') and request('category') directly in the view (resources/views/products/index.blade.php:14,20)",
+    "Opens and closes the <ul> inside @forelse using $loop->first/$loop->last (resources/views/products/index.blade.php:35-41)",
+    "Hardcoded strings with no __() while the enum labels are also unlocalised: inconsistent but minor",
+    "Fully-qualified Illuminate\\Support\\Number call inside a Blade component (resources/views/components/price.blade.php:2)",
+    "Admin redirects always go to the index rather than back to the edited resource (fine but less informative)"
+   ],
+   "strengths": [
+    "Hidden is_active=0 input before the checkbox, so old input correctly keeps an unchecked state after a failed submit",
+    "x-field slot component wraps the label and @error around any control; reusable x-price and x-stock-badge components",
+    "IndexProductRequest uses $redirectRoute to avoid redirect loops and exposes typed accessors (search(), categorySlug(), sort())",
+    "Store/update pass $request->validated() straight to create/update, so controllers are very thin",
+    "Paginator::defaultView registered once, and Model::shouldBeStrict is enabled outside production",
+    "whereRelation for the category filter; deterministic latest()->latest('id') tiebreak",
+    "Pest tests cover the access matrix, validation, old input, pagination query string, related products and a no-compiled-assets check"
+   ]
+  },
+  "rationale": "I read every file in both implementations and ran their suites: impl-1 passes 52 tests, impl-2 passes 39. I also ran throwaway probe tests against each and deleted them afterwards.\n\n**Ranking: impl-2 is 1st, impl-1 is 2nd.** It was close. Impl-1 is the more polished and idiomatic code, but it fails a stated requirement and impl-2 doesn't. Since real bugs count heavily, that decides it.\n\n**impl-1 (rank 2)**\n- Better Blade components overall (input, select, textarea, checkbox and error) and uses the `@session` directive for flash messages.\n- Admins enter prices in dollars, which are converted to cents on save. Search escapes LIKE wildcards, and there are more tests.\n- **Bug (requirement):** it doesn't keep previously entered input for the \"Active\" checkbox. A probe showed that if an admin unchecks it and the form fails validation, the box comes back checked. Its own test misses this because it posts `is_active => null`, which a real browser never sends.\n- **Likely bug:** the search uses raw SQL with `escape '\\'`, which should fail to parse on MySQL with default settings. It works on SQLite, but I only ran the tests on SQLite, so the MySQL failure isn't confirmed.\n\n**impl-2 (rank 1)**\n- Handles the checkbox correctly with a hidden `0` input before it.\n- Uses `$redirectRoute` on the listing's form request, so a bad filter redirects cleanly to the listing.\n- Very thin controllers, and a neat slot-based `x-field` component.\n- **Weaknesses, all minor:**\n  - Admins must enter prices in cents.\n  - Search doesn't escape wildcards: a probe confirmed that searching for `%` matches every product.\n  - The `viewAny` policy check is reused to guard create, update and delete.\n  - Filter errors appear twice: once in a summary box and again next to each field.\n  - It uses `session()` instead of `@session` for flash messages."
+ },
+ "cost_usd": 0.7783360000000001
+}
