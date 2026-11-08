@@ -115,7 +115,8 @@ public function rows(string $disk, string $path): LazyCollection
 - A generator's `finally` runs when the `LazyCollection` finishes or is abandoned, so `fclose()` goes there. Use `->chunk(500)` and write each chunk with `upsert()` instead of row by row. Don't use `file()` or `Storage::get()` for an upload of megabytes.
 - Large or slow import: store the file, create an `imports` row, dispatch a job with the row id, read from `Storage::disk($import->disk)->readStream($import->path)` in the job, and delete the file from that disk when the job finishes or fails. When workers run on other hosts or containers, that disk is shared storage (a private S3 bucket), not `local`.
 ```php
-$disk = config('imports.disk');   // `local` with one host; a private shared disk when workers run elsewhere
+// config/filesystems.php: 'imports_disk' => env('IMPORTS_DISK', 'local'), a private shared disk (S3) when workers run on other hosts
+$disk = config('filesystems.imports_disk', 'local');
 $path = $request->file('import')->store('imports', $disk);
 abort_if($path === false, 503, 'Upload could not be stored.');   // a disk with throw=false returns false instead of throwing
 $import = Import::create(['disk' => $disk, 'path' => $path, 'user_id' => $request->user()->id]);
