@@ -104,6 +104,7 @@ final class FetchOrderHistory implements ShouldQueueAfterCommit
 ```php
 public function via(object $notifiable): array
 {
+    // toMail() returns a MailMessage, which needs the notifiable's mail route
     return $notifiable->routeNotificationFor('mail', $this) ? ['mail', 'database'] : ['database'];   // queued: runs at dispatch, keep it cheap
 }
 
@@ -113,7 +114,7 @@ public function shouldSend(object $notifiable, string $channel): bool
 }
 ```
 - Notifications and mailables are `ShouldQueue`, unless the call already runs in a worker. A sync `notify()` or `Notification::send($many)` sends inline, one notifiable at a time, and the first exception aborts the loop. A single critical mail that should fail the request (a sync password reset) is the exception. Large audiences fan out from a job (see `queues-and-workers.md`).
-- The mail channel silently skips a notifiable with no routable email. Drop only `mail` from `via()` when `routeNotificationFor('mail')` is empty (as above, so a custom `routeNotificationForMail()` still counts), and the other channels still send. A `toMail()` that returns a `Mailable` with its own `to()` doesn't need the route.
+- The mail channel silently skips a notifiable with no routable email. When `toMail()` returns a `MailMessage`, drop only `mail` from `via()` when `routeNotificationFor('mail')` is empty (as above, so a custom `routeNotificationForMail()` still counts), and the other channels still send. When `toMail()` returns a `Mailable` addressed with its own `to()`, keep `mail` in `via()`: it needs no route.
 - The `database` channel needs the table: `php artisan make:notifications-table && php artisan migrate`. The skeleton ships no migration. `toDatabase()` wins over `toArray()`.
 - `Notification::route('mail', $email)` makes an `AnonymousNotifiable`: no locale preference, and `route('database', ...)` throws `InvalidArgumentException`.
 - `NotificationSent` and `NotificationFailed` fire per channel and attempt.
