@@ -126,14 +126,14 @@ It was measured with blind A/B tests. Claude Sonnet built the same features in f
 
 This is a small sample: 6 tasks, one build per setup, two judges each.
 
-Later rounds compare each change with the release before it. Their new tasks also have hidden behavioural tests that the builder never sees, and two independent judge replicates score the builds:
+Later rounds compare each change with the skill on `main` just before it (for the second round, that already includes the first). Their new tasks also have hidden behavioural tests that the builder never sees, and two independent judge replicates score the builds:
 
-| Round | Hidden tests, new vs previous | Mean judge score, new vs previous (two replicates) |
+| Round | Hidden tests, new vs `main` before | Mean judge score, new vs `main` before (two replicates) |
 |---|---|---|
 | Queues, scheduler, Artisan commands | 119/120 vs 116/120 | 7.78 / 7.79 vs 7.27 / 6.95 |
 | Races, API auth, uploads, migrations, HTTP, events | API guest gets a JSON 401: 23/23 vs 3/23 | 7.92 / 7.96 vs 7.64 / 7.65 |
 
-In both rounds the tasks held back from revising the skill improved too, and the earlier tasks did not get worse. The rubric also reflects the conventions the skill teaches. See [docs/evaluation.md](docs/evaluation.md) for the method, all rounds and the caveats. The harness and raw results are in [`eval/`](eval), so you can rerun it against your own tasks.
+In both rounds the tasks held back from revising the skill improved too, and the mean score on the earlier tasks held or rose. Single tasks move by up to about 1.5 points between replicates, so one task can still score lower in one replicate. The rubric also reflects the conventions the skill teaches. See [docs/evaluation.md](docs/evaluation.md) for the method, all rounds and the caveats. The harness and raw results are in [`eval/`](eval), so you can rerun it against your own tasks.
 
 ## Credits
 
