@@ -1,0 +1,1863 @@
+[
+ {
+  "build": "blade-catalogue-draft-1",
+  "task": "blade-catalogue",
+  "arm": "draft",
+  "seconds": 116,
+  "cost_usd": 0.44,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "blade-catalogue-draft-2",
+  "task": "blade-catalogue",
+  "arm": "draft",
+  "seconds": 142,
+  "cost_usd": 0.57,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/blade.md"
+  ]
+ },
+ {
+  "build": "blade-catalogue-mid-1",
+  "task": "blade-catalogue",
+  "arm": "mid",
+  "seconds": 124,
+  "cost_usd": 0.45,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "blade-catalogue-mid-2",
+  "task": "blade-catalogue",
+  "arm": "mid",
+  "seconds": 121,
+  "cost_usd": 0.44,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "blade-catalogue-prev-1",
+  "task": "blade-catalogue",
+  "arm": "prev",
+  "seconds": 206,
+  "cost_usd": 0.67,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/blade.md"
+  ]
+ },
+ {
+  "build": "blade-catalogue-prev-2",
+  "task": "blade-catalogue",
+  "arm": "prev",
+  "seconds": 123,
+  "cost_usd": 0.44,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "blade-catalogue-skill-1",
+  "task": "blade-catalogue",
+  "arm": "skill",
+  "seconds": 131,
+  "cost_usd": 0.47,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/blade.md"
+  ]
+ },
+ {
+  "build": "blade-catalogue-skill-2",
+  "task": "blade-catalogue",
+  "arm": "skill",
+  "seconds": 149,
+  "cost_usd": 0.48,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "blog-crud-late-1",
+  "task": "blog-crud",
+  "arm": "late",
+  "seconds": 80,
+  "cost_usd": 0.3,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "blog-crud-late-2",
+  "task": "blog-crud",
+  "arm": "late",
+  "seconds": 70,
+  "cost_usd": 0.28,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "blog-crud-mid-1",
+  "task": "blog-crud",
+  "arm": "mid",
+  "seconds": 76,
+  "cost_usd": 0.29,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "blog-crud-mid-2",
+  "task": "blog-crud",
+  "arm": "mid",
+  "seconds": 79,
+  "cost_usd": 0.3,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "blog-crud-prev-1",
+  "task": "blog-crud",
+  "arm": "prev",
+  "seconds": 83,
+  "cost_usd": 0.31,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "blog-crud-prev-2",
+  "task": "blog-crud",
+  "arm": "prev",
+  "seconds": 79,
+  "cost_usd": 0.29,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "blog-crud-skill-1",
+  "task": "blog-crud",
+  "arm": "skill",
+  "seconds": 74,
+  "cost_usd": 0.27,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "blog-crud-skill-2",
+  "task": "blog-crud",
+  "arm": "skill",
+  "seconds": 81,
+  "cost_usd": 0.29,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "blog-crud-skill-3",
+  "task": "blog-crud",
+  "arm": "skill",
+  "seconds": 88,
+  "cost_usd": 0.35,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "blog-crud-skill-4",
+  "task": "blog-crud",
+  "arm": "skill",
+  "seconds": 94,
+  "cost_usd": 0.34,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "caching-mid-1",
+  "task": "caching",
+  "arm": "mid",
+  "seconds": 162,
+  "cost_usd": 0.53,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "caching-mid-2",
+  "task": "caching",
+  "arm": "mid",
+  "seconds": 194,
+  "cost_usd": 0.65,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "caching-prev-1",
+  "task": "caching",
+  "arm": "prev",
+  "seconds": 148,
+  "cost_usd": 0.47,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "caching-prev-2",
+  "task": "caching",
+  "arm": "prev",
+  "seconds": 146,
+  "cost_usd": 0.53,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "caching-skill-1",
+  "task": "caching",
+  "arm": "skill",
+  "seconds": 187,
+  "cost_usd": 0.58,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "caching-skill-2",
+  "task": "caching",
+  "arm": "skill",
+  "seconds": 125,
+  "cost_usd": 0.5,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/caching.md"
+  ]
+ },
+ {
+  "build": "cart-discounts-mid-1",
+  "task": "cart-discounts",
+  "arm": "mid",
+  "seconds": 84,
+  "cost_usd": 0.31,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "cart-discounts-mid-2",
+  "task": "cart-discounts",
+  "arm": "mid",
+  "seconds": 89,
+  "cost_usd": 0.32,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "cart-discounts-prev-1",
+  "task": "cart-discounts",
+  "arm": "prev",
+  "seconds": 82,
+  "cost_usd": 0.3,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "cart-discounts-prev-2",
+  "task": "cart-discounts",
+  "arm": "prev",
+  "seconds": 87,
+  "cost_usd": 0.3,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "cart-discounts-skill-1",
+  "task": "cart-discounts",
+  "arm": "skill",
+  "seconds": 80,
+  "cost_usd": 0.35,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "cart-discounts-skill-2",
+  "task": "cart-discounts",
+  "arm": "skill",
+  "seconds": 74,
+  "cost_usd": 0.29,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "csv-import-mid-1",
+  "task": "csv-import",
+  "arm": "mid",
+  "seconds": 115,
+  "cost_usd": 0.4,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "csv-import-mid-2",
+  "task": "csv-import",
+  "arm": "mid",
+  "seconds": 146,
+  "cost_usd": 0.49,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "csv-import-prev-1",
+  "task": "csv-import",
+  "arm": "prev",
+  "seconds": 145,
+  "cost_usd": 0.46,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "csv-import-prev-2",
+  "task": "csv-import",
+  "arm": "prev",
+  "seconds": 96,
+  "cost_usd": 0.34,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "csv-import-skill-1",
+  "task": "csv-import",
+  "arm": "skill",
+  "seconds": 166,
+  "cost_usd": 0.5,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "csv-import-skill-2",
+  "task": "csv-import",
+  "arm": "skill",
+  "seconds": 117,
+  "cost_usd": 0.4,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "export-purge-command-draft-1",
+  "task": "export-purge-command",
+  "arm": "draft",
+  "seconds": 238,
+  "cost_usd": 0.49,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/console-commands.md",
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "export-purge-command-draft-2",
+  "task": "export-purge-command",
+  "arm": "draft",
+  "seconds": 255,
+  "cost_usd": 0.49,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/console-commands.md"
+  ]
+ },
+ {
+  "build": "export-purge-command-draft-3",
+  "task": "export-purge-command",
+  "arm": "draft",
+  "seconds": 135,
+  "cost_usd": 0.53,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/console-commands.md",
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "export-purge-command-late-1",
+  "task": "export-purge-command",
+  "arm": "late",
+  "seconds": 251,
+  "cost_usd": 0.48,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/console-commands.md"
+  ]
+ },
+ {
+  "build": "export-purge-command-late-2",
+  "task": "export-purge-command",
+  "arm": "late",
+  "seconds": 119,
+  "cost_usd": 0.49,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/*.md",
+   "laravel-idioms/references/console-commands.md",
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "export-purge-command-late-3",
+  "task": "export-purge-command",
+  "arm": "late",
+  "seconds": 95,
+  "cost_usd": 0.38,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/console-commands.md",
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "export-purge-command-mid-1",
+  "task": "export-purge-command",
+  "arm": "mid",
+  "seconds": 101,
+  "cost_usd": 0.4,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/console-commands.md",
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "export-purge-command-mid-2",
+  "task": "export-purge-command",
+  "arm": "mid",
+  "seconds": 256,
+  "cost_usd": 0.52,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/console-commands.md",
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "export-purge-command-mid-3",
+  "task": "export-purge-command",
+  "arm": "mid",
+  "seconds": 81,
+  "cost_usd": 0.34,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/console-commands.md",
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "export-purge-command-plain-1",
+  "task": "export-purge-command",
+  "arm": "plain",
+  "seconds": 81,
+  "cost_usd": 0.27,
+  "skills": [],
+  "skill_files_read": []
+ },
+ {
+  "build": "export-purge-command-prev-1",
+  "task": "export-purge-command",
+  "arm": "prev",
+  "seconds": 107,
+  "cost_usd": 0.4,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/style.md"
+  ]
+ },
+ {
+  "build": "export-purge-command-prev-2",
+  "task": "export-purge-command",
+  "arm": "prev",
+  "seconds": 125,
+  "cost_usd": 0.43,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "export-purge-command-prev-3",
+  "task": "export-purge-command",
+  "arm": "prev",
+  "seconds": 63,
+  "cost_usd": 0.25,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "export-purge-command-skill-1",
+  "task": "export-purge-command",
+  "arm": "skill",
+  "seconds": 212,
+  "cost_usd": 0.4,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/console-commands.md",
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "export-purge-command-skill-2",
+  "task": "export-purge-command",
+  "arm": "skill",
+  "seconds": 126,
+  "cost_usd": 0.47,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "export-purge-command-skill-3",
+  "task": "export-purge-command",
+  "arm": "skill",
+  "seconds": 121,
+  "cost_usd": 0.45,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/console-commands.md"
+  ]
+ },
+ {
+  "build": "filament-admin-mid-1",
+  "task": "filament-admin",
+  "arm": "mid",
+  "seconds": 126,
+  "cost_usd": 0.5,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "filament-admin-mid-2",
+  "task": "filament-admin",
+  "arm": "mid",
+  "seconds": 118,
+  "cost_usd": 0.49,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "filament-admin-prev-1",
+  "task": "filament-admin",
+  "arm": "prev",
+  "seconds": 104,
+  "cost_usd": 0.41,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/filament.md"
+  ]
+ },
+ {
+  "build": "filament-admin-prev-2",
+  "task": "filament-admin",
+  "arm": "prev",
+  "seconds": 120,
+  "cost_usd": 0.47,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/filament.md"
+  ]
+ },
+ {
+  "build": "filament-admin-skill-1",
+  "task": "filament-admin",
+  "arm": "skill",
+  "seconds": 117,
+  "cost_usd": 0.48,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/filament.md"
+  ]
+ },
+ {
+  "build": "filament-admin-skill-2",
+  "task": "filament-admin",
+  "arm": "skill",
+  "seconds": 110,
+  "cost_usd": 0.44,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "inactive-count-draft-1",
+  "task": "inactive-count",
+  "arm": "draft",
+  "seconds": 33,
+  "cost_usd": 0.18,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "inactive-count-draft-2",
+  "task": "inactive-count",
+  "arm": "draft",
+  "seconds": 35,
+  "cost_usd": 0.19,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "inactive-count-late-1",
+  "task": "inactive-count",
+  "arm": "late",
+  "seconds": 31,
+  "cost_usd": 0.17,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "inactive-count-late-2",
+  "task": "inactive-count",
+  "arm": "late",
+  "seconds": 38,
+  "cost_usd": 0.19,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "inactive-count-mid-1",
+  "task": "inactive-count",
+  "arm": "mid",
+  "seconds": 34,
+  "cost_usd": 0.16,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "inactive-count-mid-2",
+  "task": "inactive-count",
+  "arm": "mid",
+  "seconds": 33,
+  "cost_usd": 0.16,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "inactive-count-prev-1",
+  "task": "inactive-count",
+  "arm": "prev",
+  "seconds": 29,
+  "cost_usd": 0.16,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "inactive-count-prev-2",
+  "task": "inactive-count",
+  "arm": "prev",
+  "seconds": 33,
+  "cost_usd": 0.16,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "inactive-count-skill-1",
+  "task": "inactive-count",
+  "arm": "skill",
+  "seconds": 32,
+  "cost_usd": 0.16,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "inactive-count-skill-2",
+  "task": "inactive-count",
+  "arm": "skill",
+  "seconds": 29,
+  "cost_usd": 0.15,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "queue-bugfix-draft-1",
+  "task": "queue-bugfix",
+  "arm": "draft",
+  "seconds": 55,
+  "cost_usd": 0.24,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "queue-bugfix-draft-2",
+  "task": "queue-bugfix",
+  "arm": "draft",
+  "seconds": 60,
+  "cost_usd": 0.25,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "queue-bugfix-draft-3",
+  "task": "queue-bugfix",
+  "arm": "draft",
+  "seconds": 48,
+  "cost_usd": 0.21,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "queue-bugfix-mid-1",
+  "task": "queue-bugfix",
+  "arm": "mid",
+  "seconds": 54,
+  "cost_usd": 0.21,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "queue-bugfix-mid-2",
+  "task": "queue-bugfix",
+  "arm": "mid",
+  "seconds": 48,
+  "cost_usd": 0.19,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "queue-bugfix-mid-3",
+  "task": "queue-bugfix",
+  "arm": "mid",
+  "seconds": 42,
+  "cost_usd": 0.18,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "queue-bugfix-plain-1",
+  "task": "queue-bugfix",
+  "arm": "plain",
+  "seconds": 35,
+  "cost_usd": 0.12,
+  "skills": [],
+  "skill_files_read": []
+ },
+ {
+  "build": "queue-bugfix-prev-1",
+  "task": "queue-bugfix",
+  "arm": "prev",
+  "seconds": 67,
+  "cost_usd": 0.26,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "queue-bugfix-prev-2",
+  "task": "queue-bugfix",
+  "arm": "prev",
+  "seconds": 48,
+  "cost_usd": 0.2,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "queue-bugfix-prev-3",
+  "task": "queue-bugfix",
+  "arm": "prev",
+  "seconds": 48,
+  "cost_usd": 0.2,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "queue-bugfix-skill-1",
+  "task": "queue-bugfix",
+  "arm": "skill",
+  "seconds": 57,
+  "cost_usd": 0.24,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "queue-bugfix-skill-2",
+  "task": "queue-bugfix",
+  "arm": "skill",
+  "seconds": 52,
+  "cost_usd": 0.23,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "queue-bugfix-skill-3",
+  "task": "queue-bugfix",
+  "arm": "skill",
+  "seconds": 53,
+  "cost_usd": 0.25,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "sales-report-draft-1",
+  "task": "sales-report",
+  "arm": "draft",
+  "seconds": 96,
+  "cost_usd": 0.35,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "sales-report-draft-2",
+  "task": "sales-report",
+  "arm": "draft",
+  "seconds": 82,
+  "cost_usd": 0.32,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "sales-report-mid-1",
+  "task": "sales-report",
+  "arm": "mid",
+  "seconds": 80,
+  "cost_usd": 0.29,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "sales-report-mid-2",
+  "task": "sales-report",
+  "arm": "mid",
+  "seconds": 92,
+  "cost_usd": 0.34,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "sales-report-prev-1",
+  "task": "sales-report",
+  "arm": "prev",
+  "seconds": 91,
+  "cost_usd": 0.33,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "sales-report-prev-2",
+  "task": "sales-report",
+  "arm": "prev",
+  "seconds": 79,
+  "cost_usd": 0.31,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "sales-report-skill-1",
+  "task": "sales-report",
+  "arm": "skill",
+  "seconds": 93,
+  "cost_usd": 0.35,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "sales-report-skill-2",
+  "task": "sales-report",
+  "arm": "skill",
+  "seconds": 83,
+  "cost_usd": 0.32,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "scheduled-reports-draft-1",
+  "task": "scheduled-reports",
+  "arm": "draft",
+  "seconds": 91,
+  "cost_usd": 0.37,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "scheduled-reports-draft-2",
+  "task": "scheduled-reports",
+  "arm": "draft",
+  "seconds": 82,
+  "cost_usd": 0.34,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/console-commands.md",
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "scheduled-reports-draft-3",
+  "task": "scheduled-reports",
+  "arm": "draft",
+  "seconds": 104,
+  "cost_usd": 0.4,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "scheduled-reports-four-1",
+  "task": "scheduled-reports",
+  "arm": "four",
+  "seconds": 92,
+  "cost_usd": 0.35,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "scheduled-reports-four-2",
+  "task": "scheduled-reports",
+  "arm": "four",
+  "seconds": 85,
+  "cost_usd": 0.34,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "scheduled-reports-four-3",
+  "task": "scheduled-reports",
+  "arm": "four",
+  "seconds": 101,
+  "cost_usd": 0.38,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "scheduled-reports-late-1",
+  "task": "scheduled-reports",
+  "arm": "late",
+  "seconds": 107,
+  "cost_usd": 0.4,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "scheduled-reports-late-2",
+  "task": "scheduled-reports",
+  "arm": "late",
+  "seconds": 97,
+  "cost_usd": 0.38,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "scheduled-reports-late-3",
+  "task": "scheduled-reports",
+  "arm": "late",
+  "seconds": 112,
+  "cost_usd": 0.4,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md",
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "scheduled-reports-mid-1",
+  "task": "scheduled-reports",
+  "arm": "mid",
+  "seconds": 87,
+  "cost_usd": 0.33,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "scheduled-reports-mid-2",
+  "task": "scheduled-reports",
+  "arm": "mid",
+  "seconds": 91,
+  "cost_usd": 0.36,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "scheduled-reports-mid-3",
+  "task": "scheduled-reports",
+  "arm": "mid",
+  "seconds": 97,
+  "cost_usd": 0.36,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "scheduled-reports-plain-1",
+  "task": "scheduled-reports",
+  "arm": "plain",
+  "seconds": 60,
+  "cost_usd": 0.19,
+  "skills": [],
+  "skill_files_read": []
+ },
+ {
+  "build": "scheduled-reports-prev-1",
+  "task": "scheduled-reports",
+  "arm": "prev",
+  "seconds": 87,
+  "cost_usd": 0.3,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "scheduled-reports-prev-2",
+  "task": "scheduled-reports",
+  "arm": "prev",
+  "seconds": 98,
+  "cost_usd": 0.32,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "scheduled-reports-prev-3",
+  "task": "scheduled-reports",
+  "arm": "prev",
+  "seconds": 123,
+  "cost_usd": 0.43,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "scheduled-reports-skill-1",
+  "task": "scheduled-reports",
+  "arm": "skill",
+  "seconds": 92,
+  "cost_usd": 0.36,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "scheduled-reports-skill-2",
+  "task": "scheduled-reports",
+  "arm": "skill",
+  "seconds": 94,
+  "cost_usd": 0.37,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "scheduled-reports-skill-3",
+  "task": "scheduled-reports",
+  "arm": "skill",
+  "seconds": 106,
+  "cost_usd": 0.38,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md",
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "shipment-sync-draft-1",
+  "task": "shipment-sync",
+  "arm": "draft",
+  "seconds": 110,
+  "cost_usd": 0.37,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "shipment-sync-draft-2",
+  "task": "shipment-sync",
+  "arm": "draft",
+  "seconds": 110,
+  "cost_usd": 0.37,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md"
+  ]
+ },
+ {
+  "build": "shipment-sync-draft-3",
+  "task": "shipment-sync",
+  "arm": "draft",
+  "seconds": 106,
+  "cost_usd": 0.42,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md"
+  ]
+ },
+ {
+  "build": "shipment-sync-mid-1",
+  "task": "shipment-sync",
+  "arm": "mid",
+  "seconds": 90,
+  "cost_usd": 0.29,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "shipment-sync-mid-2",
+  "task": "shipment-sync",
+  "arm": "mid",
+  "seconds": 117,
+  "cost_usd": 0.38,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "shipment-sync-mid-3",
+  "task": "shipment-sync",
+  "arm": "mid",
+  "seconds": 98,
+  "cost_usd": 0.32,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "shipment-sync-plain-1",
+  "task": "shipment-sync",
+  "arm": "plain",
+  "seconds": 165,
+  "cost_usd": 0.43,
+  "skills": [],
+  "skill_files_read": []
+ },
+ {
+  "build": "shipment-sync-prev-1",
+  "task": "shipment-sync",
+  "arm": "prev",
+  "seconds": 114,
+  "cost_usd": 0.38,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md"
+  ]
+ },
+ {
+  "build": "shipment-sync-prev-2",
+  "task": "shipment-sync",
+  "arm": "prev",
+  "seconds": 101,
+  "cost_usd": 0.36,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md"
+  ]
+ },
+ {
+  "build": "shipment-sync-prev-3",
+  "task": "shipment-sync",
+  "arm": "prev",
+  "seconds": 96,
+  "cost_usd": 0.34,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "shipment-sync-skill-1",
+  "task": "shipment-sync",
+  "arm": "skill",
+  "seconds": 106,
+  "cost_usd": 0.35,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "shipment-sync-skill-2",
+  "task": "shipment-sync",
+  "arm": "skill",
+  "seconds": 108,
+  "cost_usd": 0.35,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "shipment-sync-skill-3",
+  "task": "shipment-sync",
+  "arm": "skill",
+  "seconds": 95,
+  "cost_usd": 0.33,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "statement-batch-draft-1",
+  "task": "statement-batch",
+  "arm": "draft",
+  "seconds": 422,
+  "cost_usd": 0.37,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "statement-batch-draft-2",
+  "task": "statement-batch",
+  "arm": "draft",
+  "seconds": 172,
+  "cost_usd": 0.35,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "statement-batch-draft-3",
+  "task": "statement-batch",
+  "arm": "draft",
+  "seconds": 281,
+  "cost_usd": 0.3,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "statement-batch-mid-1",
+  "task": "statement-batch",
+  "arm": "mid",
+  "seconds": 112,
+  "cost_usd": 0.32,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "statement-batch-mid-2",
+  "task": "statement-batch",
+  "arm": "mid",
+  "seconds": 122,
+  "cost_usd": 0.29,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "statement-batch-mid-3",
+  "task": "statement-batch",
+  "arm": "mid",
+  "seconds": 104,
+  "cost_usd": 0.28,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "statement-batch-plain-1",
+  "task": "statement-batch",
+  "arm": "plain",
+  "seconds": 55,
+  "cost_usd": 0.18,
+  "skills": [],
+  "skill_files_read": []
+ },
+ {
+  "build": "statement-batch-prev-1",
+  "task": "statement-batch",
+  "arm": "prev",
+  "seconds": 81,
+  "cost_usd": 0.27,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "statement-batch-prev-2",
+  "task": "statement-batch",
+  "arm": "prev",
+  "seconds": 83,
+  "cost_usd": 0.29,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "statement-batch-prev-3",
+  "task": "statement-batch",
+  "arm": "prev",
+  "seconds": 89,
+  "cost_usd": 0.27,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "statement-batch-skill-1",
+  "task": "statement-batch",
+  "arm": "skill",
+  "seconds": 88,
+  "cost_usd": 0.28,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "statement-batch-skill-2",
+  "task": "statement-batch",
+  "arm": "skill",
+  "seconds": 378,
+  "cost_usd": 0.34,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "statement-batch-skill-3",
+  "task": "statement-batch",
+  "arm": "skill",
+  "seconds": 128,
+  "cost_usd": 0.27,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "stock-sync-dispatcher-draft-1",
+  "task": "stock-sync-dispatcher",
+  "arm": "draft",
+  "seconds": 101,
+  "cost_usd": 0.4,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "stock-sync-dispatcher-draft-2",
+  "task": "stock-sync-dispatcher",
+  "arm": "draft",
+  "seconds": 118,
+  "cost_usd": 0.4,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "stock-sync-dispatcher-draft-3",
+  "task": "stock-sync-dispatcher",
+  "arm": "draft",
+  "seconds": 100,
+  "cost_usd": 0.37,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "stock-sync-dispatcher-mid-1",
+  "task": "stock-sync-dispatcher",
+  "arm": "mid",
+  "seconds": 108,
+  "cost_usd": 0.36,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "stock-sync-dispatcher-mid-2",
+  "task": "stock-sync-dispatcher",
+  "arm": "mid",
+  "seconds": 104,
+  "cost_usd": 0.37,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md",
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "stock-sync-dispatcher-mid-3",
+  "task": "stock-sync-dispatcher",
+  "arm": "mid",
+  "seconds": 102,
+  "cost_usd": 0.32,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "stock-sync-dispatcher-plain-1",
+  "task": "stock-sync-dispatcher",
+  "arm": "plain",
+  "seconds": 81,
+  "cost_usd": 0.24,
+  "skills": [],
+  "skill_files_read": []
+ },
+ {
+  "build": "stock-sync-dispatcher-prev-1",
+  "task": "stock-sync-dispatcher",
+  "arm": "prev",
+  "seconds": 81,
+  "cost_usd": 0.3,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "stock-sync-dispatcher-prev-2",
+  "task": "stock-sync-dispatcher",
+  "arm": "prev",
+  "seconds": 91,
+  "cost_usd": 0.3,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "stock-sync-dispatcher-prev-3",
+  "task": "stock-sync-dispatcher",
+  "arm": "prev",
+  "seconds": 91,
+  "cost_usd": 0.33,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md"
+  ]
+ },
+ {
+  "build": "stock-sync-dispatcher-skill-1",
+  "task": "stock-sync-dispatcher",
+  "arm": "skill",
+  "seconds": 89,
+  "cost_usd": 0.33,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "stock-sync-dispatcher-skill-2",
+  "task": "stock-sync-dispatcher",
+  "arm": "skill",
+  "seconds": 81,
+  "cost_usd": 0.3,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "stock-sync-dispatcher-skill-3",
+  "task": "stock-sync-dispatcher",
+  "arm": "skill",
+  "seconds": 98,
+  "cost_usd": 0.32,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "webhook-worker-draft-1",
+  "task": "webhook-worker",
+  "arm": "draft",
+  "seconds": 255,
+  "cost_usd": 0.88,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md"
+  ]
+ },
+ {
+  "build": "webhook-worker-draft-2",
+  "task": "webhook-worker",
+  "arm": "draft",
+  "seconds": 185,
+  "cost_usd": 0.63,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md"
+  ]
+ },
+ {
+  "build": "webhook-worker-draft-3",
+  "task": "webhook-worker",
+  "arm": "draft",
+  "seconds": 191,
+  "cost_usd": 0.67,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "webhook-worker-mid-1",
+  "task": "webhook-worker",
+  "arm": "mid",
+  "seconds": 189,
+  "cost_usd": 0.66,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md"
+  ]
+ },
+ {
+  "build": "webhook-worker-mid-2",
+  "task": "webhook-worker",
+  "arm": "mid",
+  "seconds": 174,
+  "cost_usd": 0.64,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md"
+  ]
+ },
+ {
+  "build": "webhook-worker-mid-3",
+  "task": "webhook-worker",
+  "arm": "mid",
+  "seconds": 198,
+  "cost_usd": 0.69,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md"
+  ]
+ },
+ {
+  "build": "webhook-worker-plain-1",
+  "task": "webhook-worker",
+  "arm": "plain",
+  "seconds": 138,
+  "cost_usd": 0.45,
+  "skills": [],
+  "skill_files_read": []
+ },
+ {
+  "build": "webhook-worker-prev-1",
+  "task": "webhook-worker",
+  "arm": "prev",
+  "seconds": 212,
+  "cost_usd": 0.71,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md"
+  ]
+ },
+ {
+  "build": "webhook-worker-prev-2",
+  "task": "webhook-worker",
+  "arm": "prev",
+  "seconds": 310,
+  "cost_usd": 0.66,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "webhook-worker-prev-3",
+  "task": "webhook-worker",
+  "arm": "prev",
+  "seconds": 172,
+  "cost_usd": 0.57,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md"
+  ]
+ },
+ {
+  "build": "webhook-worker-skill-1",
+  "task": "webhook-worker",
+  "arm": "skill",
+  "seconds": 232,
+  "cost_usd": 0.76,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "webhook-worker-skill-2",
+  "task": "webhook-worker",
+  "arm": "skill",
+  "seconds": 174,
+  "cost_usd": 0.65,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md"
+  ]
+ },
+ {
+  "build": "webhook-worker-skill-3",
+  "task": "webhook-worker",
+  "arm": "skill",
+  "seconds": 211,
+  "cost_usd": 0.7,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md"
+  ]
+ }
+]

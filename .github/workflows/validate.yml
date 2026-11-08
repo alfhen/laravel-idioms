@@ -56,6 +56,12 @@ jobs:
               --mapping eval/results/$run/mapping.json --builds eval/results/$run/builds.json \
               | diff -u eval/results/$run/tables.md -
           done
+          q=eval/results/queues-round
+          for run in round3/rep1 round3/rep2 round4/rep1 round4/rep2; do
+            python3 eval/aggregate.py --judgements $q/$run/judgements.json --mapping $q/$run/mapping.json \
+              --builds $q/builds.json --hidden $q/hidden.json \
+              | diff -u $q/$run/tables.md -
+          done
           r=eval/results/races-round
           for run in round1/rep1 round2/rep1 round2/rep2 round3/rep1 round3/rep2; do
             python3 eval/aggregate.py --judgements $r/$run/judgements.json --mapping $r/$run/mapping.json \

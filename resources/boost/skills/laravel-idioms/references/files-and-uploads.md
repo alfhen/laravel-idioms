@@ -81,10 +81,10 @@ while ($line = fgets($h)) { /* ... */ }
 $data = array_combine($header, $row);
 
 // good: one reader class (App\Imports\CsvReader), lazy, closes its handle
-public function rows(string $path): LazyCollection
+public function rows(string $disk, string $path): LazyCollection
 {
-    return LazyCollection::make(function () use ($path) {
-        $handle = Storage::readStream($path);
+    return LazyCollection::make(function () use ($disk, $path) {
+        $handle = Storage::disk($disk)->readStream($path);
         throw_if($handle === null, new RuntimeException("Missing {$path}"));
 
         try {
@@ -113,11 +113,13 @@ public function rows(string $path): LazyCollection
 - Validate each row with `Validator::make($data, $rules)`, collect `['line' => $line, 'message' => ...]` and carry on. Import the good rows unless the brief says all-or-nothing (then wrap in `DB::transaction()` and roll back on the first error). `$line` counts records. A quoted cell with a newline makes the record number differ from the file's physical line, so track physical lines (`SplFileObject::key()`) only when exact numbers matter.
 - Loop with `!== false`, never `while ($line = fgets($h))`: a final line of `0` with no trailing newline is falsy and is dropped.
 - A generator's `finally` runs when the `LazyCollection` finishes or is abandoned, so `fclose()` goes there. Use `->chunk(500)` and write each chunk with `upsert()` instead of row by row. Don't use `file()` or `Storage::get()` for an upload of megabytes.
-- Large or slow import: store the file, create an `imports` row, dispatch a job with the row id, read from `Storage::readStream($import->path)` in the job, and delete the file when the job finishes or fails.
+- Large or slow import: store the file, create an `imports` row, dispatch a job with the row id, read from `Storage::disk($import->disk)->readStream($import->path)` in the job, and delete the file from that disk when the job finishes or fails. When workers run on other hosts or containers, that disk is shared storage (a private S3 bucket), not `local`.
 ```php
-$path = $request->file('import')->store('imports', 'local');
-abort_if($path === false, 503, 'Upload could not be stored.');   // the local disk returns false instead of throwing
-$import = Import::create(['path' => $path, 'user_id' => $request->user()->id]);
+// config/filesystems.php: 'imports_disk' => env('IMPORTS_DISK', 'local'), a private shared disk (S3) when workers run on other hosts
+$disk = config('filesystems.imports_disk', 'local');
+$path = $request->file('import')->store('imports', $disk);
+abort_if($path === false, 503, 'Upload could not be stored.');   // a disk with throw=false returns false instead of throwing
+$import = Import::create(['disk' => $disk, 'path' => $path, 'user_id' => $request->user()->id]);
 ImportStock::dispatch($import->id);   // never the UploadedFile: PHP deletes its temp file when the request ends
 ```
 - A small import that finishes inside the request may read `$file->getRealPath()` directly.

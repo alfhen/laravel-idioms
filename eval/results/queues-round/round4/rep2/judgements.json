@@ -1,0 +1,843 @@
+[
+ {
+  "key": "blog-crud",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 9,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 8.6,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "Authorization happens in the controller after FormRequest validation, so a non-author sending an invalid payload gets 422 (leaking validation) instead of 403 (PostController.php:40)",
+     "Tag names are case-sensitive: ['PHP','php'] creates two tags (Post.php:66-67). The other two implementations have the same flaw"
+    ],
+    "antipatterns": [
+     "app/Http/Requests/StorePostRequest.php:25 and UpdatePostRequest.php:25: the postAttributes() helper is duplicated, along with near-identical rules",
+     "app/Models/Post.php:67: a firstOrCreate query per tag (N+1 writes)",
+     "tests/Feature/PostApiTest.php:21: Http::preventStrayRequests() is ceremony because the feature makes no HTTP calls",
+     "app/Http/Controllers/PostController.php:40: Gate::authorize runs after validation instead of FormRequest authorize()"
+    ],
+    "strengths": [
+     "$request->enum('status', PostStatus::class) is used for the index filter",
+     "Route model binding uses the slug (getRouteKeyName), which suits a blog",
+     "Observer uses ??= for the slug and published_at, so factories and seeders can override them",
+     "#[Fillable], #[ObservedBy] and #[Scope] attributes (current Laravel conventions); enum cast; Rule::enum",
+     "whenLoaded tags plucked to names; eager loading; latest()->latest('id') as a tiebreaker; withQueryString",
+     "Most thorough test suite: 26 tests covering validation messages, slug collisions, published_at preservation across draft\u2192published, pagination defaults and bounds, filter combinations, and the 404 and 403 paths"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 9,
+     "validation_form_requests": 6,
+     "eloquent_idioms": 8,
+     "architecture_fit": 4,
+     "modern_laravel": 7,
+     "focus_area": 6,
+     "tests": 7,
+     "correctness": 5,
+     "simplicity": 7
+    },
+    "overall": 5.8,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "routes/api.php:6 wraps the API in the 'web' middleware group, so CSRF verification applies. A probe confirmed that POST /api/posts returns 419 outside the testing environment. The tests only pass because ValidateCsrfToken is skipped during unit tests, so real JSON API clients cannot create, update or delete",
+     "Non-author sending an invalid payload gets 422 instead of 403, because validation runs before Gate::authorize (PostController.php:40)",
+     "Tag names are case-sensitive, so 'PHP' and 'php' become separate tags"
+    ],
+    "antipatterns": [
+     "routes/api.php:6: the web/session middleware stack is applied to stateless API routes",
+     "app/Http/Requests/StorePostRequest.php:22-32: prepareForValidation trimming duplicates the global TrimStrings middleware",
+     "app/Http/Requests/UpdatePostRequest.php:5-12: extends StorePostRequest, then reaches into parent::rules()['status'] and redefines everything else, which makes the inheritance awkward",
+     "app/Http/Controllers/PostController.php:21: PostStatus::from($validated) where $request->enum() would do",
+     "app/Http/Controllers/PostController.php:44: $request->has('tags') checks raw input instead of the validated/safe data",
+     "app/Policies/PostPolicy.php:15-18: duplicated ownership logic"
+    ],
+    "strengths": [
+     "Clean, thin controller with FormRequests, an API Resource and policy-based 403s",
+     "Modern model attributes (#[Fillable], #[ObservedBy], #[Scope]), enum cast, Rule::enum",
+     "Observer handles the unique slug and sets published_at only if missing",
+     "Tests cover the main CRUD paths, filters, pagination, validation and republishing"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 9,
+     "thin_controllers": 9,
+     "validation_form_requests": 7,
+     "eloquent_idioms": 9,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 9,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 8.2,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Non-author sending an invalid payload gets 422 instead of 403, because validation runs before Gate::authorize (PostController.php:38)",
+     "Tag names are case-sensitive, so 'PHP' and 'php' become separate tags (Post.php:61-65)"
+    ],
+    "antipatterns": [
+     "app/Http/Requests/SavePostRequest.php:16: a single request branches on isMethod('POST') instead of separate Store and Update requests",
+     "app/Requests/IndexPostRequest.php:25: PostStatus::tryFrom((string) ...) cast hack where $request->enum() exists",
+     "app/Models/Post.php:59-70: syncTagNames both mutates the relation and returns $this->load('tags'), mixing a command with a query; also a firstOrCreate per tag",
+     "app/Models/Post.php:62: trim() duplicates the TrimStrings middleware for HTTP input (harmless)",
+     "app/Policies/PostPolicy.php:15-18: duplicated ownership logic"
+    ],
+    "strengths": [
+     "Nullable scopes (withStatus/withTag using when()) keep the controller query chain free of conditionals",
+     "Tag normalisation with a collection pipeline (trim \u2192 filter \u2192 unique \u2192 firstOrCreate) dedupes tags gracefully instead of rejecting them",
+     "IndexPostRequest exposes typed status()/perPage() accessors",
+     "Modern attributes (#[Fillable], #[ObservedBy], #[Scope]), enum cast, Rule::enum, an API Resource with whenLoaded",
+     "Idiomatic tests using hasAttached() and sequence() factories; a wide range of validation edge cases (array, string, max lengths, whitespace-only tags, per_page bounds), 404s on both update and delete, and checks that client-supplied slug, owner and published_at are ignored"
+    ]
+   },
+   "rationale": "I ran all three test suites and they pass (26, 20 and 24 tests). I also ran a throwaway probe test in each implementation and then deleted it. It checked: a non-author sending an invalid payload, tag case, tags that differ only by whitespace, a null title on update, the CSRF behaviour outside the testing environment, a filter on an unknown tag, and a title that produces no slug.\n\nimpl-2 has a real production bug. Its API routes sit inside the 'web' middleware group, and with the environment switched out of testing, POST /api/posts returns 419 (CSRF). The suite hides this because Laravel skips CSRF checks during unit tests. It also has redundant trimming in prepareForValidation and an awkward UpdatePostRequest that extends StorePostRequest. That puts it clearly last.\n\nimpl-1 and impl-3 are close and share the same two minor flaws:\n- A non-author sending an invalid payload gets 422 instead of 403, because the controller authorises after validation.\n- Tag names are case-sensitive, so 'PHP' and 'php' become two tags.\n\nimpl-1 ranks first. It has separate Store and Update FormRequests, uses $request->enum() for the status filter, binds routes by slug, and uses ??= in the observer so factories can override the slug and published_at. Its 26 tests are the most thorough. Its weaknesses are a duplicated postAttributes() helper and an unnecessary Http::preventStrayRequests() in the tests.\n\nimpl-3 is a close second. Its nullable scopes keep the controller free of conditionals, its collection pipeline dedupes tags neatly, and its factory-based tests (hasAttached, sequence) are excellent. It loses a little for branching one request on isMethod('POST'), the tryFrom((string)) cast where $request->enum() exists, and a syncTagNames that both saves the tags and returns the reloaded model."
+  },
+  "cost_usd": 0.5881666
+ },
+ {
+  "key": "blog-crud",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.6,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "Validation runs before Gate::authorize in update, so a non-author sending invalid data gets 422 instead of 403 (PostController.php:38-40). All three implementations share this."
+    ],
+    "antipatterns": [
+     "app/Http/Requests/StorePostRequest.php:25 and UpdatePostRequest.php:25: identical postAttributes() helper copied into both requests. It only wraps safe()->except('tags'), so it adds ceremony without abstracting anything.",
+     "tests/Feature/PostApiTest.php:21: Http::preventStrayRequests() in setUp does nothing here because the feature makes no HTTP calls.",
+     "tests/Feature/PostApiTest.php:311: test_status_is_cast_to_enum only checks framework cast behaviour, so it adds little.",
+     "routes/api.php:6: the session 'auth' guard is used without session middleware, so outside actingAs it can never authenticate. The task allowed this."
+    ],
+    "strengths": [
+     "Uses slug route model binding via getRouteKeyName, so URLs use the stable generated slug.",
+     "Observer uses ??= for slug and published_at, which is concise and lets factories override the slug.",
+     "$request->enum('status', PostStatus::class) plus when() in index; also latest()->latest('id') as a tie-breaker and withQueryString.",
+     "'sometimes','required' on update fields and 'required','distinct' on tags.* give explicit 422s for blank or duplicate tags.",
+     "Policy delete delegates to update; the check uses $post->user()->is($user).",
+     "Modern attributes throughout: #[Fillable], #[ObservedBy], #[Scope].",
+     "26 tests: guest 401s on every endpoint, mass-assignment protection, published_at preserved across draft\u2192published, 404, default and custom pagination, query validation."
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 7,
+     "eloquent_idioms": 9,
+     "architecture_fit": 7,
+     "modern_laravel": 8,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 8.5,
+     "simplicity": 7.5
+    },
+    "overall": 8,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "routes/api.php:6 puts the 'web' group on API routes, which adds PreventRequestForgery. Tests skip CSRF, so they pass, but a real JSON client without Sec-Fetch-Site or a CSRF token gets 419 on POST/PUT/DELETE.",
+     "Validation runs before Gate::authorize in update, so a non-author sending invalid data gets 422, not 403 (PostController.php:38-40)."
+    ],
+    "antipatterns": [
+     "app/Http/Requests/UpdatePostRequest.php:5-15: extends StorePostRequest only to inherit prepareForValidation, then overrides rules(). It pulls one rule via parent::rules()['status'] and re-declares the tags rules anyway, which is awkward coupling.",
+     "app/Http/Requests/StorePostRequest.php:22-32: manual trimming in prepareForValidation repeats the global TrimStrings middleware, which already trims nested array input.",
+     "StorePostRequest.php:18: tags.* has no 'required'. It only works because ConvertEmptyStringsToNull makes 'string' fail on blanks.",
+     "PostController.php:21: PostStatus::from($status) on validated input where $request->enum() would be cleaner."
+    ],
+    "strengths": [
+     "Thin controller: when() filters, scoped query through $request->user()->posts(), latest()->latest('id') tie-breaker, withQueryString.",
+     "Modern attribute-based model (#[Fillable], #[ObservedBy], #[Scope]) and an enum cast with Rule::enum.",
+     "Observer handles both slug uniqueness and auto-setting published_at.",
+     "Composite (user_id, created_at) index in the migration.",
+     "20 focused tests, including exact validation messages, freezeSecond for the published_at check, republish keeping published_at, and tag clearing with []."
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 8.5,
+     "thin_controllers": 9,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8.5,
+     "modern_laravel": 9,
+     "focus_area": 8.5,
+     "tests": 9,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.4,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Validation runs before Gate::authorize in update, so a non-author sending invalid data gets 422, not 403 (PostController.php:36-38)."
+    ],
+    "antipatterns": [
+     "app/Models/Post.php:45-54: scopes take nullable arguments and do the when() internally, so withStatus(null) silently does nothing. That is a surprising scope contract; the conditional belongs at the call site.",
+     "app/Models/Post.php:59-70: syncTagNames both mutates and eager-loads, then returns $this. Mixing a side effect with a fluent return makes store() rely on that hidden load.",
+     "Post.php:62-64: trim()/filter() repeat TrimStrings and the tags.* 'required' rule; unique() silently drops duplicate tags instead of rejecting them.",
+     "app/Http/Requests/SavePostRequest.php:16: switching rules on isMethod('POST') is a terse but implicit way to share one request between store and update.",
+     "tests/Feature/Api/PostTest.php:106: substring message assertions such as '255' and 'array' are loose."
+    ],
+    "strengths": [
+     "One SavePostRequest, plus typed status() and perPage() helpers on IndexPostRequest, keep the index action to a single fluent chain.",
+     "Best test suite: 24 tests using hasAttached, sequence and travel, the draft\u2192published\u2192draft\u2192published round trip, client-supplied slug/owner/published_at ignored, and blank-tag rejection.",
+     "Modern attributes (#[Fillable], #[ObservedBy], #[Scope]) and Rule::enum with an enum cast.",
+     "Policy uses $post->user()->is($user); deleting cascades to the pivot table, and the test checks it.",
+     "latest()->latest('id') gives deterministic ordering; withQueryString on the paginator."
+    ]
+   },
+   "rationale": "All three tests suites pass (impl-2: 20, impl-3: 24, impl-1: 26). They share the same core design: enum cast, #[Fillable]/#[ObservedBy]/#[Scope] attributes, an observer for the unique slug and published_at, a policy using user()->is(), and apiResource without show. My probes found the same behaviour in all three: blank tags return 422, title:null returns 422, an all-symbol title gets slug 'post' then 'post-2', client-supplied published_at/user_id are ignored, and an array passed to the filters returns 422. All three also validate before authorizing, so a non-author sending invalid data gets 422 instead of 403. Unauthenticated non-JSON requests return 500 (no login route) in all three; that comes from the base app. What separates them: impl-2 puts the 'web' middleware group on API routes, which brings in CSRF (PreventRequestForgery). The tests hide this because CSRF is skipped under unit tests, but real token-less JSON clients would get 419. impl-2 also has an awkward UpdatePostRequest that extends the store request and plucks parent::rules()['status'], and its trimming repeats TrimStrings, so it ranks last. impl-3 has the strongest tests and a very thin controller. Against that, its scopes take nullable arguments and no-op on null, syncTagNames mixes a side effect with a returned eager-load, and duplicate tags are silently dropped. impl-1 is the cleanest idiomatically: $request->enum(), ??= in the observer, slug route binding, 'sometimes','required' plus 'distinct' for explicit 422s, and a policy whose delete delegates to update. Its only real flaws are minor ceremony (a postAttributes() helper copied into both requests, Http::preventStrayRequests, a trivial cast test), so it ranks first, narrowly ahead of impl-3."
+  },
+  "cost_usd": 0.6428370000000001
+ },
+ {
+  "key": "export-purge-command",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 9
+    },
+    "overall": 8.6,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "The lock lasts a fixed 3600s (PurgeExports.php:43). A first manual purge over millions of rows could take longer, so the lock would expire while that run is still going and a scheduled run could start alongside it. This is minor."
+    ],
+    "antipatterns": [
+     "routes/console.php:12 hardcodes ->timezone('Europe/Copenhagen'), which the task did not ask for. The app timezone is UTC, so this quietly changes what '03:00' means.",
+     "tests/Feature/PurgeExportsTest.php:148 replaces the disk with Storage::shouldReceive('disk') and a duck-typed anonymous class instead of Storage::set(), which is fragile.",
+     "No test covers an operator answering yes at the production prompt. test_production_refuses_without_confirmation only works because Prompts is non-interactive in tests."
+    ],
+    "strengths": [
+     "Uses ConfirmableTrait::confirmToProceed with --force, the framework's standard tool for production confirmation, and returns FAILURE when the operator refuses.",
+     "Iterates with select(['id','path'])->lazyById(500), which keeps memory low and stays safe while rows are deleted mid-iteration.",
+     "Uses the #[Scope] attribute scope, #[Signature]/#[Description] attributes and the #[Fillable] attribute, all current Laravel 13 conventions.",
+     "Takes a Cache::lock inside the command and adds onOneServer to the schedule, so a manual run and the nightly run can't overlap. The lock is released in a finally block, which a probe confirmed after an exception mid-run.",
+     "Validates --days with FILTER_VALIDATE_INT and returns INVALID. Dry-run skips both the confirmation and the lock.",
+     "Probes with a real permission-denied directory showed the row is kept, the rest of the run continues and the exit code is 1."
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 7,
+     "correctness": 9,
+     "simplicity": 7
+    },
+    "overall": 8,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "The lock lasts a fixed 3600s (PurgeExports.php:21). A long first purge over millions of rows could outlive it and lose its protection against overlapping runs. This is minor."
+    ],
+    "antipatterns": [
+     "tests/Feature/PurgeExportsTest.php:49 defines an anonymous subclass of the command with a copied #[Signature] and toggles Prompt::interactive just to test the prompt. This is heavy ceremony, and the copied signature can drift from the real one.",
+     "tests/Feature/PurgeExportsTest.php:208 sets up a mock expectation after all assertions have run. It is dead code.",
+     "PurgeExports.php:60 has no @param Builder<Export> generic, and lazyById() loads every column when only id and path are needed (a minor point)."
+    ],
+    "strengths": [
+     "Uses ConfirmableTrait with --force and returns FAILURE when the operator refuses. The loop is a plain foreach over lazyById.",
+     "The tests cover confirmation declined, confirmation accepted, --no-interaction and --force in production.",
+     "A single Mockery Filesystem test covers a delete that returns false, a delete that throws and a successful delete.",
+     "Uses a Cache::lock released in a finally block together with onOneServer. Validates --days and returns INVALID.",
+     "Behaved correctly in every probe: malformed --days values, a non-interactive production run, a real permission-denied failure, and the lock being released after an exception."
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 8,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.2,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "PurgeExports.php:68-75 writes its own operatorApproves() check (isProduction() || force, then confirm) instead of using ConfirmableTrait::confirmToProceed, so it duplicates framework behaviour.",
+     "routes/console.php:14 adds ->withoutOverlapping() on top of the lock already inside the command. The schedule mutex never sees a manual run, so this adds little.",
+     "Fully-qualified classes are written inline: \\RuntimeException at tests/Feature/Console/PurgeExportsTest.php:157 and \\DateTimeInterface at ExportFactory.php:23.",
+     "Invalid --days returns FAILURE instead of INVALID (PurgeExports.php:26). This is minor."
+    ],
+    "strengths": [
+     "The lock lasts 6 hours, which gives realistic headroom for a long purge over millions of rows.",
+     "Mocks with a partial Mockery mock of the real disk passed to Storage::set, a clean way to make a single path fail.",
+     "Tests confirmation yes and no in production directly with expectsConfirmation, without workarounds.",
+     "Small helpers (purge() and deleteFile()) keep handle() readable. The lock is released in a finally block before the summary is printed.",
+     "Uses lazyById(1000), an indexed created_at column and a #[Scope] attribute scope. Probes confirmed a non-interactive production run refuses, and a real permission-denied failure keeps the row and exits 1."
+    ]
+   },
+   "rationale": "All three versions do the job and behave almost the same. Every test suite passes (18, 17 and 17 tests). The probes found no real bugs in any of them. They covered malformed --days values (1.5, empty, -1, 007), a non-interactive production run without --force, dry-run while locked, the lock being released after an exception, and a real permission-denied file deletion. In every case each version kept the row, carried on with the rest and exited 1. Each one has a Cache::lock inside the command plus onOneServer, deletes through lazyById, and indexes created_at. The ranking comes down to idiom and the quality of the tests.\n\nimpl-1 has the most idiomatic code. It uses ConfirmableTrait and select(['id','path'])->lazyById, and its code is the leanest. Its weak points are a hardcoded Europe/Copenhagen timezone nobody asked for, a 1-hour lock, and no test for an operator confirming. \n\nimpl-3 has the cleanest tests for the confirmation path and a more realistic 6-hour lock. But it writes its own confirmation logic instead of using ConfirmableTrait and adds a redundant withoutOverlapping. \n\nimpl-2 is nearly identical to impl-1 in code. Its tests rely on a heavy subclass-and-copied-signature workaround to test the prompt, and leave a dead mock expectation behind, so it ranks last."
+  },
+  "cost_usd": 0.5016558
+ },
+ {
+  "key": "export-purge-command",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 8,
+     "focus_area": 7,
+     "tests": 6,
+     "correctness": 7,
+     "simplicity": 7
+    },
+    "overall": 7,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "routes/console.php: adds ->timezone('Europe/Copenhagen'), which the task never asked for. The app timezone is UTC, so the job actually runs at 02:00 UTC (schedule:list shows '0 2 * * *'), not at 03:00 as specified."
+    ],
+    "antipatterns": [
+     "app/Console/Commands/PurgeExports.php:63 lazyById(500)->each(function ... use (&$removed, &$failed)): counters captured by reference in a closure, where a plain foreach would be clearer",
+     "app/Console/Commands/PurgeExports.php:63 select(['id','path']) followed by $export->delete() on a partially hydrated model: it works, but the micro-optimisation is fragile if model events or observers are added later",
+     "tests/Feature/PurgeExportsTest.php:150-165 uses Storage::shouldReceive('disk') to swap the facade for an anonymous duck-typed class instead of Storage::set with a Mockery mock of the Filesystem contract",
+     "tests/Feature/PurgeExportsTest.php:107 sets $this->app['env'] directly; there is no test for the interactive 'yes' path in production",
+     "tests/Feature/PurgeExportsTest.php:228 config-value test for the disk adds little"
+    ],
+    "strengths": [
+     "Uses ConfirmableTrait (the framework's production-confirmation idiom) and returns FAILURE when the operator declines",
+     "Invalid --days input returns INVALID via filter_var with min_range",
+     "Uses lazyById for memory safety, keeps the row when the file cannot be deleted, and the failure count drives the exit code",
+     "Takes a Cache::lock shared with manual runs, and the schedule uses onOneServer",
+     "Covers the thrown exception and false return paths separately, plus an empty-run test"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "tests/Feature/PurgeExportsTest.php:45-58 registers an anonymous subclass of the command that forces Prompt::interactive just to test confirmation; this is heavy ceremony (detectEnvironment plus expectsConfirmation would be simpler)",
+     "tests/Feature/PurgeExportsTest.php:213 a stray Mockery expectation after the assertions does nothing",
+     "app/Console/Commands/PurgeExports.php:21 a 1h lock TTL could expire during a very large manual purge, after which a second run could overlap"
+    ],
+    "strengths": [
+     "ConfirmableTrait handles production confirmation, --force and refusal under -n (verified on the CLI: exit 1)",
+     "--dry-run counts the matching rows and runs before confirmation, so support can preview in production without being prompted",
+     "Uses a #[Scope] attribute scope with a created_at index and lazyById iteration, so it is memory-safe on millions of rows",
+     "A Cache::lock covers manual and scheduled runs together, and onOneServer handles the two web servers; the lock is released in finally",
+     "Clean failure handling: a false return or exception is reported, the row is kept, the loop continues and the command exits with FAILURE",
+     "Thorough tests: a test larger than one chunk, both confirmation answers, -n refusal, a Mockery mock of the Filesystem contract for the false and throw paths, lock contention and release, and the schedule"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 8,
+     "modern_laravel": 8,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Console/Commands/PurgeExports.php:67-74 reimplements production confirmation (operatorApproves) instead of using ConfirmableTrait, the framework's standard for this",
+     "app/Console/Commands/PurgeExports.php:26 invalid --days returns FAILURE rather than INVALID",
+     "routes/console.php: withoutOverlapping() is mostly redundant given the command's own Cache::lock (harmless)",
+     "database/factories/ExportFactory.php:22 and tests/.../PurgeExportsTest.php:164 use inline fully qualified \\DateTimeInterface and \\RuntimeException instead of imports"
+    ],
+    "strengths": [
+     "Clear structure: the purge() method returns a tuple, deleteFile() isolates the try/catch, and the lock is released before output",
+     "A 6h lock TTL is realistic for a manual purge of millions of rows",
+     "The schedule uses onOneServer and withoutOverlapping, with --force",
+     "The cleanest production-test setup: detectEnvironment plus expectsConfirmation for yes and no, with no subclass hacks",
+     "Tests use a partial Mockery mock of the real disk for the false and throw paths, plus chunk-overflow, lock and schedule tests",
+     "Verified on the CLI: production with -n and with no tty both refuse with exit 1"
+    ]
+   },
+   "rationale": "All three versions have nearly the same design: a #[Scope] scope with a created_at index, lazyById, a Cache::lock shared with manual runs, onOneServer, dry-run before confirmation, and keeping the row when the file can't be deleted. All test suites pass (17, 17 and 18 tests). I ran four throwaway probes against each version, then deleted them. Three passed for all three versions: a real permission-denied directory on a local disk (row kept, the rest processed, exit 1), more than 1000 failing rows followed by one good row (no infinite loop with lazyById), and --days=0 and --days=1.5. The fourth probe, production with -n, could not run in PHPUnit because the mocked console output doesn't respect -n. I ran it on the real CLI instead, against a temporary SQLite database: all three refuse with exit code 1. The seeded export row wasn't created in that run (the setup step failed quietly), so the CLI checked only the exit codes, not whether rows were kept; the in-suite tests cover that. impl-2 ranks first: it uses ConfirmableTrait as intended, returns INVALID for bad --days, has broad tests (both confirmation answers, -n refusal, a mock of the Filesystem contract) and no bugs; its main flaw is the anonymous command subclass used to test confirmation. impl-3 has equally sound behaviour and cleaner tests, but it hand-rolls production confirmation instead of using ConfirmableTrait. impl-1 adds a Europe/Copenhagen timezone nobody asked for, so the job runs at 02:00 UTC instead of 03:00. It also uses a by-reference closure with a partially selected model, swaps the Storage facade for duck-typed anonymous classes in its tests, and has no test for the interactive 'yes' path."
+  },
+  "cost_usd": 0.435832
+ },
+ {
+  "key": "inactive-count",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 9
+    },
+    "overall": 8.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "tests/Feature/CountInactiveUsersTest.php:14 expectsOutputToContain(': 1') is a loose assertion. It would also match ': 10' or ': 1x', so exact expectsOutput would be stronger",
+     "tests/Feature/CountInactiveUsersTest.php:10 inline ['last_login_at' => ...] arrays instead of a factory state (minor)"
+    ],
+    "strengths": [
+     "Small #[Scope] inactiveFor with a grouped whereNull/orWhere, so it stays safe to chain",
+     "Signature/Description attributes, and $this->fail() (verified in Laravel 13.40) for the failure path, a current idiom",
+     "filter_var with min_range rejects text, negative and decimal values; --days=0 behaves sensibly",
+     "freezeTime in beforeEach keeps the boundary tests deterministic",
+     "The schedule test checks both the 06:00 cron expression and the log output destination, so the 'shows up in logs' requirement is actually tested",
+     "Proportionate: no onOneServer or withoutOverlapping ceremony for a single server; RefreshDatabase enabled cleanly in Pest.php"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 7,
+     "modern_laravel": 8,
+     "focus_area": 7,
+     "tests": 8,
+     "correctness": 7,
+     "simplicity": 8
+    },
+    "overall": 7,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "routes/console.php:12 hardcodes ->timezone('Europe/Copenhagen'), which the task didn't ask for. With app timezone UTC this changes when '06:00' fires, and the date will drift from config if config ever changes",
+     "Output '1 users have not logged in for 90 days.' is grammatically wrong for singular counts and states a slightly different claim ('for 90 days' rather than 'in the last 90 days')"
+    ],
+    "antipatterns": [
+     "tests/Pest.php:18-19 adds ->use(RefreshDatabase::class) but leaves the duplicate commented-out line beneath it",
+     "database/migrations/..._add_last_login_at_to_users_table.php:12 ->after() is MySQL-only and silently ignored elsewhere (harmless noise)",
+     "app/Console/Commands/CountInactiveUsers.php:19-21 uses $this->error() plus return FAILURE where $this->fail() or components->error would be more current",
+     "tests/Feature/InactiveUsersCountTest.php:45 tests two scenarios in one test"
+    ],
+    "strengths": [
+     "Same clean #[Scope] and attribute-based command as the others",
+     "lastLoggedInAt factory state reads well in tests",
+     "Exact expectsOutput assertions and a broad invalid-input dataset that includes zero",
+     "travelTo(startOfSecond) avoids sub-second boundary flakiness",
+     "The schedule test checks the cron expression, timezone and log path"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 9
+    },
+    "overall": 8,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "tests/Feature/InactiveUsersCountTest.php:64-70 the schedule test doesn't check appendOutputTo, so nothing tests the 'shows up in our logs' requirement",
+     "tests/Feature/InactiveUsersCountTest.php:8-12 the schema-column test is low value because it tests the framework and migration rather than behaviour",
+     "tests/Feature/InactiveUsersCountTest.php:14-40 time is frozen only in the boundary test; the others rely on wall-clock now() (safe at day granularity but inconsistent)",
+     "Description 'who have not logged in recently' is vaguer than the actual behaviour (it hides the never-logged-in rule and N days)"
+    ],
+    "strengths": [
+     "Clean #[Scope] scope, attribute-based signature and components->error for console-styled failure output",
+     "lastLoginAt factory state keeps tests readable",
+     "Exact expectsOutput assertions; the invalid-input dataset includes the empty string",
+     "Boundary test (exactly N days is still active) with freezeTime",
+     "Minimal, proportionate schedule entry with output appended to a log file"
+    ]
+   },
+   "rationale": "The three are nearly identical in core logic. Each has the same #[Scope] inactiveFor with grouped whereNull/orWhere, a nullable timestamp migration, an attribute-based command, and Schedule::command()->dailyAt('06:00')->appendOutputTo(). All suites pass. The probes (--days=0, a huge value, an empty string, whitespace, the output text) found no crashes. impl-2 deliberately rejects --days=0. Small differences decided the ranking. impl-1 ranks first: it uses the modern $this->fail(), freezes time globally, and is the only one whose schedule test checks the log output destination, which is the 'shows up in our logs' requirement. Its weakness is loose ': 1' containment assertions. impl-3 is equally clean, with a factory state, exact output assertions and components->error, but its schedule test skips the log destination and it includes a low-value schema test. impl-2 ranks last. It hardcodes an unrequested Europe/Copenhagen timezone on the schedule, leaves a duplicate commented RefreshDatabase line in Pest.php, prints the ungrammatical '1 users', and uses MySQL-only ->after(). Otherwise its tests are thorough."
+  },
+  "cost_usd": 0.2692658
+ },
+ {
+  "key": "inactive-count",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 7,
+     "correctness": 9,
+     "simplicity": 9
+    },
+    "overall": 8,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "tests/Feature/CountInactiveUsersTest.php:14,23,41,48 - expectsOutputToContain(': 1') is a loose substring check: ': 1' would also match ': 10' or ': 12', so a wrong count could still pass",
+     "database/migrations/2026_11_07_130944_add_last_login_at_to_users_table.php:9-11,19-21 - leftover stub docblocks ('Run the migrations.') that only restate the method names",
+     "Accepts --days=0, which counts every user as inactive. This is allowed on purpose, but no test covers it"
+    ],
+    "strengths": [
+     "Uses $this->fail() (Laravel 11+) for the validation failure, which keeps handle() flat",
+     "The #[Signature]/#[Description] attributes and the #[Scope] attribute scope use current Laravel 13 conventions",
+     "The scope wraps the null/older-than check in a closure, so the OR is grouped correctly",
+     "Smallest footprint: no factory state was added because inline attributes are enough",
+     "freezeTime in beforeEach makes the boundary test deterministic",
+     "Schedule test checks both the cron expression and the log output path",
+     "No onOneServer or withoutOverlapping, which is right for a single server"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 9,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 8.3,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "routes/console.php:13 - hardcodes ->timezone('Europe/Copenhagen') although the app timezone is UTC and the task did not ask for it. The job will run at 06:00 Copenhagen time (05:00 or 04:00 UTC), which may not match what ops expect"
+    ],
+    "antipatterns": [
+     "tests/Pest.php:18-19 - adds ->use(RefreshDatabase::class) but leaves the commented-out duplicate line underneath",
+     "app/Console/Commands/CountInactiveUsers.php:26 - prints '1 users have ...' instead of a correctly pluralised message (Str::plural would fix it)",
+     "app/Console/Commands/CountInactiveUsers.php:19 - uses $this->error() instead of $this->components->error() or $this->fail()",
+     "database/migrations/...:12 - ->after() only has an effect on MySQL (harmless)"
+    ],
+    "strengths": [
+     "Strongest tests: they assert the exact output, cover the boundary with travelTo(startOfSecond) to avoid microsecond flakiness, test zero users and all-active users, and use a named dataset of invalid values including 0 and a decimal",
+     "Schedule test checks the cron expression, timezone and log file path",
+     "Clean #[Scope] inactiveFor with a grouped OR, and a datetime cast",
+     "Expressive lastLoggedInAt factory state",
+     "Validates --days as a positive integer and returns FAILURE"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 7,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 7.8,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "tests/Feature/InactiveUsersCountTest.php:8-12 - tests the schema with Schema::hasColumn, which adds little because the command tests already exercise the column",
+     "tests/Feature/InactiveUsersCountTest.php:64-70 - schedule test does not check where the output goes (appendOutputTo), and that is the 'shows up in our logs' requirement",
+     "tests/Feature/InactiveUsersCountTest.php:14-40 - time is frozen only in the boundary test; the other tests rely on wide margins (89/91 days) instead of a shared beforeEach freeze",
+     "Accepts --days=0, which counts every user as inactive; no test covers it"
+    ],
+    "strengths": [
+     "Uses $this->components->error() for styled error output and returns FAILURE",
+     "Grouped OR inside the #[Scope] scope, plus a datetime cast",
+     "Tests assert the exact output and include an empty-string --days value in the invalid-input dataset",
+     "Minimal migration without ->after()",
+     "Schedule uses the app timezone, with no extra assumptions"
+    ]
+   },
+   "rationale": "All three implementations are nearly identical in their core logic. Each adds the same #[Scope] inactiveFor with a grouped whereNull/orWhere on '<' now()->subDays, a datetime cast, a nullable timestamp migration, an attribute-based command validated with filter_var, and Schedule::command()->dailyAt('06:00')->appendOutputTo(). None of them adds onOneServer, which is correct for a single server. All test suites pass. I probed each one with these --days values: 0, '', ' 7', '+7', '007', very large numbers, and a future login. Behaviour matched across all three, except that impl-2 rejects 0 while impl-1 and impl-3 accept it. Neither choice is wrong. I found no functional bugs in the counting logic.\n\nThe ranking comes down to test quality and small choices. impl-2 has the most thorough tests: exact output, a deterministic boundary via travelTo(startOfSecond), and checks on the schedule's timezone and output path. Against that, it hardcodes an unrequested Europe/Copenhagen timezone on a UTC app, leaves a duplicate commented line in Pest.php, and prints '1 users'. impl-1 has the leanest and most modern code ($this->fail(), no extra factory state), but its loose ': 1' substring assertions weaken its tests. impl-3 is clean, but its schedule test does not check the log output, it includes a low-value schema test, and it freezes time inconsistently. Overall: impl-2 > impl-1 > impl-3, with small margins between them."
+  },
+  "cost_usd": 0.26017700000000005
+ },
+ {
+  "key": "scheduled-reports",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 7,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 7,
+     "correctness": 7,
+     "simplicity": 8
+    },
+    "overall": 7.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "app/Jobs/SyncSupplierStock.php:13 UniqueFor(3600) equals the hourly cadence: if a worker is killed mid-run, the orphaned unique lock is still held at the next top-of-hour dispatch, so that hour's sync is silently dropped (probe confirmed: dispatch at 10:00:20 then 11:00:05 pushes only once)",
+     "config/queue.php:71 raises the global redis retry_after to 3700s, so every other redis job orphaned by a crash waits over an hour to be retried; a dedicated connection/queue would scope this"
+    ],
+    "antipatterns": [
+     "tests/Feature/ScheduleTest.php:84-91 'runs the job handler without touching the network' ends in expect(true)->toBeTrue() \u2014 asserts nothing",
+     "tests/Feature/ScheduleTest.php:73-82 reflects on job attributes to assert config numbers \u2014 brittle ceremony instead of behaviour",
+     "tests/Feature/ScheduleTest.php:84-91 Http::preventStrayRequests without any assertion",
+     "routes/console.php:12 weekly()->mondays()->at() where weeklyOn(1, '07:30') is the direct form",
+     "Leaves .env.example CACHE_STORE/QUEUE_CONNECTION on database although the brief says Redis is the shared cache/queue that onOneServer depends on"
+    ],
+    "strengths": [
+     "onOneServer on all three events plus withoutOverlapping with short explicit expiries (10/120 min) so a killed run cannot block for 24h",
+     "Prune at 03:30 Copenhagen sidesteps DST gap/repeat",
+     "Memory-safe batched delete via pluck ids + whereKey delete with index on updated_at",
+     "ShouldBeUnique + Tries(1) + Timeout(3000) + FailOnTimeout; timeout < retry_after",
+     "Modern attributes: #[Signature], #[Scope], #[Fillable], queue attributes",
+     "Schedule tests check expression, timezone, isDue in Copenhagen vs UTC, and a real schedule:run dispatch; database-queue test proves uniqueness",
+     "Command fails cleanly when warehouse.email missing; pluralised plain-text mail"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 8,
+     "focus_area": 7,
+     "tests": 7,
+     "correctness": 7,
+     "simplicity": 8
+    },
+    "overall": 7,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "app/Jobs/SyncSupplierStock.php:15 UniqueFor(3600) equals the hourly cadence: a worker killed mid-run leaves the unique lock until exactly the next dispatch, so the next hour's sync is dropped (probe confirmed only 1 push)",
+     "config/queue.php:71 bumps the global redis retry_after to 3600 for all jobs to accommodate one long job"
+    ],
+    "antipatterns": [
+     "app/Models/Cart.php:17 scope has default $days = 30 yet the command passes 30 explicitly \u2014 redundant parameterisation",
+     "app/Jobs/SyncSupplierStock.php:12 long rationale comment restating config arithmetic",
+     "tests/Feature/ScheduleTest.php:14 helper declared to return Event but uses first(), can return null; sole() would fail loudly",
+     "tests/Feature/ScheduleTest.php:20 Carbon::setTestNow instead of $this->travelTo",
+     "tests/Feature/ScheduleTest.php:55-57 asserts withoutOverlapping is false, enshrining the absence of an overlap guard rather than testing bounded expiry",
+     "tests/Feature/ScheduleTest.php:59-68 reflection on attribute values",
+     "No schedule:run integration test; uniqueness only tested via Queue::fake",
+     "Edits committed .env (not just .env.example)"
+    ],
+    "strengths": [
+     "Switches CACHE_STORE and QUEUE_CONNECTION to redis, matching the shared-lock requirement for onOneServer",
+     "Excellent DST tests: datasets expressed in UTC for winter/summer prove 07:30 Copenhagen is honoured and UTC/off-by-hour is not",
+     "Simplest memory-safe prune: single DELETE ... LIMIT loop, no model hydration",
+     "onOneServer on all three events; avoids the 24h default withoutOverlapping trap",
+     "Mail carries hours, pluralised body; missing-email failure path tested with output assertion"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 8.3,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "config/queue.php:71 bumps the global redis retry_after to 3600, affecting crash-recovery latency for all redis jobs (shared with the others)",
+     "app/Mail/UnshippedOrdersReport.php:20 body is not pluralised ('1 orders are still unshipped')"
+    ],
+    "antipatterns": [
+     "routes/console.php:6 aliases Illuminate\\Console\\Scheduling\\Schedule as SchedulerSchedule only for the MONDAY constant \u2014 import ceremony",
+     "app/Console/Commands/PruneAbandonedCarts.php:18-22 chunkById hydrates 1000 Cart models per batch only to read ids; pluck/lazy ids or DELETE ... LIMIT is lighter",
+     "tests/Feature/SyncSupplierStockTest.php:11-12 inline FQCN attribute classes and reflection on attribute values; imports unsorted (Http before DB)",
+     "app/Mail/UnshippedOrdersReport.php:20 HTML built by string interpolation in htmlString instead of a view"
+    ],
+    "strengths": [
+     "UniqueFor(3300) deliberately shorter than the hourly cadence so a crashed run's lock frees before the next dispatch (probe confirmed); Timeout(3000) < retry_after with FailOnTimeout and Tries(1)",
+     "onOneServer + withoutOverlapping with bounded expiries (10/180 min) on commands; 03:30 avoids DST edges",
+     "Configures redis cache/queue and documents SCHEDULE_CACHE_STORE, which the framework actually reads",
+     "Schedule::command(Command::class) references, $this->fail() for the missing-config path",
+     "chunkById is safe while deleting, memory-bounded",
+     "Best schedule tests: summer/winter datasets, bounded lock expiry asserted, real schedule:run dispatch and a two-tick 'two servers' test proving a single push; database-queue uniqueness test"
+    ]
+   },
+   "rationale": "All three pass their suites and share a sound design (Redis-backed onOneServer, ShouldBeUnique hourly job, Copenhagen timezone, batched cart deletes). The differences come from crash recovery. When I killed a sync job mid-run (lock left behind), impl-1 and impl-2 (UniqueFor 3600) dropped the next hourly dispatch. impl-3 (UniqueFor 3300) let it through. impl-1 and impl-3 also give their commands overlap locks with short expiries; I confirmed both locks can be taken again once expiry passes. impl-2 has no overlap lock, so nothing can get stuck. That is defensible, but its tests forbid overlap locks outright. impl-3 also has the strongest scheduler tests, including two schedule:run ticks in the same minute, and the most current conventions. It is ranked first. impl-1 is second: it has bounded overlap locks and a schedule:run test, but it has the dropped-hour bug, leaves the cache and queue on database instead of Redis in .env.example, and has a test that asserts nothing. impl-2 is third: it has the same dropped-hour bug and no end-to-end scheduler test, though its daylight-saving datasets and single-query batched delete are good. All three raise the shared Redis retry_after to suit one job."
+  },
+  "cost_usd": 0.7291586
+ },
+ {
+  "key": "scheduled-reports",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 7,
+     "architecture_fit": 7,
+     "modern_laravel": 8,
+     "focus_area": 7,
+     "tests": 6,
+     "correctness": 7,
+     "simplicity": 7
+    },
+    "overall": 6.8,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "app/Jobs/SyncSupplierStock.php:13 UniqueFor(3600) is a full hour. If a worker is killed, the lock is never released, so it only expires at dispatch time + 3600s. The next hourly dispatch is blocked whenever it fires even a few seconds earlier than the previous one did, which is normal drift between servers. A probe that dispatched at 10:00:05 saw the 11:00 tick skipped.",
+     "config/queue.php:71 sets retry_after to 3700, which is longer than UniqueFor. A killed job is redelivered after the next hourly job has already taken the lock. With Tries(1) it then fails, and the failure releases the unique lock that the new job is holding.",
+     ".env.example leaves CACHE_STORE and QUEUE_CONNECTION as database. The task says Redis is the shared cache and queue, so the retry_after tuning on the redis connection has no effect with this env template, and the database queue keeps retry_after=90."
+    ],
+    "antipatterns": [
+     "tests/Feature/ScheduleTest.php:90 uses expect(true)->toBeTrue() as a filler assertion",
+     "tests/Feature/ScheduleTest.php:84-88 calls handle() twice with no meaningful assertion",
+     "routes/console.php:13 uses the verbose weekly()->mondays()->at('07:30') where weeklyOn(1, '07:30') would do",
+     "app/Models/Cart.php:18 type-hints the concrete Illuminate\\Support\\Carbon rather than CarbonInterface, so it breaks if Date::use(CarbonImmutable) is configured",
+     "app/Console/Commands/PruneAbandonedCarts.php:22-23 runs two queries per batch (pluck the ids, then delete) where one LIMITed delete would do",
+     "tests/Feature/ScheduleTest.php puts the job uniqueness and timeout tests inside the schedule test file"
+    ],
+    "strengths": [
+     "Uses onOneServer on all three tasks. withoutOverlapping has short expiries (10 and 120 minutes), so a crash cannot block the next run for a day; confirmed by probe.",
+     "Schedules the prune at 03:30 Copenhagen, outside the DST gap. A minute-by-minute probe on both DST days found exactly one run per day.",
+     "The composite index (shipped_at, placed_at) on orders fits the report query",
+     "Uses modern attributes: #[Signature], #[Description], #[Scope], #[Fillable], and stacked queue attributes",
+     "Has a schedule:run test proving the job is dispatched on the hour, and a test of the 48h boundary using freezeTime",
+     "Pluralisation is checked in a rendered-mail test"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 9,
+     "correctness": 7.5,
+     "simplicity": 9
+    },
+    "overall": 7.8,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "app/Jobs/SyncSupplierStock.php:15 UniqueFor(3600) equals the hourly interval. After a killed worker, the stale lock is still held whenever the next dispatch fires slightly earlier than the previous one did. A probe that dispatched at 10:00:05 saw the 11:00 run skipped, so one hourly sync is lost after a crash."
+    ],
+    "antipatterns": [
+     "Edits the local .env (QUEUE_CONNECTION and CACHE_STORE) as well as .env.example",
+     "app/Jobs/SyncSupplierStock.php:12 has a dense comment encoding the timing relationship; it is acceptable as a constraint, but the arithmetic it claims leaves no margin",
+     "tests/Feature/SyncSupplierStockTest.php:16 'not->toThrow' on an empty handle() is a near-meaningless assertion",
+     "tests/Feature/ScheduleTest.php:11-15 types the helper as returning Event, but first() can return null",
+     "Leaves the scheduling cache store implicit; it relies on CACHE_STORE=redis rather than setting SCHEDULE_CACHE_STORE"
+    ],
+    "strengths": [
+     "The simplest prune: Cart::abandoned(30)->limit(1000)->delete() in a do/while loop. It is memory-safe and loads no models.",
+     "Deliberately avoids withoutOverlapping, which removes the 24h stale-mutex failure entirely, and has a test asserting it stays off",
+     "The best schedule tests: isDue is checked at explicit UTC instants for winter and summer, including the 'one hour off' negative cases",
+     "Prune at 03:00 Copenhagen exists exactly once on both DST days (probe confirmed)",
+     "Uses weeklyOn(1, '07:30') and query scopes with #[Scope]. Factory states (placedHoursAgo, shipped, updatedDaysAgo) read well.",
+     "Covers the failure path for a missing warehouse email, plus a zero-count report, pluralised rendering and a 2500-row multi-batch test",
+     "Tests enforce timeout < retry_after <= UniqueFor"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 7.5,
+     "correctness": 8.5,
+     "simplicity": 8
+    },
+    "overall": 8.3,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "app/Mail/UnshippedOrdersReport.php:20 always writes 'orders', so a count of 1 reads '1 orders are still unshipped' (cosmetic)"
+    ],
+    "antipatterns": [
+     "tests/Feature/ScheduleTest.php:62-70 'two servers' test would pass from the job's ShouldBeUnique alone, so it does not really prove onOneServer",
+     "tests/Feature/SyncSupplierStockTest.php:11-12 uses inline fully-qualified attribute class names instead of imports; the imports are also unsorted (Http before DB)",
+     "app/Console/Commands/PruneAbandonedCarts.php:18-22 chunkById hydrates 1000 Cart models per batch only to collect their keys; a LIMITed delete or chunkById over a base query would be lighter",
+     "app/Mail/UnshippedOrdersReport.php:20 builds HTML by interpolation in htmlString instead of using a view",
+     "tests/Feature/ScheduleTest.php mostly asserts configuration (expression and expiresAt) rather than behaviour"
+    ],
+    "strengths": [
+     "The safest lock arithmetic: Timeout(3000) < UniqueFor(3300) < retry_after(3600). After a crash, the lock always expires before the next hourly dispatch; it was the only implementation to pass the crashed-lock probe.",
+     "FailOnTimeout with Tries(1) means a timed-out run fails and releases its lock instead of being retried",
+     "Sets SCHEDULE_CACHE_STORE=redis in .env.example (verified the framework reads it), making the shared mutex store explicit",
+     "withoutOverlapping has bounded expiries (10 and 180 minutes), so a killed run cannot block for a day (probe confirmed); runs are on one server",
+     "Prune at 03:30 Copenhagen, outside the DST gap; it runs once on both DST days",
+     "Uses $this->fail() for a missing configuration, the modern command failure idiom; also uses class-based Schedule::command and the Schedule::MONDAY constant",
+     "Has a uniqueness test against the real database queue, an exact 48h boundary test, a multi-chunk prune test, and DST checks via travelTo in Copenhagen time"
+    ]
+   },
+   "rationale": "I ranked them impl-3, then impl-2, then impl-1. All three pass their own test suites (impl-2: 28 tests, impl-3: 22, impl-1: 17). The edge-case probes were removed afterwards.\n\n**What all three get right**\n- **Exactly once across servers:** every task uses onOneServer.\n- **Copenhagen time:** a minute-by-minute probe over both DST days found exactly one prune run per day in each implementation.\n- **Crash recovery for the commands:** none of them can be blocked for a day. impl-2 skips withoutOverlapping altogether. impl-1 and impl-3 give it short expiries, and a probe confirmed that a lock left by a killed run expires in time.\n\n**What separates them: the hourly SyncSupplierStock lock**\n- If a worker is killed mid-run, the job's unique lock is never released and only times out.\n- impl-1 and impl-2 time it out after a full hour (UniqueFor 3600). If the next hourly dispatch fires a few seconds earlier than the previous one did, the stale lock is still held. A probe that dispatched at 10:00:05 saw the 11:00 run skipped in both.\n- impl-3 uses Timeout 3000 < UniqueFor 3300 < retry_after 3600, so the lock always expires before the next tick. It also adds FailOnTimeout and sets SCHEDULE_CACHE_STORE=redis explicitly. Its only real defect is cosmetic: the email says '1 orders'.\n\n**impl-2 vs impl-3**\n- impl-2 has the simplest, most idiomatic code (a LIMITed delete loop) and the best schedule tests (isDue checked at explicit UTC instants for winter and summer).\n- Its one real bug is the lost hourly run after a crash, which puts it second.\n\n**Why impl-1 is last**\n- It has the same lost-hour lock problem as impl-2.\n- Its retry_after (3700) is longer than UniqueFor, so a redelivered dead job can fail and release the lock held by the next job.\n- Its .env.example doesn't point the cache and queue at Redis, so its retry_after setting has no effect with that template.\n- Weaker details: a filler expect(true)->toBeTrue() test, a concrete Carbon type hint, and the verbose weekly()->mondays()->at()."
+  },
+  "cost_usd": 0.6927558
+ }
+]
