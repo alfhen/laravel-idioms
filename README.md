@@ -1,6 +1,6 @@
 # laravel-idioms
 
-An agent skill that makes AI coding agents write Laravel the way the framework, its docs and well-maintained packages do. It covers thin controllers, Form Requests for every input, policies, collections instead of accumulator loops, Eloquent `casts()`/scopes/attributes, N+1 prevention, queues and workers, caching, Blade components, Filament 5, Pest 5, and the current Laravel 11–13 app structure. It ends every change with a mandatory self-check list.
+An agent skill that makes AI coding agents write Laravel the way the framework, its docs and well-maintained packages do. It covers thin controllers, Form Requests for every input, policies, API authentication and JSON errors, collections instead of accumulator loops, Eloquent `casts()`/scopes/attributes, N+1 prevention, migrations, race conditions and locking, queued jobs and workers, the scheduler, Artisan commands, file uploads and CSV imports, outbound HTTP calls, events, notifications and mail, caching, Blade components, Filament 5, Pest 5, and the current Laravel 11–13 app structure. It ends every change with a mandatory self-check list.
 
 It also has an **audit mode**. Ask the agent to "audit this Laravel codebase" and it maps the app and hunts for real bugs as well as idiom problems. It verifies its suggested fixes by applying them to a scratch copy and running the test suite, and then writes a self-contained HTML refactor report.
 
@@ -102,9 +102,12 @@ resources/boost/
 └── skills/laravel-idioms/
     ├── SKILL.md                        # core rules + "Before you finish" checklist
     ├── references/                     # loaded on demand
-    │   ├── http-layer.md  eloquent.md  collections-and-helpers.md
-    │   ├── architecture-and-testing.md  queues-and-workers.md  caching.md
-    │   ├── blade.md  filament.md  pest.md  modern-laravel.md  style.md
+    │   ├── http-layer.md  eloquent.md  migrations.md  concurrency.md
+    │   ├── collections-and-helpers.md  architecture-and-testing.md
+    │   ├── queues-and-workers.md  scheduling.md  console-commands.md
+    │   ├── files-and-uploads.md  http-client.md  events-and-notifications.md
+    │   ├── caching.md  blade.md  filament.md  pest.md  modern-laravel.md
+    │   ├── style.md
     │   └── audit-mode.md
     └── assets/audit-report-template.html
 ```
@@ -121,7 +124,16 @@ It was measured with blind A/B tests. Claude Sonnet built the same features in f
 | This skill only | 7.10 |
 | Boost + this package (guideline + skill) | **7.27** |
 
-This is a small sample: 6 tasks, one build per setup, two judges each. The rubric also reflects the conventions the skill teaches. See [docs/evaluation.md](docs/evaluation.md) for the method, all rounds and the caveats. The harness and raw results are in [`eval/`](eval), so you can rerun it against your own tasks.
+This is a small sample: 6 tasks, one build per setup, two judges each.
+
+Later rounds compare each change with the release before it. Their new tasks also have hidden behavioural tests that the builder never sees, and two independent judge replicates score the builds:
+
+| Round | Hidden tests, new vs previous | Mean judge score, new vs previous (two replicates) |
+|---|---|---|
+| Queues, scheduler, Artisan commands | 119/120 vs 116/120 | 7.78 / 7.79 vs 7.27 / 6.95 |
+| Races, API auth, uploads, migrations, HTTP, events | API guest gets a JSON 401: 23/23 vs 3/23 | 7.92 / 7.96 vs 7.64 / 7.65 |
+
+In both rounds the tasks held back from revising the skill improved too, and the earlier tasks did not get worse. The rubric also reflects the conventions the skill teaches. See [docs/evaluation.md](docs/evaluation.md) for the method, all rounds and the caveats. The harness and raw results are in [`eval/`](eval), so you can rerun it against your own tasks.
 
 ## Credits
 
