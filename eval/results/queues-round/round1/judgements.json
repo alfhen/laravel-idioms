@@ -1,0 +1,1971 @@
+[
+ {
+  "key": "blade-catalogue",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 7.5,
+     "tests": 8.5,
+     "correctness": 7,
+     "simplicity": 8.5
+    },
+    "overall": 7.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Search does not escape LIKE wildcards: q=% matches every product (app/Models/Product.php:63-65)",
+     "Invalid public filters (bad sort/category/page) redirect back but resources/views/products/index.blade.php never renders $errors, so the user is silently bounced",
+     "Strict validation on the public GET index redirects to the previous URL; when the referrer is the same invalid URL (e.g. a refresh after a category is deleted) it redirects to itself in a loop (app/Http/Requests/IndexProductRequest.php:15-17)"
+    ],
+    "antipatterns": [
+     "resources/views/admin/products/form.blade.php:1 - @props declared in an @include'd partial rather than an anonymous component; props are passed redundantly via the include array (create.blade.php:3, edit.blade.php:3)",
+     "resources/views/products/index.blade.php:6,12 - reads request('q')/request('category') in the view instead of validated values passed from the controller",
+     "resources/views/products/index.blade.php:18 - fully-qualified enum call in the view",
+     "resources/views/components/product-card.blade.php:4-6 - inline style attributes",
+     "resources/views/products/index.blade.php:35 - borrows the bootstrap-4 pagination view and restyles it by hand instead of using its own pagination view"
+    ],
+    "strengths": [
+     "Thin resource controllers using to_route()->with() flash redirects",
+     "Attribute-based #[Scope] scopes (active, search, inCategory, sortedBy) plus a ProductSort enum validated with Rule::enum",
+     "Model::shouldBeStrict() in development, eager loading of category on index and related products",
+     "x-form.field wrapper component using a slot plus @error for per-field errors; x-price, x-stock-badge, x-product-card and x-flash components using $attributes->class",
+     "Correct handling of an unchecked checkbox's old input via session()->hasOldInput()",
+     "Rule::unique()->ignore() on update, slug auto-generated in prepareForValidation",
+     "Thorough Pest tests: datasets for rendered validation messages, pagination link query string checks, related-product constraints, authorization matrix"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8.5,
+     "thin_controllers": 9,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 8.5,
+     "architecture_fit": 8.5,
+     "modern_laravel": 8.5,
+     "focus_area": 8.5,
+     "tests": 8.5,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 8,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "Strict validation on the public GET index redirects to the previous URL; when the referrer is the same invalid URL it redirects to itself in a loop (app/Http/Requests/ProductIndexRequest.php:15-17)",
+     "An empty slug with a symbol-only name produces a 'slug is required' error on the slug field rather than an error on name (app/Http/Requests/Admin/ProductRequest.php:14) - minor"
+    ],
+    "antipatterns": [
+     "app/Models/Product.php:29-32 - getRouteKeyName() returns slug while routes/web.php:16 also uses {product:slug}; this is redundant and makes admin URLs slug-based too",
+     "app/Models/Product.php:44-47 - presentation (currency formatting) on the model instead of a view component",
+     "app/Models/Product.php:75-76 - whereRaw with a hand-written ESCAPE clause; works, but is lower-level than whereLike",
+     "resources/views/components/form/field.blade.php:5-9 - a single component branches on type to render a textarea",
+     "resources/views/products/index.blade.php:21 - inline-styled error box; request('q') read directly in the view (line 5)"
+    ],
+    "strengths": [
+     "Reusable x-form.field / x-form.select components handling old() input, @error, @selected and $attributes passthrough; shared _form partial switches @method('PUT') on $product->exists",
+     "Hidden is_active=0 plus @checked(old(...)) - the standard checkbox idiom, which keeps the unchecked state after a failed submit",
+     "ProductSort enum with apply() used via ->tap($request->sort()->apply(...)), a clean first-class-callable query pipeline",
+     "LIKE wildcards escaped in search, with a test proving it",
+     "Class-level ProductPolicy used with can:manage,Product middleware and @can in the layout",
+     "Custom pagination view registered via Paginator::defaultView, with withQueryString preserving filters",
+     "Index page displays filter validation errors",
+     "Pest tests use datasets, viewData assertions, the guest/non-admin authorization matrix, and old input plus error rendering after redirect"
+    ]
+   },
+   "rationale": "The two implementations are nearly identical in structure: the same form requests, a ProductSort enum, #[Scope] scopes, withQueryString, to_route()->with() flash redirects, an x-layouts.app layout with inline CSS, and well-covered Pest suites that pass (37 and 38 tests). The probes broke the tie. impl-1 does not escape LIKE wildcards (q=% returns every product) and never shows filter validation errors on the index, so users are silently redirected. impl-2 escapes wildcards (with a test), shows filter errors, uses the hidden-0 checkbox idiom with @checked(old()), and has more reusable field/select components with @props, $attributes and @error. impl-1 has its own pluses: Model::shouldBeStrict(), a slot-based field wrapper, and an x-price component. Against it is an @include partial that misuses @props. impl-2's weaknesses are a redundant getRouteKeyName alongside {product:slug} and currency formatting on the model. Both share a design flaw: strict validation of public GET filters can redirect to itself when the referrer is the same invalid URL. Overall impl-2 is narrowly better."
+  },
+  "cost_usd": 0.731736
+ },
+ {
+  "key": "blade-catalogue",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 7,
+     "modern_laravel": 9,
+     "focus_area": 7,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 7.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Search does not escape LIKE wildcards: ?q=% matches every product (probe confirmed 'Plain Thing' returned for q=%) \u2014 app/Models/Product.php:63-64 (whereLike with raw \"%{$term}%\")"
+    ],
+    "antipatterns": [
+     "resources/views/admin/products/form.blade.php:1 \u2014 @props used in a plain @include partial, which is not a component; it should be an <x-\u2026> component or a normal partial without @props",
+     "resources/views/admin/products/form.blade.php:19-35 \u2014 old('x', $product->x), id and name are repeated by hand for every input. The x-form.field component only wraps the label and error, so most of the form markup is not reusable",
+     "resources/views/admin/products/edit.blade.php:3 / create.blade.php:3 \u2014 @include passes 'product' and 'categories' explicitly even though the partial already inherits them",
+     "resources/views/products/index.blade.php:18 \u2014 \\App\\Enums\\ProductSort::cases() is looked up inside the view",
+     "resources/views/products/index.blade.php:6,12 \u2014 request('q') / request('category') are read in the view instead of the validated values being passed in",
+     "Admin routes bind products by id while public routes bind by slug. This works, but the two URL schemes are inconsistent",
+     "Gate is defined inline in AppServiceProvider instead of a policy. Acceptable, but it puts authorisation inside the service provider"
+    ],
+    "strengths": [
+     "Model::shouldBeStrict enabled in non-production, and eager loading is correct everywhere (index with('category'), related()->load('category'))",
+     "Query scopes with the #[Scope] attribute (active, search, inCategory, sortedBy) keep the controller a readable chain",
+     "Uses Rule::enum, Rule::unique()->ignore(route model), and alpha_dash:ascii for slug format, with the slug derived from the name when left empty",
+     "Checkbox old-input handling uses session()->hasOldInput(), so an unchecked box stays unchecked after a failed submit (probe confirmed)",
+     "The x-form.field component is reused on the public filter form, so filter validation errors appear next to the filter fields (probe confirmed)",
+     "Uses the built-in bootstrap-4 pagination view styled with inline CSS, with no vendor publish needed",
+     "Tests are thorough, use datasets, and check the error markup next to fields and old-input retention"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 9,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Models/Product.php:75-76 \u2014 whereRaw(\"name like ? escape '!'\") uses raw SQL. Escaping wildcards is correct, but it drops whereLike and depends on the escape syntax of the database driver",
+     "app/Models/Product.php:29-32 \u2014 getRouteKeyName() returns 'slug' while routes/web.php:15 also declares {product:slug}, which is redundant",
+     "app/Http/Requests/Admin/ProductRequest.php:14 \u2014 a user-entered slug is silently slugified rather than validated, and a non-Latin name gives an empty slug and a 'slug required' error on a field the user left blank (probe)",
+     "app/Providers/AppServiceProvider.php:23 \u2014 a hand-written vendor pagination view is set globally with Paginator::defaultView; the built-in templates styled with CSS would have been simpler",
+     "resources/views/products/index.blade.php:13 \u2014 App\\Enums\\ProductSort::cases() is looked up in the view, and request('q') / request('category') are read in the view",
+     "app/Policies/ProductPolicy.php \u2014 a modelless 'manage' ability is used for every action. Fine, but slightly ceremonious compared with a gate",
+     "resources/views/products/index.blade.php:21 \u2014 inline style on the error alert"
+    ],
+    "strengths": [
+     "The x-form.field and x-form.select components encapsulate the label, old($name, $value), @error and $attributes forwarding, so the shared _form partial stays very compact",
+     "Uses a hidden is_active=0 input plus $request->boolean, and old() keeps an unchecked box unchecked after a failed edit (probe confirmed)",
+     "Search escapes LIKE wildcards (tested), and the ProductSort enum includes label() and apply(), used via ->tap($request->sort()->apply(...))",
+     "Uses withQueryString pagination; probes confirmed filters carry into page links and admin pagination renders",
+     "Slug route binding is consistent across admin and public pages; inactive products return 404; related() is a reusable Builder returning 4 active siblings",
+     "Shared layout component, flash component, stock-badge and product-card components, and @checked/@selected/@class-style attribute merging",
+     "Pest tests are thorough and use datasets for authorisation (guest vs. user), validation messages, sorting and invalid filters, plus a follow-redirect check that old input and errors are rendered"
+    ]
+   },
+   "rationale": "I ran both test suites and both pass (impl-2: 38 tests, impl-1: 37). I also checked edge cases for each with throwaway tests, then deleted them. The two implementations are structurally very close: the same scopes, enum, FormRequest-validated index filters, to_route plus flash, a layout component, and stock-badge and product-card components.\n\nThe deciding factors:\n- **Bugs:** I found one real bug, and it is in impl-1. Its search does not escape LIKE wildcards, so q=% returns every product (confirmed by a probe). impl-2 escapes wildcards and tests it. I found no bugs in impl-2.\n- **Blade focus:** impl-2's form components (field and select) handle old input, @error and attribute forwarding themselves, so the shared form is DRY. impl-1's field component only wraps a slot. Every input repeats old() by hand, and @props is misused in a plain @include partial.\n\nimpl-1 does have some advantages:\n- It turns on Model::shouldBeStrict.\n- It validates slugs with alpha_dash rather than silently slugifying them.\n- It reuses the field component on the filter form, so filter errors appear next to the right field.\n- It uses the built-in pagination view.\n\nimpl-2 has a few weaknesses of its own:\n- It uses whereRaw for search.\n- Its getRouteKeyName duplicates the {product:slug} route binding.\n- It publishes a custom pagination view.\n\nThese are small, and impl-1's correctness bug and weaker components outweigh them. impl-2 ranks first."
+  },
+  "cost_usd": 0.6633196
+ },
+ {
+  "key": "export-purge-command",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 7,
+     "architecture_fit": 7,
+     "modern_laravel": 6,
+     "focus_area": 9,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Console/Commands/PurgeExports.php:61-69 rebuilds the production confirmation by hand instead of using ConfirmableTrait::confirmToProceed()",
+     "app/Console/Commands/PurgeExports.php:13 uses the $signature/$description properties instead of the #[Signature]/#[Description] attributes available in Laravel 13",
+     "app/Console/Commands/PurgeExports.php:31 builds the query in a closure where a local scope on the model would be clearer",
+     "app/Console/Commands/PurgeExports.php:71,103 the $query and $disk parameters have no types",
+     "app/Console/Commands/PurgeExports.php:45 the comment mostly says what the next line does"
+    ],
+    "strengths": [
+     "chunkById(1000) with one whereKey()->delete() per chunk keeps memory flat and uses few queries on millions of rows",
+     "Catches Throwable for each file and calls report(), so one bad path never stops the run. Probes confirmed this with a path-traversal path and a real read-only directory",
+     "Takes the Cache::lock only after confirmation and releases it in finally. Combined with onOneServer, manual and nightly runs on two servers can't overlap. The 3h TTL is reasonable",
+     "Refuses explicitly when the command is non-interactive in production. Dry-run skips confirmation",
+     "Tests cover decline, accept, no-interaction, force, a throwing disk, a false-returning disk, the lock being held and released, more rows than one chunk, and the schedule"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 7,
+     "tests": 6,
+     "correctness": 7,
+     "simplicity": 8
+    },
+    "overall": 7,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "app/Console/Commands/PurgeExports.php:82 disk->delete() is not guarded. Any exception other than Flysystem's UnableToDeleteFile ends the whole run. A probe with a '../' path (PathTraversalDetected) left later rows unprocessed, which breaks 'carry on with the rest'. In the chunk that was running, files already deleted keep their rows until the next run"
+    ],
+    "antipatterns": [
+     "app/Console/Commands/PurgeExports.php:82 the filter() callback deletes files, so a side effect sits inside a predicate",
+     "app/Console/Commands/PurgeExports.php:20 the LOCK_KEY constant is public only so the tests can read it",
+     "tests/Feature/PurgeExportsTest.php: there is no test for an operator accepting the prompt, no test for --no-interaction in production, and no test for a disk that throws",
+     "tests/Feature/PurgeExportsTest.php:97 sets $this->app['env'] directly instead of using detectEnvironment"
+    ],
+    "strengths": [
+     "Most modern code of the three: #[Signature]/#[Description], ConfirmableTrait, an #[Scope] olderThan scope, and a typed array{int,int} return",
+     "Batches deletes per chunk with chunkById(500) and whereKey(modelKeys()). Collection-based and concise",
+     "Rejects --days values of 0, negative numbers, and non-numbers. The lock is released in finally, and onOneServer is used",
+     "Adds the User::exports() HasMany inverse"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 9,
+     "correctness": 9,
+     "simplicity": 7
+    },
+    "overall": 7.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Console/Commands/PurgeExports.php:78-93 runs lazyById() and one DELETE query per row. That is memory-safe but means millions of single-row deletes and model events, where a batched whereKey delete per chunk would do",
+     "app/Console/Commands/PurgeExports.php:43 the 1h lock TTL is short for a first purge over millions of single-row deletes. If the lock expires mid-run, a manual run can overlap",
+     "tests/Feature/PurgeExportsTest.php:127,140 #[RunInSeparateProcess] on the confirmation tests is ceremony and slows the suite",
+     "app/Console/Commands/PurgeExports.php:34,57 output grammar: '1 exports would be removed'"
+    ],
+    "strengths": [
+     "Uses ConfirmableTrait, #[Signature]/#[Description], an #[Scope] createdBefore scope, $this->components output, and self::INVALID for bad input",
+     "Catches Throwable for each file and reports it, so the run continues. Probes with a path-traversal path and a read-only directory both behaved correctly",
+     "Most thorough tests: accept, decline, no-interaction, force, a disk that returns false, a disk that throws, retry on the next run, a missing file, an empty run, the lock, and the schedule"
+    ]
+   },
+   "rationale": "I ranked impl-1 first, impl-3 second and impl-2 third. All three test suites pass (impl-1: 17, impl-2: 15, impl-3: 20). The schedule is the same in all three: `exports:purge --force` daily at 03:00 with onOneServer, and each command takes a shared cache lock, so manual and nightly runs can't overlap. The ranking comes down to how each one handles a file that fails to delete, how it deletes rows at scale, and how idiomatic the code is.\n\nI ran the same throwaway probes against all three, then deleted them:\n- a read-only directory on the real local disk\n- a row with a '../' path\n- production with `--no-interaction`, with and without `--force`\n- `--days=0`\n\n**impl-1 (rank 1)** is the strongest on the operational side. It deletes rows in batches with chunkById, and a failure on one file never stops the run. The lock is taken after confirmation, has a 3h TTL and is released in finally. Its tests are thorough and every probe passed. It is less modern: it hand-rolls the production confirmation instead of using ConfirmableTrait, and uses the old signature properties instead of the attributes.\n\n**impl-3 (rank 2)** is the most modern and idiomatic, with ConfirmableTrait, the console attributes, a scope and INVALID for bad input. It also has the best tests and every probe passed. But it deletes one row per query, and a 1h lock may expire during a first purge over millions of rows. It also adds RunInSeparateProcess ceremony to its tests.\n\n**impl-2 (rank 3)** has the neatest code, but it has a real bug. It only survives Flysystem's own delete failure. Any other exception, such as a path-traversal error from a bad path, stops the whole run. That breaks the requirement to carry on with the rest. Its tests also miss the accept-prompt, no-interaction and throwing-disk cases."
+  },
+  "cost_usd": 0.535257
+ },
+ {
+  "key": "export-purge-command",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 6,
+     "eloquent_idioms": 6,
+     "architecture_fit": 6,
+     "modern_laravel": 6,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 7
+    },
+    "overall": 7,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "--days=0 is accepted and purges every export (minor footgun for manual production runs; app/Console/Commands/PurgeExports.php:24)"
+    ],
+    "antipatterns": [
+     "app/Console/Commands/PurgeExports.php:61-69 hand-rolls the production confirmation (isProduction/isInteractive/confirm) instead of using ConfirmableTrait::confirmToProceed",
+     "app/Console/Commands/PurgeExports.php:31 uses a closure as a query factory instead of a model scope; the where clause is inline rather than on Export",
+     "app/Console/Commands/PurgeExports.php:71 and :103 have untyped $query and $disk parameters",
+     "app/Console/Commands/PurgeExports.php:45 has a comment that restates the lock's purpose",
+     "app/Console/Commands/PurgeExports.php:13-18 uses the older $signature/$description properties rather than the #[Signature]/#[Description] attributes used elsewhere in the codebase",
+     "app/Console/Commands/PurgeExports.php:92 prints the removed count inside purge(), which mixes reporting into the deletion helper"
+    ],
+    "strengths": [
+     "Uses chunkById(1000) with one batched whereKey()->delete() per chunk, which is memory-safe and keeps the query count low",
+     "Catches Throwable from disk deletes, reports it, keeps the row and continues",
+     "Warns for each failed file, so an operator can see which export is stuck",
+     "Takes a cache lock after confirmation and releases it in finally; schedule uses onOneServer and --force",
+     "Tests cover interactive yes/no, non-interactive refusal, mixed false/throwing deletes, the lock and the schedule definition"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 9,
+     "eloquent_idioms": 9,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 7,
+     "correctness": 8,
+     "simplicity": 9
+    },
+    "overall": 8.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "If disk delete throws (for example, the disk is configured with throw=true or a non-local adapter raises), the exception aborts the whole run instead of keeping that row and carrying on (app/Console/Commands/PurgeExports.php:82); with the shipped throw=false config, a real unwritable file was handled correctly in a probe"
+    ],
+    "antipatterns": [
+     "app/Console/Commands/PurgeExports.php:82 has no guard around $disk->delete(), so a throwing adapter breaks the 'carry on with the rest' guarantee",
+     "app/Console/Commands/PurgeExports.php:81 has an untyped $exports closure parameter",
+     "tests/Feature/PurgeExportsTest.php: no test for the interactive confirm yes/no path; only non-interactive refusal and --force are covered"
+    ],
+    "strengths": [
+     "Smallest, most idiomatic command: #[Signature]/#[Description] attributes, ConfirmableTrait, and a #[Scope] olderThan on the model",
+     "chunkById(500) and filter() over the disk delete, then one whereKey(modelKeys())->delete() per chunk; memory-safe and few queries on millions of rows",
+     "Validates --days with filter_var and min_range 1, which rejects 0, negatives, decimals and overflow",
+     "Dry run counts without taking the lock or asking for confirmation; refusal returns FAILURE",
+     "Cache lock with a 6h TTL is released in finally; schedule uses onOneServer and --force; failure count produces a non-zero exit",
+     "Tests are clean and cover chunk boundaries, a partial-mock failing disk, the lock, invalid days and the schedule definition"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 8,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 7,
+     "tests": 9,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 8,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Per-row $export->delete() means one DELETE query per row; on millions of rows this can outlast the 1h lock TTL (app/Console/Commands/PurgeExports.php:43, :92), after which a manual run could overlap",
+     "--days=0 is accepted and purges every export (app/Console/Commands/PurgeExports.php:25)"
+    ],
+    "antipatterns": [
+     "app/Console/Commands/PurgeExports.php:78-93 deletes rows one at a time inside lazyById instead of batching deletes per chunk",
+     "app/Console/Commands/PurgeExports.php:43 lock TTL of 3600s is short for a purge with one query per row over a large table",
+     "app/Console/Commands/PurgeExports.php:31 reuses one Builder for count() and lazyById(); this works but couples the dry run and the purge to a shared mutable query"
+    ],
+    "strengths": [
+     "Uses #[Signature]/#[Description] attributes, ConfirmableTrait, a #[Scope] createdBefore on the model, and components->info/error output",
+     "lazyById is memory-safe; Throwable from the disk is reported and the row is kept, so the run carries on",
+     "Returns self::INVALID for bad --days input",
+     "Most thorough tests: interactive yes/no (in separate processes), non-interactive refusal, a throwing disk, retry on the next run, the lock, an empty run and the schedule definition"
+    ]
+   },
+   "rationale": "All three implementations pass their own test suites. They share the same architecture: a cache lock taken inside the command after confirmation, `Schedule::command('exports:purge --force')->dailyAt('03:00')->onOneServer()`, a `created_at` index, and a local `exports` disk with throw=false. My probes found no bugs on the core paths. Every implementation kept the row of a file it could not delete (tested on a real read-only directory), interactive confirmation behaved correctly, and dry runs in production deleted nothing.\n\nimpl-2 ranks first. It is the most idiomatic and the leanest: ConfirmableTrait, attributes, a model scope, and chunkById with one batched whereKey delete per chunk, which is the right shape for millions of rows. It also has the strictest --days validation. Its one weakness is that it does not guard a disk delete that throws. That is harmless with the shipped throw=false config, but it would break the \"carry on\" requirement if the disk config changed. It also has no test for the interactive confirm path.\n\nimpl-3 ranks second. It has the best tests (interactive yes/no, a throwing disk, retry on the next run, the INVALID exit code) and handles exceptions robustly. It loses ground on the operational focus: one DELETE per row over millions of rows with a 1h lock TTL risks the lock expiring mid-run. It also accepts --days=0, which purges everything.\n\nimpl-1 ranks third. It is functionally solid, with batched deletes, caught exceptions, per-file warnings and good tests. However, it reimplements ConfirmableTrait by hand, has untyped `$query`/`$disk` parameters, uses a closure as a query factory instead of a scope, keeps the older `$signature` properties, and includes a comment that restates the code. It also accepts --days=0."
+  },
+  "cost_usd": 0.51557
+ },
+ {
+  "key": "inactive-count",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Console/Commands/CountInactiveUsers.php:17-27 \u2014 building a Validator for a single integer option is heavier than it needs to be. filter_var or a simple ctype_digit check would do the same job.",
+     "app/Models/User.php:7-8 \u2014 the new Scope/Builder imports break the alphabetical order of the existing use block.",
+     "tests/Pest.php:18 \u2014 the commented-out `// ->use(RefreshDatabase::class)` line is left in place directly above the new active line, so the file now has a duplicate.",
+     "tests/Feature/CountInactiveUsersTest.php:10-21 \u2014 time isn't frozen, and nothing tests the exact 90-day cutoff. The 91/89-day fixtures leave so much margin that a < versus <= regression would go unnoticed.",
+     "app/Console/Commands/CountInactiveUsers.php:33 \u2014 the message says '1 users' with no pluralisation, and the tests lock that wording in."
+    ],
+    "strengths": [
+     "The schedule uses appendOutputTo(storage_path('logs/inactive-users.log')), so the daily number actually lands in the logs, which is what the task asked for. A probe confirmed the event's output is that file with append enabled.",
+     "It correctly leaves out onOneServer and withoutOverlapping, since there's a single server and the command is a cheap read.",
+     "The scope uses Laravel 12's #[Scope] attribute with a grouped whereNull/orWhere, so the OR can't leak into other conditions.",
+     "The command declares its signature and description with the modern #[Signature]/#[Description] attributes.",
+     "Tests cover never-logged-in users, the default and custom --days, zero users, invalid input (as a dataset) and the cron expression of the schedule entry."
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 6,
+     "tests": 9,
+     "correctness": 6,
+     "simplicity": 8
+    },
+    "overall": 6.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "routes/console.php:11 \u2014 Schedule::command('users:inactive-count')->dailyAt('06:00') has no output target (no appendOutputTo, sendOutputTo or logging). Scheduled command output goes to /dev/null by default, and a probe confirmed $event->output === '/dev/null'. The number therefore never 'shows up in our logs', which misses an explicit requirement."
+    ],
+    "antipatterns": [
+     "tests/Feature/InactiveUsersCountTest.php:62-68 \u2014 the schedule test checks only the cron expression and not where the output goes, so the missing log output isn't caught.",
+     "database/factories/UserFactory.php:47-52 \u2014 a lastLoginAt() factory state that just wraps one attribute adds little over create(['last_login_at' => ...]).",
+     "tests/Feature/InactiveUsersCountTest.php:72-78 \u2014 the 'stores last_login_at as a nullable datetime' test mostly re-tests framework casting.",
+     "tests/Feature/InactiveUsersCountTest.php:43 \u2014 the --days=0 test has a confusing name and relies on a future-dated login.",
+     "tests/Feature/InactiveUsersCountTest.php:15 \u2014 assertExitCode(0)/assertExitCode(1) is used where assertSuccessful()/assertFailed() would be more idiomatic."
+    ],
+    "strengths": [
+     "filter_var with min_range is a lean, proportionate way to validate --days.",
+     "The inactiveSince(CarbonInterface $cutoff) scope keeps the time calculation in the command and the scope pure, using the modern #[Scope] attribute and a grouped OR.",
+     "Tests are stronger on boundaries: time is frozen with freezeSecond(), and there is an explicit check that a login exactly at the cutoff still counts as active.",
+     "The invalid-input dataset asserts on the actual error message."
+    ]
+   },
+   "rationale": "Both implementations are nearly identical in structure. Each has a migration with a nullable timestamp, a datetime cast, a #[Scope] with a grouped whereNull/orWhere, an attribute-configured command and a Pest feature suite. Both suites pass (11 and 12 tests). My probes found the two behave the same on unusual --days values ('007', ' 5', '', huge values) and at the exact 90-day boundary. What decides the ranking is the requirement that the number 'shows up in our logs'. impl-1 sends the scheduled output to storage/logs/inactive-users.log with appendOutputTo. impl-2 sets no output target, so the scheduler discards the output to /dev/null, which I confirmed by inspecting the Event. impl-2 has the somewhat better tests (frozen time and an exact-cutoff test) and leaner validation, but missing a stated requirement outweighs that. impl-1's issues are minor: a heavier Validator than needed, unsorted imports, a leftover comment in Pest.php, no boundary test and the '1 users' wording."
+  },
+  "cost_usd": 0.2742752
+ },
+ {
+  "key": "inactive-count",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 8,
+     "focus_area": 8,
+     "tests": 6,
+     "correctness": 8,
+     "simplicity": 7
+    },
+    "overall": 7.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "tests/Pest.php:18-19 \u2013 left the old `// ->use(RefreshDatabase::class)` comment in place and added a duplicate live line under it instead of uncommenting it",
+     "app/Models/User.php:7-8 \u2013 new Scope/Builder imports inserted out of alphabetical order",
+     "app/Models/User.php:36 \u2013 scope reads now() itself and takes an int, so callers can't pass a fixed cutoff; harder to test deterministically",
+     "app/Console/Commands/CountInactiveUsers.php:17-28 \u2013 running a full Validator over a single option is more ceremony than needed, and the value is still cast with (int) after validation",
+     "app/Console/Commands/CountInactiveUsers.php:32 \u2013 prints '1 users' (no plural handling, e.g. Str::plural)",
+     "tests/Feature/CountInactiveUsersTest.php \u2013 the schedule test never checks appendOutputTo, so nothing tests the log requirement; no frozen time and no exact-boundary test; the failure test only checks that the output contains 'days'"
+    ],
+    "strengths": [
+     "The schedule entry appends output to storage/logs/inactive-users.log, so the daily number actually ends up in the logs; that was the stated goal of the schedule",
+     "Uses the Schedule facade in routes/console.php, the #[Signature]/#[Description] attributes and the #[Scope] attribute, which are current Laravel conventions",
+     "Scope wraps whereNull/orWhere in a closure, so the OR stays grouped",
+     "Tests cover the default, the --days option, never-logged-in users, zero users and invalid input (as a dataset), plus a schedule expression test"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 9,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 6,
+     "tests": 8,
+     "correctness": 6,
+     "simplicity": 8
+    },
+    "overall": 6.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "routes/console.php:11 \u2013 the schedule has no output target (verified: event output is /dev/null), so the count printed at 06:00 is thrown away and never 'shows up in our logs'. This misses the stated reason for the schedule (needs appendOutputTo/sendOutputTo or a Log call in the command)"
+    ],
+    "antipatterns": [
+     "tests/Feature/InactiveUsersCountTest.php:58-64 \u2013 the schedule test checks only the cron expression, which is why the missing output target went unnoticed",
+     "tests/Feature/InactiveUsersCountTest.php:66-72 \u2013 the migration/cast test checks framework behaviour more than app behaviour (minor)"
+    ],
+    "strengths": [
+     "The scope takes a CarbonInterface cutoff (#[Scope] attribute), which keeps it pure and reusable",
+     "filter_var with min_range is a lean way to validate the option, with a clear error and FAILURE exit",
+     "A typed lastLoginAt() factory state makes the tests read cleanly",
+     "Tests freeze time and cover the exact-cutoff boundary, --days=0, an invalid-input dataset, zero users and the schedule expression",
+     "Clean diff: Pest.php was uncommented properly and imports are ordered"
+    ]
+   },
+   "rationale": "Both implementations look almost the same: an attribute-based command, a #[Scope] with a grouped whereNull/orWhere, a nullable timestamp migration with a datetime cast, Schedule::command(...)->dailyAt('06:00') in routes/console.php, and passing Pest suites (12 tests for impl-2, 11 for impl-1). In my probes they behaved the same on edge cases: both reject an empty --days and both reject '+5' and '007', both accept a huge value, and both group the OR correctly. The deciding difference is the requirement to run the command 'so the number shows up in our logs'. Inspecting the scheduled event shows impl-2's output goes to /dev/null, so the daily count disappears. impl-1 appends to storage/logs/inactive-users.log. impl-2 has the better code and tests: a pure cutoff-based scope, a factory state, frozen time, a boundary test and a tidier diff. impl-1 has small flaws: a leftover duplicate comment in Pest.php, unordered imports, '1 users' grammar, a heavier Validator and weaker tests. But a real requirement miss outweighs those, so impl-1 ranks first."
+  },
+  "cost_usd": 0.22455020000000003
+ },
+ {
+  "key": "queue-bugfix",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 7,
+     "architecture_fit": 7,
+     "modern_laravel": 9,
+     "focus_area": 7,
+     "tests": 8,
+     "correctness": 7,
+     "simplicity": 7
+    },
+    "overall": 7,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "DispatchCrmSync is unchanged, so duplicate suppression relies only on the ShouldBeUnique lock. The command still writes crm_sync_queued_at and counts every row even when the unique lock drops the dispatch. A probe showed 'Queued 2 subscribers.' on the second run when 0 jobs were actually pushed (DispatchCrmSync.php:19-25)",
+     "UniqueFor(3600) means duplicates come back if the queue is backed up for more than an hour. A probe after 61 minutes showed 2 jobs in the jobs table for one subscriber (SyncSubscriberToCrm.php:18)"
+    ],
+    "antipatterns": [
+     "app/Jobs/SyncSubscriberToCrm.php:48-52 catches, updates and rethrows, which duplicates the crm_last_error write that failed() at :57-62 already does",
+     "app/Console/Commands/DispatchCrmSync.php:19-22 updates crm_sync_queued_at, a field nothing reads, and does it unconditionally after a dispatch that may have been suppressed",
+     "tests/Feature/CrmSyncTest.php:77 passes the '--tries' => 0 override, which hides how the worker's tries setting interacts with the job's"
+    ],
+    "strengths": [
+     "Correct root cause for each symptom: swallowed exception, no uniqueness, the 24h default mutex expiry on withoutOverlapping, and offset chunking while changing the filtered column (fixed with chunkById)",
+     "Modern queue attributes (#[Tries], #[MaxExceptions], #[Backoff], #[UniqueFor]) and a WithoutOverlapping lock with expireAfter",
+     "failed() clears crm_sync_queued_at, so the scheduler picks the subscriber up again as soon as a job fails",
+     "The best end-to-end test: real database queue, outage, failed_jobs row, recovery and a successful sync"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 7,
+     "correctness": 8,
+     "simplicity": 7
+    },
+    "overall": 8,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "UniqueFor(3600) means a backlog longer than an hour allows a second job once the 30-minute claim TTL has also passed. A probe after 62 minutes showed 2 jobs for one subscriber",
+     "failed() does not clear crm_sync_queued_at, so after a terminal failure the subscriber waits up to CLAIM_TTL_MINUTES (30) before it is dispatched again. This is a minor delay, not lost data"
+    ],
+    "antipatterns": [
+     "tests/Feature/CrmSyncTest.php:76-82 only checks by reflection that the attributes are present, which is a brittle test of configuration rather than behaviour",
+     "tests/Feature/CrmSyncTest.php:68-74 calls failed() directly. No test runs the job end to end until it lands in failed_jobs, which was the reported symptom",
+     "app/Console/Commands/DispatchCrmSync.php:35-44 runs one UPDATE query per row, which is fine at this scale but adds a little ceremony on top of ShouldBeUnique"
+    ],
+    "strengths": [
+     "An atomic compare-and-set claim (UPDATE ... WHERE crm_sync_queued_at IS NULL OR stale), checked with === 1, together with ShouldBeUnique gives defence in depth against duplicates, and the 'Queued N' count is accurate",
+     "Uses lazyById in the dispatcher, so the new filtered-column update cannot bring back the chunk-skipping bug",
+     "Removes the try/catch entirely and moves error recording to failed(), the cleanest fix for symptom 1",
+     "WithoutOverlapping uses releaseAfter(30) and expireAfter(180), so lock contention does not use up tries instantly and a lock left by a killed worker expires",
+     "Tests cover a stale claim being re-queued, an in-flight claim being skipped, the job being released for retry on a real database queue, and the schedule mutex expiry"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 6,
+     "eloquent_idioms": 5,
+     "architecture_fit": 6,
+     "modern_laravel": 6,
+     "focus_area": 5,
+     "tests": 7,
+     "correctness": 4,
+     "simplicity": 8
+    },
+    "overall": 4.5,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "It reintroduces the chunk-skipping bug (symptom 4) in DispatchCrmSync. The query now filters on crm_sync_queued_at and uses ->each() (offset chunking of 1000) while updating that same column. A probe with 2500 unsynced subscribers queued 1500 and skipped 1000 in one run (DispatchCrmSync.php:21-30)",
+     "There is no ShouldBeUnique, so duplicates are prevented only by the 60-minute timestamp window. A probe with a backlog of more than 60 minutes showed 2 queued jobs for one subscriber",
+     "tries=3 with WithoutOverlapping and no releaseAfter: contention releases with no delay and still uses up attempts, so overlapping attempts can exhaust the job and send it to failed_jobs without ever calling the CRM",
+     "There is no failed() hook, and crm_sync_queued_at is never cleared, so after a terminal failure the subscriber waits up to 60 minutes before it is retried"
+    ],
+    "antipatterns": [
+     "app/Console/Commands/DispatchCrmSync.php:26 uses each() (offset chunk) while mutating a column in the WHERE clause, the same pattern the task asked to fix. lazyById or chunkById is required",
+     "app/Jobs/SyncSubscriberToCrm.php:17-19 uses untyped public $tries and $backoff properties instead of the queue attributes available in Laravel 12/13 or typed properties",
+     "app/Jobs/SyncSubscriberToCrm.php:43-48 does catch, log, update and rethrow instead of using a failed() hook",
+     "tests/Feature/CrmSyncTest.php:61 sets available_at directly with DB::table to skip the backoff instead of travelling in time",
+     "tests/Feature/CrmSyncTest.php:46,95 use inline fully-qualified class names instead of imports"
+    ],
+    "strengths": [
+     "Small, focused diff that fixes the swallowed exception, the schedule mutex expiry (withoutOverlapping(10)) and chunkById in the normalizer",
+     "Adds backoff and an expiring WithoutOverlapping lock",
+     "An end-to-end test proves a failed_jobs row appears after the retries are used up"
+    ]
+   },
+   "rationale": "All three found the same root causes: (1) a try/catch that swallowed the exception, so nothing was retried or recorded in failed_jobs; (2) nothing stopped the per-minute dispatcher from re-queuing pending subscribers; (3) the default 24h expiry on Schedule::withoutOverlapping() left the mutex in place after the container was killed; (4) offset chunk() while updating the filtered email_normalized column. All test suites pass. impl-2 ranks first. Its dispatcher uses an atomic UPDATE-based claim with a stale TTL on top of ShouldBeUnique, iterates with lazyById so its own claim updates cannot skip rows, reports an accurate count, and moves error recording into failed(). Its gaps: tests partly rely on reflection, there is no end-to-end failed_jobs test, and after a failure the subscriber waits up to 30 minutes before being re-queued. impl-1 is close behind with the best end-to-end outage test. However, it leaves the dispatcher unchanged and relies only on the unique lock, so the 'Queued N' output is wrong (probe: it said 2 when 0 were pushed) and the dispatcher keeps writing timestamps nothing reads. In both impl-1 and impl-2, a backlog of more than an hour can let duplicates through because of UniqueFor(3600). impl-3 is last. Its new stale-timestamp filter combined with ->each() reintroduces the exact chunk-skipping bug from symptom 4 in the dispatcher (probe: 1000 of 2500 subscribers skipped in one run). It also has no uniqueness lock, keeps the untyped $tries/$backoff properties, and has no releaseAfter, so lock contention can use up all 3 tries. Each probe test was deleted after it ran."
+  },
+  "cost_usd": 0.5986596000000001
+ },
+ {
+  "key": "queue-bugfix",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 6,
+     "architecture_fit": 6,
+     "modern_laravel": 9,
+     "focus_area": 6,
+     "tests": 8,
+     "correctness": 6,
+     "simplicity": 7
+    },
+    "overall": 6.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Root cause 2 is only partly fixed: DispatchCrmSync is unchanged, so every minute it still loads every unsynced subscriber, calls dispatch, and rewrites crm_sync_queued_at, even though the ShouldBeUnique lock silently drops the push. This makes crm_sync_queued_at meaningless (app/Console/Commands/DispatchCrmSync.php:19-23).",
+     "'Queued N subscribers.' counts subscribers whose dispatch the unique lock skipped. A probe showed that a second run prints 'Queued 1' when nothing was pushed.",
+     "Duplicate protection depends only on a cache lock that lasts UniqueFor(3600). If the queue is backed up for more than an hour, the dispatcher queues the same subscriber again. A probe at 61 minutes found 2 pushes."
+    ],
+    "antipatterns": [
+     "app/Jobs/SyncSubscriberToCrm.php:37 \u2014 `$this->subscriber->fresh()?->` runs an extra query. SerializesModels already re-fetches the model when the job is unserialized.",
+     "app/Jobs/SyncSubscriberToCrm.php:41-49 \u2014 a try/catch that updates and rethrows when failed() already records the error. The error is written twice.",
+     "tests/Feature/CrmSyncTest.php:3-8 \u2014 imports are not ordered, so Pint fails.",
+     "app/Jobs/SyncSubscriberToCrm.php:32 \u2014 WithoutOverlapping has no releaseAfter. A lock collision releases the job immediately and uses up one of its tries."
+    ],
+    "strengths": [
+     "Uses the Laravel 13 queue attributes #[Tries, MaxExceptions, Backoff, Timeout, UniqueFor] together with ShouldBeUnique and uniqueId().",
+     "failed() records the error and clears crm_sync_queued_at, so after a permanent failure the scheduler picks the subscriber up again (a probe confirmed recovery).",
+     "Best end-to-end test: a real database queue with queue:work --once and travel() goes through outage, failed_jobs and recovery, then a successful sync.",
+     "Uses chunkById for the normalize fix and withoutOverlapping(10) for the scheduler mutex, and tests the mutex expiry through the Schedule events."
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 7,
+     "correctness": 8,
+     "simplicity": 7
+    },
+    "overall": 8.3,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "CLAIM_TTL_MINUTES (30) is shorter than UniqueFor(3600). Between 30 and 60 minutes the claim succeeds and the command counts the subscriber as queued, but ShouldBeUnique drops the push. A probe at 31 minutes showed 'Queued 1' with 0 new pushes. This only affects the output and the timestamp; it causes no duplicate and no data loss."
+    ],
+    "antipatterns": [
+     "tests/Feature/CrmSyncTest.php:76-82 \u2014 uses reflection to assert that the attributes exist. This tests configuration, not behaviour, and the test name promises 'backoff above the release count' but never checks it.",
+     "app/Jobs/SyncSubscriberToCrm.php:19 \u2014 uses both ShouldBeUnique and a DB claim with a different TTL. The two dedupe layers are slightly redundant and inconsistent with each other.",
+     "tests/Feature/CrmSyncTest.php:48-54 \u2014 'records the error' test never asserts crm_last_error (that is covered separately through failed())."
+    ],
+    "strengths": [
+     "Fixes the root cause of duplicates at the source: an atomic conditional UPDATE claim (whereKey + whereNull + stale-TTL, then `=== 1`) that is safe under concurrent dispatchers. The claim TTL also lets the scheduler re-queue subscribers after a permanent failure (a probe confirmed outage \u2192 failed_jobs \u2192 recovery).",
+     "Uses lazyById in the dispatcher, which avoids the offset/mutating-filter pitfall that impl-3 hit (a probe pushed all 2500 rows).",
+     "Cleanest job: no swallowing try/catch, a failed() hook for crm_last_error, modern queue attributes, and WithoutOverlapping with releaseAfter/expireAfter.",
+     "Has a real queue:work test proving the job is released for retry rather than deleted, a stale-claim test, and a schedule expiresAt test. Pint passes."
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 6,
+     "eloquent_idioms": 5,
+     "architecture_fit": 7,
+     "modern_laravel": 6,
+     "focus_area": 6,
+     "tests": 7,
+     "correctness": 5,
+     "simplicity": 8
+    },
+    "overall": 5.5,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "DispatchCrmSync uses offset-based each() (chunk of 1000) while filtering on crm_sync_queued_at and updating that same column inside the loop. Rows drop out of the result set and pages are skipped. A probe with 2500 eligible subscribers pushed only 1500. This is the same pitfall as symptom 4, reintroduced (app/Console/Commands/DispatchCrmSync.php:21-29).",
+     "Duplicates are prevented only by the 60-minute requeue window. There is no unique lock, so a backlog longer than an hour re-dispatches the same subscriber (a probe found 2 pushes at 61 minutes)."
+    ],
+    "antipatterns": [
+     "app/Console/Commands/DispatchCrmSync.php:26-30 \u2014 the closure body is mis-indented, so Pint fails (statement_indentation).",
+     "app/Jobs/SyncSubscriberToCrm.php:30 \u2014 `$this->subscriber->fresh()?->` runs a redundant query because SerializesModels already re-fetches the model.",
+     "app/Jobs/SyncSubscriberToCrm.php:41-47 \u2014 keeps catch/log/update and adds rethrow instead of using a failed() hook. crm_last_error is written on every attempt.",
+     "app/Jobs/SyncSubscriberToCrm.php:15-19 \u2014 uses old-style public $tries/$backoff properties rather than the queue attributes available in Laravel 13.",
+     "tests/Feature/CrmSyncTest.php:46,97 \u2014 inline fully qualified class names instead of imports, so Pint fails (fully_qualified_strict_types).",
+     "app/Jobs/SyncSubscriberToCrm.php:25 \u2014 WithoutOverlapping has no releaseAfter, so a lock collision immediately uses up one of only 3 tries."
+    ],
+    "strengths": [
+     "Minimal diff that fixes each root cause: rethrow (retries and failed_jobs), backoff, a requeue filter on crm_sync_queued_at, withoutOverlapping(10), and chunkById.",
+     "A test drives queue:work through 3 attempts and asserts the job lands in failed_jobs.",
+     "Tests cover the stale-requeue window and the schedule mutex expiry."
+    ]
+   },
+   "rationale": "All three pass their own suites (11, 14 and 12 tests). All three correctly fix chunk \u2192 chunkById, the 24-hour scheduler mutex (withoutOverlapping(5 or 10)), and the swallowed exceptions. In each one, a probe confirmed that an outage reaches failed_jobs and the scheduler later recovers the subscriber. The duplicate-dispatch fix is what separates them. impl-2 fixes it at the source with an atomic conditional UPDATE claim plus lazyById, uses a failed() hook and Laravel 13 queue attributes, and passes Pint. Its only flaw is cosmetic: the 30-minute claim TTL is shorter than the 60-minute unique lock, so the 'Queued N' count can be wrong in that window. impl-1 has a similarly modern job and the best end-to-end test, but it leaves DispatchCrmSync untouched and relies only on a cache unique lock. The dispatcher still rewrites crm_sync_queued_at for every unsynced row each minute and over-reports the count. impl-3 is the simplest, but its new filter combined with offset-based each() while mutating the filtered column skips pages: a probe pushed only 1500 of 2500 rows. That is the same bug class as symptom 4. It also uses older property-style configuration and fails Pint."
+  },
+  "cost_usd": 0.5260638
+ },
+ {
+  "key": "sales-report",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 9,
+     "eloquent_idioms": 8,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.6,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Reports/BuildSalesReport.php:28 whereHas('order', fn => mergeConstraintsFrom($orders())) is roundabout; passing the scope chain directly as the whereHas closure is simpler",
+     "app/Reports/BuildSalesReport.php:20 filters passed as a loosely-typed array shape rather than typed parameters or a DTO",
+     "tests/Feature/SalesReportTest.php:20 dynamic method call ->$state() in the test helper hides which factory state is used",
+     "tests/Feature/SalesReportTest.php:31,271 Http::preventStrayRequests / assertNothingSent tests are ceremony for an endpoint that makes no HTTP calls"
+    ],
+    "strengths": [
+     "Thin invokable controller with a FormRequest exposing typed filters() (CarbonImmutable with startOfDay/endOfDay, enum default Paid)",
+     "'nullable' rules so empty query params (?status=, ?from=) fall back to defaults and don't return 422",
+     "Model scopes use the #[Scope] attribute, #[Fillable] attribute, casts() method, and backed-enum cast",
+     "Aggregations are done in SQL; toBase()->get() avoids hydrating fake models from aggregate rows",
+     "Column names qualified (orders.status, orders.placed_at) so the scopes are safe inside joins",
+     "Expressive factory states (paid/refunded/placedAt/priced/fromCountry) and an index on (status, placed_at)",
+     "Thorough tests: inclusive date boundaries, top-N caps and ordering, historical unit_price vs product price, status leakage into rankings, thousands separators, and a data provider of 422 cases including array input"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 7,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 7.9,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "app/Http/Requests/SalesReportRequest.php:25-28 uses 'sometimes' without 'nullable', so empty params (?status=, ?from=, ?country=, ?to=) are turned into null and return 422 when they should fall back to the defaults (e.g. status=paid)"
+    ],
+    "antipatterns": [
+     "app/Reports/BuildSalesReport.php:29 repeats the placedBetween/inCountry/withStatus chain instead of reusing the $orders closure defined on line 24",
+     "app/Reports/BuildSalesReport.php:58,74,96 get() on an Eloquent OrderItem builder hydrates OrderItem models with aggregate columns; toBase() is cleaner",
+     "app/Http/Controllers/SalesReportController.php:13 spreads an associative array into named args, which couples the filters() keys to the __invoke parameter names",
+     "database/factories/OrderItemFactory.php:21 runs an extra findOrFail query per item to copy the price, and breaks when used with make() or an unsaved product",
+     "database/factories/OrderFactory.php:19 factory defaults to Paid while the migration default is 'pending', which is inconsistent",
+     "database/migrations/2026_11_07_072559_create_orders_table.php:15 timestamp column for placed_at (2038 limit on MySQL); dateTime fits better",
+     "database/factories/CustomerFactory.php:6, OrderFactory.php:5-6 stray blank line and unsorted imports (not Pint-clean)",
+     "tests/Feature/SalesReportTest.php:249 mocking the Http client Factory to prove no network calls is pointless ceremony"
+    ],
+    "strengths": [
+     "Same thin controller, FormRequest and service-class split, using typed method parameters on the report builder",
+     "sum(DB::raw(...)) for total revenue is concise",
+     "Scopes use the #[Scope] attribute, #[Fillable] attribute and enum casts",
+     "Tests cover multi-item orders counted once, spend summed across orders, refunded orders excluded from the per-country breakdown, AssertableJson for the customer shape, and a set of 422 cases",
+     "Top customers include id, with a deterministic tie-breaker"
+    ]
+   },
+   "rationale": "Both suites pass (impl-1: 25 tests; impl-2: 24 tests). The two implementations are structurally almost identical: an invokable controller, a SalesReportRequest with filters(), a BuildSalesReport class doing the SQL aggregation, #[Scope] model scopes and Number::currency. My probes found the same correct numbers in both for these cases: multiple items in one order, a paid order with no items while filtering by country, a single-day range, a `to` date without a `from` date, and lowercase country codes. The real behavioural difference is validation. impl-2 uses 'sometimes' without 'nullable', so ?status=, ?from=, ?to= and ?country= all return 422 instead of using the defaults. That breaks the \"status defaults to paid\" behaviour for clients that send blank query params, which is common. impl-1 accepts all of these and applies the defaults. impl-2 also has a few smaller idiom slips: the scope chain is repeated for the order count, Eloquent models are hydrated from aggregate rows, the controller spreads an array into named arguments, the OrderItem factory runs an extra query per item, the factory's default status doesn't match the migration's, and the imports aren't Pint-clean. impl-1 has more expressive factory states, qualified column names and toBase() for aggregate rows. Its tests are somewhat broader (status leakage into rankings, thousands separators, array input). impl-1 ranks first."
+  },
+  "cost_usd": 0.5488676
+ },
+ {
+  "key": "sales-report",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 9,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.4,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "Orders that have no items still count toward order_count, which lowers average_order_value (BuildSalesReport.php:31). impl-2 does the same, and it is defensible."
+    ],
+    "antipatterns": [
+     "app/Reports/BuildSalesReport.php:14 \u2013 the constant LINE_TOTAL actually holds the aggregate 'sum(...)', so the name is misleading",
+     "app/Reports/BuildSalesReport.php:28 \u2013 `whereHas('order', fn => $q->mergeConstraintsFrom($orders()))` is a roundabout way to reuse scopes; passing a scope closure would be simpler",
+     "app/Reports/BuildSalesReport.php:20 \u2013 the action takes an untyped array shape (described only in a docblock) instead of typed parameters",
+     "tests/Feature/SalesReportTest.php:20 \u2013 the test helper calls a factory state through a dynamic method name (`->$state()`)",
+     "tests/Feature/SalesReportTest.php:271 \u2013 the 'no network calls' test adds nothing for this feature"
+    ],
+    "strengths": [
+     "Thin invokable controller that hands off to a single-purpose report action",
+     "The FormRequest uppercases country in prepareForValidation, validates status with Rule::enum, uses date_format plus after_or_equal, and filters() returns typed Carbon/enum values",
+     "Uses `nullable`, so blank optional params (`?status=`) fall back to the defaults instead of returning 422",
+     "Modern #[Scope] and #[Fillable] attributes, enum cast, and column names qualified with the table so the joins are not ambiguous",
+     "Factories have expressive states (fromCountry, placedAt, priced, paid/refunded), and integer casts are set on the money columns",
+     "Aggregation happens in SQL with stable tie-breakers, and money is formatted with Number::currency",
+     "Tests cover thousands-separator formatting, other statuses leaking into rankings, inclusive date bounds, and a data provider of invalid params"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 8,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "The rules use `sometimes` rather than `nullable`, so blank optional params (`?status=`, `?from=`, `?country=`) return 422 instead of using the defaults (probe confirmed: blank from/to/country/status gave 422 with 7 errors) \u2013 SalesReportRequest.php:25-28",
+     "Orders that have no items still count toward order_count, which lowers average_order_value (BuildSalesReport.php:29). impl-1 does the same."
+    ],
+    "antipatterns": [
+     "app/Reports/BuildSalesReport.php:29 \u2013 repeats the scope chain from line 24 instead of reusing it for the count",
+     "database/factories/OrderItemFactory.php:21 \u2013 `unit_price` closure runs Product::findOrFail, an extra query for every item created",
+     "tests/Feature/SalesReportTest.php:249 \u2013 mocks Http\\Client\\Factory with shouldNotReceive to show there are no network calls; this is meaningless noise (Http::preventStrayRequests is the idiom)",
+     "database/factories/CustomerFactory.php:6 / ProductFactory.php:6 \u2013 stray blank lines in the import blocks; imports in OrderFactory/OrderItemFactory are not sorted",
+     "app/Http/Controllers/SalesReportController.php:13 \u2013 spreading the filters array as named args ties the request's array keys to the action's parameter names"
+    ],
+    "strengths": [
+     "Thin invokable controller and a single-purpose report action with typed parameters",
+     "Item queries start from OrderItem with whereHas('order', $scopes), which avoids ambiguous columns and the need for table-qualified scopes",
+     "Modern #[Scope] and #[Fillable] attributes, enum cast, Rule::enum, and Number::currency",
+     "Aggregation happens in SQL with deterministic tie-breakers, and the top customers include an id",
+     "Thorough tests: inclusive date bounds, case-insensitive country, multi-item orders, unit_price vs product price, caps and ordering, a data provider of invalid params (including an array status), and AssertableJson usage"
+    ]
+   },
+   "rationale": "The two implementations are almost identical in structure: invokable controller, FormRequest with filters(), a BuildSalesReport action, #[Scope] scopes, and SQL aggregation. Both pass their suites (impl-2: 24 tests, impl-1: 25). In my probes both returned the same correct results for country filtering across all breakdowns, for very large money values, for orders without items, and for malformed params. The real behavioural difference is validation. impl-2's `sometimes` rules reject blank optional params with 422, while impl-1's `nullable` falls back to the defaults, which is what you want for optional query params. impl-1 also has more expressive factory states and uses the Http::preventStrayRequests idiom. impl-2 repeats the scope chain for the count, makes an extra query per item in its factory, and its HTTP 'no network' test mocks the client factory, which is odd. impl-2 does use typed action parameters and avoids qualifying columns by starting from OrderItem, both of which are nice. On balance impl-1 is slightly better."
+  },
+  "cost_usd": 0.5324404
+ },
+ {
+  "key": "scheduled-reports",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 7,
+     "modern_laravel": 9,
+     "focus_area": 6,
+     "tests": 7,
+     "correctness": 6,
+     "simplicity": 6
+    },
+    "overall": 6.5,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "app/Jobs/SyncSupplierStock.php:13-16: #[Tries(3)] + #[Backoff] with no FailOnTimeout. A run that times out at 45 min is retried while the unique lock (#[UniqueFor(3600)]) is about to expire, so the next hourly dispatch can run alongside the retry. A worker killed mid-run gets the job back after retry_after=3600, at the same moment the next hourly dispatch lands. Either way two syncs can run at once, which the task forbids.",
+     "routes/console.php:22-25: carts:prune-abandoned runs dailyAt('01:00') with no ->timezone('Europe/Copenhagen'), so it runs at 01:00 in the app timezone (UTC), even though the business runs on Copenhagen time. The test name 'outside the DST window' is wrong because UTC has no DST."
+    ],
+    "antipatterns": [
+     "app/Console/Commands/PruneAbandonedCarts.php:12-34: ConfirmableTrait, --force and --dry-run are ceremony for an unattended scheduled cleanup, and the schedule then has to pass ['--force']",
+     "config/queue.php:71: raises the global Redis retry_after to 3600 for every job instead of using a dedicated connection or queue for the long sync",
+     "tests/Feature/ScheduledTasksTest.php:149-157: 'deletes across several batches' creates 12 carts against a batch size of 5000, so it never crosses a batch boundary; the reflection on BATCH asserts nothing useful",
+     "tests/Feature/ScheduledTasksTest.php:95-100: expect(true)->toBeTrue() placeholder test",
+     "tests/Feature/ScheduledTasksTest.php:19-22: reflection helper reads job attribute values; brittle and hard to read",
+     "app/Console/Commands/ReportUnshippedOrders.php:16: the HOURS constant is threaded into the mailable; minor indirection"
+    ],
+    "strengths": [
+     "Modern Laravel 13 idioms: #[Signature]/#[Description], #[Scope], #[Fillable], #[WithoutTimestamps], and queue attributes on the job",
+     "chunkById over id-only selects, plus whereKey batch deletes: memory-safe pruning, and an index on updated_at",
+     "Composite index (shipped_at, placed_at) for the report query",
+     "onOneServer on all three tasks, with bounded withoutOverlapping expiries",
+     "The schedule test checks isDue in Copenhagen vs UTC; the production-without-force failure path is tested"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 9,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.8,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "routes/console.php:22: runInBackground() on the prune adds a schedule:finish callback path but isn't needed here",
+     "config/queue.php:43: also changes the database connection's retry_after, which production (Redis) doesn't use; the change is global rather than scoped to the long job",
+     "app/Console/Commands/PruneAbandonedCarts.php:14: untyped const, unlike the typed-const style used elsewhere in L13 code",
+     "app/Console/Commands/PruneAbandonedCarts.php:21 and app/Jobs/SyncSupplierStock.php:13-14: comments partly restate the code or the design rationale",
+     "WAREHOUSE_EMAIL not added to .env.example"
+    ],
+    "strengths": [
+     "Every task is pinned correctly: the report at Copenhagen 07:30 Monday, and the prune at 03:00 Copenhagen. The 03:00 choice is DST-safe and explained in a one-line why-comment.",
+     "Job lifecycle is reasoned through: Tries(1) + FailOnTimeout + Timeout 3000 < UniqueFor 3300 < 1h < retry_after 3600. This rules out double runs, and a lock orphaned by a crash expires before the next hourly dispatch.",
+     "Memory-safe pruning: repeated limit+pluck+whereKey delete against an indexed updated_at",
+     "Clean scopes that take a CarbonInterface cutoff; descriptive factory states (placedHoursAgo, updatedDaysAgo, shipped)",
+     "Best tests: DST datasets for both commands in winter and summer, the exact 48h boundary, a real multi-batch prune (2500 rows vs chunk 1000), real database-queue uniqueness, and lock expiry allowing re-dispatch",
+     "Mailable with a text Blade view and Str::plural"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 6,
+     "architecture_fit": 7,
+     "modern_laravel": 6,
+     "focus_area": 8,
+     "tests": 6,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 7.3,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Console/Commands/ReportUnshippedOrders.php:29: Mail::raw instead of a Mailable, which forces the test to dig into the Symfony transport (tests/Feature/ScheduledTasksTest.php:34-38) instead of Mail::fake/assertSent",
+     "app/Console/Commands/*.php and app/Jobs/SyncSupplierStock.php:14-21: old-style $signature/$description/$timeout/$tries properties rather than the L13 attribute conventions; no HasFactory generic docblocks",
+     "app/Console/Commands/ReportUnshippedOrders.php:25 and PruneAbandonedCarts.php:22: query conditions inlined, with no model scopes",
+     "database/factories/CartFactory.php: no states, so tests manipulate updated_at via toBase()->update (tests/Feature/ScheduledTasksTest.php:51,54)",
+     "tests/Feature/ScheduledTasksTest.php:13: uses(RefreshDatabase) per file rather than configuring it in Pest.php; tests are one flat list with no describe/datasets"
+    ],
+    "strengths": [
+     "Correct schedule: Copenhagen timezone on both the report and the prune; 01:00 avoids the DST gap, with a short why-comment",
+     "Job config is sound: tries=1, failOnTimeout, timeout 2700 < uniqueFor 3000 < 1h, and retry_after 3600",
+     "Simplest memory-safe prune: DELETE ... LIMIT loop, which compiles to a rowid subquery on SQLite and is portable",
+     "Test asserts the timeout/uniqueFor/retry_after relations; real database-queue uniqueness test"
+    ]
+   },
+   "rationale": "I reviewed impl-1, then impl-2, then impl-3. All three test suites pass (16, 25 and 11 tests). Each implementation got three or four throwaway probes, all deleted afterwards. Every prune handled 11k\u201320k rows correctly. Each report schedule fired at the right Copenhagen time in summer. An orphaned unique lock never blocked the next hourly dispatch.\n\nimpl-2 ranks first. It is the most carefully reasoned about the actual failure modes. It schedules everything in Copenhagen time at DST-safe hours. Its job uses Tries(1) and FailOnTimeout with Timeout < UniqueFor < 1h \u2264 retry_after, so a run can't be doubled, and a crashed run frees the lock before the next hour. It also has the strongest Pest tests: DST datasets, a real multi-batch prune, and a check that the lock expires.\n\nimpl-3 ranks second. It gets the same essentials right and is simpler, but it uses older property-style conventions, Mail::raw without a Mailable, no scopes or factory states, and thinner tests.\n\nimpl-1 ranks third. Its Laravel 13 idioms are the most polished, but it has two real problems. Its retry policy (Tries 3 + Backoff, no FailOnTimeout, UniqueFor 3600) lets a retried or redelivered sync overlap the next hourly dispatch, which is exactly the doubling the task forbids. And its nightly prune ignores the Copenhagen timezone. It also adds --force/--dry-run/ConfirmableTrait ceremony, and its 'several batches' test never crosses a batch boundary."
+  },
+  "cost_usd": 0.5830004
+ },
+ {
+  "key": "scheduled-reports",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 8,
+     "architecture_fit": 6,
+     "modern_laravel": 8,
+     "focus_area": 5,
+     "tests": 5,
+     "correctness": 5,
+     "simplicity": 4
+    },
+    "overall": 5,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "app/Jobs/SyncSupplierStock.php:16 #[UniqueFor(3600)] is exactly the hourly interval. If a worker is killed, the lock may still be held when the next hourly dispatch happens a fraction of a second earlier in its second, so that dispatch is skipped. A probe confirmed it: lock taken at 10:00:00.5, dispatch at 11:00:00.2 queued 0 jobs, so one crash costs an extra hour of syncs.",
+     "app/Jobs/SyncSupplierStock.php:13-15 #[Tries(3)] and #[Backoff] with no #[FailOnTimeout]: a slow or killed run is retried later (after the 3600s retry_after). By then the 3600s unique lock has expired, so the retry can run alongside the next hourly copy. That is the 'double up' the task forbids.",
+     "routes/console.php:22-25 the prune has no ->timezone('Europe/Copenhagen'), so it runs at 01:00 UTC (02:00 or 03:00 Copenhagen). That is inconsistent with the business timezone, and the test name 'outside the DST window' is misleading. A probe confirmed it is due at 01:00 UTC, not at 00:00 UTC (01:00 Copenhagen in winter)."
+    ],
+    "antipatterns": [
+     "app/Console/Commands/PruneAbandonedCarts.php:12-34 ConfirmableTrait, --force and --dry-run on a cron cleanup is ceremony the task didn't ask for, and the schedule then has to pass --force (routes/console.php:22)",
+     "tests/Feature/ScheduledTasksTest.php:149-157 the 'deletes across several batches' test creates 12 rows against BATCH=5000, so it never spans batches; reflecting on the constant proves nothing",
+     "tests/Feature/ScheduledTasksTest.php:19-22 reads job attributes through reflection (jobAttribute) instead of testing behaviour",
+     "tests/Feature/ScheduledTasksTest.php:95-100 expect(true)->toBeTrue() filler test",
+     "tests/Feature/ScheduledTasksTest.php:40-44 the only DST check is a winter date; summer offset is never tested",
+     "app/Mail/UnshippedOrdersReport.php:21 inline htmlString instead of a view"
+    ],
+    "strengths": [
+     "chunkById over select('id') then whereKey delete keeps memory bounded and is safe to use while deleting",
+     "#[Scope] attributes, #[Fillable], #[WithoutTimestamps], #[Signature]/#[Description]: current Laravel 13 conventions",
+     "Composite (shipped_at, placed_at) index fits the report query",
+     "Report and schedule use onOneServer, and the report has a short withoutOverlapping TTL",
+     "Tests are grouped with describe and use sole() to find scheduled events"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 9,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 9,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "config/queue.php:43,71 raises retry_after to 3600 for the whole default database and redis connections, which slows redelivery for every other job after a crashed worker; a dedicated connection or queue for the long job would be narrower",
+     "tests/Feature/ScheduleTest.php:8 defines a global helper function scheduled() in a test file; such Pest helpers can collide across files",
+     "app/Console/Commands/PruneAbandonedCarts.php:22 a hand-rolled pluck/limit loop works, but chunkById or lazyById would be the more conventional form"
+    ],
+    "strengths": [
+     "Timing chain is correct: Timeout(3000) < UniqueFor(3300) < 3600s interval and < retry_after(3600), with Tries(1) and FailOnTimeout. A probe confirmed the lock is released after a normal run and that a crashed run's lock expires before the next hour",
+     "All three tasks use onOneServer. The prune adds withoutOverlapping(120) and runInBackground, so a crash only blocks it for 2 hours, not 24",
+     "The prune runs at 03:00 Copenhagen, with a one-line comment explaining the spring-forward gap",
+     "Memory-safe batched deletes via pluck ids + whereKey delete, tested across 2500 rows / multiple batches",
+     "Behavioural schedule tests: isDue at UTC instants in winter and summer, Tuesday negative, event->run dispatches exactly once, and the unique job deduplicates on the database queue and re-queues after lock expiry",
+     "Idiomatic Laravel 13: #[Scope], #[Fillable], #[Signature], queue attributes, Mailable with text view, factory states (placedHoursAgo, shipped, updatedDaysAgo)",
+     "Fails cleanly when warehouse.email is blank, tested with Mail::assertNothingSent"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 6,
+     "eloquent_idioms": 6,
+     "architecture_fit": 7,
+     "modern_laravel": 6,
+     "focus_area": 8,
+     "tests": 6,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 7,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Console/Commands/ReportUnshippedOrders.php:29 Mail::raw closure instead of a Mailable, so the test (tests/Feature/ScheduledTasksTest.php:34-38) has to inspect the Symfony transport instead of using Mail::fake/assertSent",
+     "app/Console/Commands/*: old-style $signature/$description properties and $this->info/error, not the #[Signature] attributes and components output used elsewhere in the app",
+     "app/Models/Order.php / Cart.php: no query scopes, so filters are inlined in the commands; CartFactory has no state for an old updated_at",
+     "tests/Feature/ScheduledTasksTest.php:50-54 sets timestamps with toBase()->update instead of a factory state",
+     "tests/Feature/ScheduledTasksTest.php:61-84 schedule tests mostly assert expression/timezone strings; no isDue check across DST",
+     "No test that the prune works across multiple batches",
+     "routes/console.php:18-22 the prune runs in the foreground without runInBackground, so a long prune delays other due events in that scheduler process"
+    ],
+    "strengths": [
+     "Correct lock timing: timeout 2700 < uniqueFor 3000 < 3600 and < retry_after, tries=1, failOnTimeout; the comments state the constraints that must hold",
+     "All events use onOneServer; the prune has withoutOverlapping(120) and the Copenhagen timezone at 01:00, avoiding the DST gap",
+     "Simple batched DELETE ... LIMIT loop; probes confirmed it works at exactly 5000 rows and across 12001 rows",
+     "A probe confirmed the report is due at 07:30 Copenhagen in both summer and winter",
+     "Asserts the job timeout stays below retry_after for both connections"
+    ]
+   },
+   "rationale": "impl-2 (rank 1) handles every requirement. Its job timing stays safely inside the hourly cycle: timeout 50 min, unique lock 55 min, 1 try, fail on timeout. All three tasks run on one server. The prune's overlap lock expires after 2 hours, it runs in the background at 03:00 Copenhagen time, and its batched deletes are tested across several batches. It also has the most behavioural tests: it checks when each task is due in both summer and winter time, and checks that the job is queued only once. impl-3 (rank 2) is just as correct on locking and timing, but it is less idiomatic. It sends the email with Mail::raw, uses old-style command properties and has no query scopes. Its tests are thinner: they mostly check the schedule's settings rather than its behaviour, and nothing tests deletes across batches. impl-1 (rank 3) uses many modern Laravel features but has real bugs on the task's main concern. Its unique lock lasts exactly the 1-hour interval, and a probe showed that after a crash the next hourly dispatch gets skipped. Tries(3) without FailOnTimeout lets a retry run alongside the next hour's job. The prune ignores Copenhagen time. It also adds confirm/force/dry-run options nobody asked for, and its 'several batches' test never actually crosses a batch."
+  },
+  "cost_usd": 0.6754826
+ },
+ {
+  "key": "shipment-sync",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 7,
+     "tests": 8,
+     "correctness": 7,
+     "simplicity": 8
+    },
+    "overall": 7,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Order::markAsPaid (app/Models/Order.php:43) checks the in-memory status, not the DB state, and takes no lock. Probe: two stale instances of the same order each dispatched a job (2 pushed).",
+     "Two copies of the job can run at once: there is no WithoutOverlapping or ShouldBeUnique, so both see shipment_reference null and POST. A duplicate shipment is prevented only if the partner honours the Idempotency-Key header (app/Jobs/SendOrderToWarehouse.php:51,77)."
+    ],
+    "antipatterns": [
+     "app/Jobs/SendOrderToWarehouse.php:22 \u2014 the class-level explanatory comment mixes the rationale for retryUntil and MaxExceptions; it is acceptable but borderline.",
+     "app/Jobs/SendOrderToWarehouse.php:128-134 \u2014 the try/catch that rolls back shipment_notified_at is extra ceremony; it is correct but heavy.",
+     "app/Jobs/SendOrderToWarehouse.php:51-55 \u2014 a nested if could be collapsed into one condition.",
+     "tests/Feature/OrderShipmentTest.php:108-117 \u2014 the mail-failure test resets the container with forgetInstance and clearResolvedInstances, which is brittle."
+    ],
+    "strengths": [
+     "The most modern conventions: backed enums with casts, #[Fillable], and the queue attributes #[Timeout], #[Backoff], #[MaxExceptions] and #[DeleteWhenMissingModels] on Laravel 13.",
+     "Honours Retry-After on 429 via release(), and uses a time-bounded retryUntil so rate-limit releases don't exhaust tries.",
+     "The job guards against trashed and non-paid orders. A probe confirmed a cancelled order on a real database queue is not shipped and does not fail.",
+     "An atomic conditional-update claim guarantees the email goes out once, even when retried after a mail failure.",
+     "Account-wide RateLimited middleware, verified by a probe (the 6th job was released).",
+     "failed() records the reason and leaves an existing shipment alone. A 422 is surfaced without retrying.",
+     "Broad Pest tests covering 422, 429 with and without Retry-After, 5xx, hangs, a missing id, recovery, and dispatch after commit."
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 6.5,
+     "tests": 7,
+     "correctness": 6.5,
+     "simplicity": 8
+    },
+    "overall": 6.5,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "A 429 is treated as a generic exception via $response->throw() (app/Jobs/SendOrderToWarehouse.php:105). It ignores Retry-After and uses up the MaxExceptions(8) budget during rate-limit storms instead of releasing.",
+     "The job does not check that the order is paid. Probe: dispatching it for an unpaid order created a shipment.",
+     "markAsPaid has the same stale-instance race as impl-1 (app/Models/Order.php:42), with no DB-level claim. WithoutOverlapping plus refresh() does mitigate a duplicate shipment."
+    ],
+    "antipatterns": [
+     "tests/Feature/ExampleTest.php was deleted from the base app, which is outside the task's scope.",
+     "app/Models/Order.php:35 \u2014 shipment_notified_at is cast but is not in Fillable or the task's column list; it is an implicit extra column with no factory state.",
+     "app/Jobs/SendOrderToWarehouse.php:58-64 \u2014 checks shipment_status twice; the flow would read more clearly with createShipment returning a bool.",
+     "tests/Feature/SendOrderToWarehouseTest.php:193-203 \u2014 mocks the Mail facade and then re-fakes it; this container juggling is brittle."
+    ],
+    "strengths": [
+     "A 422 goes through $this->fail(), so the reason lands both on the order and in failed_jobs. A probe on a real database queue confirmed status failed, the reason recorded, and no retry.",
+     "refresh() at the start of handle, together with per-order WithoutOverlapping, stops concurrent duplicate shipments.",
+     "failed() uses withTrashed->find and skips orders already Sent.",
+     "Modern queue attributes, enums and Http::baseUrl.",
+     "Concise tests using a dataset across 429 and 5xx statuses, plus a check of the configurable URL."
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 7,
+     "architecture_fit": 8,
+     "modern_laravel": 6,
+     "focus_area": 9,
+     "tests": 9,
+     "correctness": 8.5,
+     "simplicity": 6.5
+    },
+    "overall": 7.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "markAsPaid uses withTrashed() (app/Models/Order.php:54), so a cancelled (soft-deleted) pending order gets marked paid and a job is dispatched. The job then no-ops, so nothing ships, but the state is odd.",
+     "notifyCustomer sends before recording shipment_notified_at (app/Jobs/SendOrderToWarehouse.php:145-147), so a crash between the two could send the email twice. WithoutOverlapping keeps the window small."
+    ],
+    "antipatterns": [
+     "app/Models/Order.php:19-27 \u2014 string class constants instead of backed enums with casts, which is not modern Laravel.",
+     "app/Jobs/SendOrderToWarehouse.php:7-22 \u2014 the legacy Dispatchable, InteractsWithQueue, Queueable and SerializesModels traits instead of Illuminate\\Foundation\\Queue\\Queueable; properties instead of queue attributes.",
+     "app/Models/Order.php:13 \u2014 #[UseFactory] is redundant alongside the conventional HasFactory resolution.",
+     "app/Jobs/SendOrderToWarehouse.php:26,29-34,60 and app/Models/Order.php:47-50 \u2014 comment density is higher than the rest of the codebase, and some comments narrate what the code does.",
+     ".env.example was edited, which is fine, but the AppServiceProvider imports the job just for a RATE_LIMITER constant \u2014 extra coupling."
+    ],
+    "strengths": [
+     "markAsPaid claims the order atomically with a conditional update. A probe confirmed two stale instances queue only one job, and a rollback test proves dispatch waits for the commit.",
+     "handle reloads through the default soft-delete scope (find returns null when the order is cancelled) and requires paid status. A probe confirmed a cancelled order on a real database queue is not shipped and does not fail.",
+     "The fullest error classification: 2xx with a missing id is a permanent failure (avoids duplicate shipments); 429 is released honouring a capped Retry-After; 5xx and 408 throw for backoff; other 4xx such as 422 and 401 are surfaced to ops.",
+     "recordFailure is scoped to whereNull(shipment_reference) and the soft-delete scope, so it never overwrites a sent shipment or touches a cancelled order.",
+     "Per-order WithoutOverlapping plus account-wide RateLimited. The rate-limit behaviour is tested end to end with freezeTime and travel, and Http::preventStrayRequests is set globally in Pest.php.",
+     "The richest Pest suite: describe blocks, an after-commit rollback test, mail-failure recovery, a cancelled order on failure, and a 401."
+    ]
+   },
+   "rationale": "All three suites pass and share the same backbone: dispatch after commit, an account-wide RateLimited('warehouse') at 5 per second, a time-bounded retryUntil with maxExceptions, a guard against cancelled orders, a single customer email, and failed() recording the reason. Correctness on the focus area decides the ranking. impl-3 is the only one whose markAsPaid is race-safe (a conditional update; a probe confirmed one job from two stale instances). It also reloads the order with the soft-delete scope and checks paid status, classifies 2xx-without-id, 429, 5xx/408 and other 4xx correctly, and has the most behavioural tests (a real rollback test, the rate limit end to end). It loses points for legacy job traits, string constants instead of enums, and comment noise. impl-1 is the most idiomatic and modern, and honours Retry-After and paid status. However, its markAsPaid can dispatch twice from stale instances (probe-confirmed) and the job has no overlap protection, so concurrent runs could create duplicate shipments unless the partner honours the Idempotency-Key. impl-2 is equally modern and does stop concurrent duplicates with WithoutOverlapping and refresh. But it treats 429 as a generic exception (ignoring Retry-After and burning the exception budget), ships unpaid orders if the job is dispatched for one (probe-confirmed), deleted the base ExampleTest, and has the thinnest tests."
+  },
+  "cost_usd": 0.7157396
+ },
+ {
+  "key": "shipment-sync",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 9
+    },
+    "overall": 8,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "No WithoutOverlapping or other per-order lock. If a duplicate job ever exists for the same order, two runs can POST at once. Only the Idempotency-Key header (which assumes the partner honours it) stops a second shipment.",
+     "The Retry-After value has no upper limit (app/Jobs/SendOrderToWarehouse.php:141). A large header value can release the job past its one-hour retryUntil, so it fails with 'attempted too many times'.",
+     "If the partner keeps answering 429, the failure reason ops see is the generic 'attempted too many times' (confirmed by probe), not the 429."
+    ],
+    "antipatterns": [
+     "app/Jobs/SendOrderToWarehouse.php:81: builds the URL by concatenating config('services.warehouse.url').'/shipments' instead of using Http::baseUrl().",
+     "app/Jobs/SendOrderToWarehouse.php:51-55: nested ifs where a single `&& !` condition would do.",
+     "app/Jobs/SendOrderToWarehouse.php:62: failed() calls refresh() on the job's own model and changes it in place.",
+     "tests/Feature/OrderShipmentTest.php:108-117: the mail-failure test works by forgetting the mail manager and adding an event listener that throws. It is brittle global-state manipulation."
+    ],
+    "strengths": [
+     "Uses Laravel 13 queue attributes (#[Timeout, Backoff, MaxExceptions, DeleteWhenMissingModels]), the Foundation Queueable trait, #[Fillable] and enum casts.",
+     "Treats 422 as permanent: it records the reason directly and the job ends without retrying or failing. It handles 429 by releasing the job, honouring Retry-After. 5xx and connection errors throw so the backoff applies.",
+     "Claims shipment_notified_at with an atomic update before sending, and rolls it back if the mail fails, so the email goes out exactly once.",
+     "Dispatches with afterCommit in a transaction, applies the account-wide RateLimited middleware, and bounds retries by time with retryUntil.",
+     "Has a test that serialises and unserialises the queued job after the order is cancelled, which proves restoring the model does not ship a trashed order."
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 8,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 8.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "429 is treated like a 5xx: it throws, counts towards MaxExceptions(8) and ignores Retry-After. A long rate-limit period therefore uses up the exception budget faster than necessary.",
+     "Every non-422 4xx (for example 401 from a bad token, or 400) is retried until the 8-exception limit, about 20 minutes, before ops see it (probe: a 401 left the order pending and the job retrying)."
+    ],
+    "antipatterns": [
+     "app/Jobs/SendOrderToWarehouse.php:58-64: checks shipment_status !== Sent twice in a row because createShipment returns void. Returning a bool, as impl-1 and impl-3 do, reads better.",
+     "app/Jobs/SendOrderToWarehouse.php:98: a 422 calls $this->fail(), which puts a business validation failure into failed_jobs as an exception.",
+     "tests/Feature/SendOrderToWarehouseTest.php:193-203: Mail::shouldReceive followed by forgetInstance and clearResolvedInstance is hacky facade resetting.",
+     "tests/Feature/SendOrderToWarehouseTest.php:211: calls the limiter closure with `new stdClass` to inspect configuration instead of testing behaviour."
+    ],
+    "strengths": [
+     "The most idiomatic modern job: queue attributes, the Foundation Queueable trait, a typed retryUntil, and WithoutOverlapping plus account-wide RateLimited middleware.",
+     "handle() refreshes the order and checks trashed(), and #[DeleteWhenMissingModels] covers force-deleted orders. Probes through a real database queue worker confirmed a cancelled order is never shipped.",
+     "failed() reloads the order withTrashed and never overwrites a shipment that was already sent. When retries run out, ops see failed plus the HTTP error body (verified with a probe through the worker).",
+     "Atomically claims shipment_notified_at, with rollback, so the email is sent exactly once even across retries. Sends an Idempotency-Key header and uses separate connect and request timeouts for hangs.",
+     "Enum casts, #[Fillable], factory states paid() and shipped(). Tests use Http::preventStrayRequests, cover 429/5xx with a dataset, and cover recovery after an outage, a missing id and retrying only the mail."
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 7,
+     "architecture_fit": 8,
+     "modern_laravel": 6,
+     "focus_area": 9,
+     "tests": 9,
+     "correctness": 8,
+     "simplicity": 7
+    },
+    "overall": 7.5,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "notifyCustomer sends the mail first and only then saves shipment_notified_at (app/Jobs/SendOrderToWarehouse.php:145-147). If the save fails or the worker dies in between, the retry emails the customer again, which breaks the strict 'exactly once' requirement. impl-1 and impl-2 claim the flag first.",
+     "If the partner keeps answering 429, the order ends with the generic 'attempted too many times' reason instead of the 429."
+    ],
+    "antipatterns": [
+     "app/Models/Order.php:19-27: string class constants for status and shipment_status instead of backed enums with casts.",
+     "app/Jobs/SendOrderToWarehouse.php:7-22: the legacy Dispatchable, InteractsWithQueue, Queueable and SerializesModels traits, and properties instead of Laravel 11+ Foundation\\Queue\\Queueable and queue attributes.",
+     "app/Models/Order.php:13: #[UseFactory] is redundant alongside HasFactory with a conventionally named factory.",
+     "app/Models/Order.php:66-69: after the conditional update, it hand-syncs model state with forceFill()->syncOriginal(), which is ceremony and leaves updated_at stale.",
+     "app/Jobs/SendOrderToWarehouse.php:26-33,60: more comments than the surrounding codebase, some of which narrate what the code does.",
+     "app/Jobs/SendOrderToWarehouse.php:97: uses forceFill although the attributes are fillable."
+    ],
+    "strengths": [
+     "The most careful handling of partner responses: 429 releases the job and honours Retry-After capped at 120s, 5xx and 408 throw for backoff, and other 4xx and a 201 without an id are surfaced straight to ops.",
+     "markAsPaid claims the paid transition atomically with a conditional UPDATE, which is safe against racing webhooks and dispatches afterCommit.",
+     "handle() re-queries through the soft-delete scope and also checks the status is paid. recordFailure is guarded with whereNull('shipment_reference') and the soft-delete scope, so it never overwrites a sent order or touches a cancelled one.",
+     "The strongest tests: a behavioural rate-limit test with freezeTime and travel, an afterCommit rollback test against the database queue, withFakeQueueInteractions with assertReleased and assertNotFailed, and a global Http::preventStrayRequests."
+    ]
+   },
+   "rationale": "All three suites pass (impl-2: 20 tests, impl-3: 24, impl-1: 25). Each implementation was also probed through a real database queue worker with queue:work --once, covering: an order cancelled after markAsPaid, a 422, a 503 then 429 then 201 recovery, a 503 until retries run out, a hang until retries run out, and a 401. All three are functionally solid. None of them shipped a cancelled order, all retried transient errors with backoff and recorded a failed status with a reason, and all emailed exactly once on recovery. The ranking therefore comes down to small robustness and idiom differences. impl-2 ranks first: it uses Laravel 13 job idioms throughout (attributes, Foundation Queueable, enums, #[Fillable]), guards against overlap per order as well as rate-limiting the whole account, refreshes the order and checks trashed(), claims the email atomically, and has a careful failed() handler. Its weaknesses are that it ignores Retry-After on 429 and retries non-422 4xx errors. impl-1 is almost as good and slightly simpler, with better 429 handling, but it has no per-order overlap lock and no upper limit on Retry-After. impl-3 has the most thorough handling of partner responses and the best tests (a behavioural rate-limit test and an afterCommit rollback test). It ranks last because of dated conventions (string constants, legacy job traits, a redundant UseFactory, comment-heavy code) and a real ordering flaw in the email step: it sends the mail before recording that it was sent, so a crash between the two causes a duplicate email."
+  },
+  "cost_usd": 0.7884274
+ },
+ {
+  "key": "statement-batch",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 9,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 8.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "QueueStatementJobs has #[Tries(3)] and adds jobs to the batch in chunks. If it fails partway and retries, every account gets enqueued again. GenerateStatement skips regenerating a file that already exists, but it still emails the owner again, and batch totals include the duplicate jobs (app/Jobs/QueueStatementJobs.php:18,27-33).",
+     "#[DeleteWhenMissingModels] on GenerateStatement records a deleted account as a successful batch job. Probe: an account deleted mid-run gave status=completed, failed_accounts=0, but only one of two statements was sent, so the summary over-reports (app/Jobs/GenerateStatement.php:20).",
+     "failed_accounts comes from $batch->failedJobs, so if the loader job fails it is counted as a failed account (app/Actions/FinalizeStatementRun.php:17).",
+     "Nothing schedules queue:prune-batches or queue:prune-failed. With 40k jobs per run, job_batches and failed_jobs grow without limit (routes/console.php is unchanged)."
+    ],
+    "antipatterns": [
+     "tests/Feature/StatementRunTest.php:168 `->and(QueueStatementJobs::class)->toBeString()` is a filler assertion that tests nothing",
+     "app/Actions/StartStatementRun.php:13 hard-codes the queue name as a class constant instead of reading it from config (SQS queue names differ per environment)",
+     "tests/Feature/StatementRunTest.php:26-32 drainQueue loops queue:work five times with time travel: works, but brittle"
+    ],
+    "strengths": [
+     "Uses the batch's own failedJobs as the failure count, so failures outside handle() (timeouts, worker crashes) are counted. Probe: a transient failure was retried and the run finished correctly",
+     "Loader job sits inside the batch, so the finally callback cannot fire before fan-out finishes; lazyById plus chunked batch()->add() scales to 40k accounts",
+     "Finalizer is an idempotent invokable class (guarded status update, mail sent only if a row changed) rather than a serialized closure",
+     "Checks the return value of Storage::put. Probe: when put returned false, no email went out and the run was marked completed_with_errors",
+     "Skips regeneration when the file already exists, so retries are idempotent; Tries/Backoff/Timeout set via modern queue attributes; backed enum cast; #[Scope] and #[Fillable] attributes",
+     "Tests run a real database queue worker and cover default-queue isolation, the failure path, retries, an empty run and idempotency"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 6,
+     "architecture_fit": 6,
+     "modern_laravel": 5,
+     "focus_area": 4,
+     "tests": 6,
+     "correctness": 4,
+     "simplicity": 7
+    },
+    "overall": 4.5,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "failed_accounts only goes up inside the try/catch in handle(). Failures outside it (worker timeout, OOM, SQS redelivery past tries=1, exceptions before handle) are not counted. Probe: status=completed, failed_accounts=0, but only 2 of 3 statements were sent (app/Jobs/GenerateStatement.php:29-39, app/Actions/StartStatementRun.php:31).",
+     "If QueueStatementJobs fails (tries=1, e.g. a DB blip), finally still runs and marks the run 'completed' with 0 failures even though no statements went out (app/Jobs/QueueStatementJobs.php:14).",
+     "Ignores the return value of Storage::put. The local disk has throw=false, so a failed write returns false and the owner is still emailed. Probe confirmed StatementReady was sent and the run marked completed (app/Jobs/GenerateStatement.php:33-35).",
+     "finally closure is not idempotent: no status guard, so if it runs again it re-sends the summary (app/Actions/StartStatementRun.php:29-38).",
+     "No timeout on GenerateStatement despite slow PDF generation; tries=1 means a single transient error is a permanent failure.",
+     "Nothing prunes job_batches or failed_jobs."
+    ],
+    "antipatterns": [
+     "app/Models/StatementRun.php:13-17 status uses string constants instead of a backed enum cast",
+     "app/Jobs/GenerateStatement.php:36 catch(Throwable) around the whole job hides failures from the queue's own failure handling and from the batch",
+     "app/Actions/StartStatementRun.php:29 business logic sits in a serialized closure in the batch finally callback",
+     "app/Actions/StartStatementRun.php:19 and QueueStatementJobs.php:24 repeat where('active', true) instead of a scope",
+     "tests/Feature/StatementRunTest.php: most tests run on the sync queue, so nothing exercises a real worker or failures outside handle()",
+     "tests/Feature/StatementRunTest.php:88 'has working factories' is a trivial test"
+    ],
+    "strengths": [
+     "Loader job inside the batch with chunkById(1000) and select('id'); jobs carry IDs only, so payloads are small",
+     "Queue name is read from config, keeping work off the default queue",
+     "Simple, short implementation",
+     "Test for a failing account checks files, mails, and the final count"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 7,
+     "modern_laravel": 9,
+     "focus_area": 6,
+     "tests": 7,
+     "correctness": 5,
+     "simplicity": 7
+    },
+    "overall": 6,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Race in the failure count: when the last job fails outside handle(), CallQueuedHandler::failed records the batch failure (which fires finally) before it calls the job's failed(). FinalizeStatementRun then reads a stale failed_accounts. Probe: status=completed, the summary email said 0 failed, and failed_accounts later became 1 (app/Jobs/GenerateStatement.php:47-50, app/Actions/FinalizeStatementRun.php:23).",
+     "Ignores the return value of Storage::put (local disk throw=false), so the owner is emailed even when the file was not written. Probe: StatementReady was sent and the run marked completed (app/Jobs/GenerateStatement.php:38-40).",
+     "QueueStatementJobs has #[Tries(3)] and adds jobs in chunks, so a partial failure followed by a retry enqueues duplicate jobs and sends duplicate emails (app/Jobs/QueueStatementJobs.php:14).",
+     "#[Tries(1)] means one transient error permanently fails the account, with no retry.",
+     "Nothing prunes job_batches or failed_jobs."
+    ],
+    "antipatterns": [
+     "app/Jobs/GenerateStatement.php:34-50 counts failures twice over: a catch(Throwable) plus a failed() hook, instead of trusting the batch's failedJobs",
+     "app/Jobs/GenerateStatement.php:30 cancelled() check is ceremony, since nothing ever cancels the batch",
+     "tests/Feature/StatementRunTest.php:63-69 checking the ->queue property on new job instances is a shallow test",
+     "app/Actions/StartStatementRun.php:21 comment is long but acceptable"
+    ],
+    "strengths": [
+     "Loader job inside the batch, lazyById/chunk fan-out, ID-only job payloads, queue name from config",
+     "Idempotent invokable finalizer with a guarded status update",
+     "Backed enum cast, #[Scope], #[Fillable], #[Tries]/#[Timeout] attributes",
+     "failed() hook covers most hard failures that impl-2 misses (probe: a failure on a non-last job was counted correctly)",
+     "StatementReady attaches the stored PDF; the test for a storage failure uses Storage::shouldReceive"
+    ]
+   },
+   "rationale": "All three suites pass. Ranking: impl-1, then impl-3, then impl-2.\n\nAll three use the same design: a loader job inside a batch that allows failures, a finally callback, and a dedicated statements queue. They differ in how they count failures, and that is where the real bugs are.\n\n**impl-1** takes the failure count from the batch's own failedJobs, so it counts timeouts and crashes, and it retries with backoff. It checks that Storage::put succeeded, which no other implementation does, and skips regeneration when the file already exists, so retries are safe. Its tests run a real database worker. Probes confirmed it handles hard and transient failures and storage write failures correctly. Remaining issues:\n- Retrying the loader can enqueue duplicate jobs.\n- DeleteWhenMissingModels counts a deleted account as a success.\n\n**impl-3** has the best models and enum, but it counts failures itself with catch plus failed(). Laravel records the batch failure before calling failed(), so when the last job fails hard, the run finishes as 'completed' and the finance email says 0 failed (reproduced). It also emails the owner when the PDF write returns false (reproduced).\n\n**impl-2** only counts failures caught inside handle():\n- A hard failure leaves the run 'completed' with 0 failed even though statements are missing (reproduced).\n- If the loader fails, the run is reported as completed with nothing sent.\n- It emails the owner when the PDF write returns false (reproduced).\n- It uses string constants instead of an enum and puts the finalize logic in a closure that is not idempotent.\n\nNone of the three schedules queue:prune-batches or queue:prune-failed, so the queue tables keep growing in all of them. All probe files were removed afterwards."
+  },
+  "cost_usd": 0.6551562
+ },
+ {
+  "key": "statement-batch",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 7,
+     "simplicity": 7
+    },
+    "overall": 8,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "QueueStatementJobs has #[Tries(3)] with no dedupe (app/Jobs/QueueStatementJobs.php:18): a retry after partial fan-out re-adds every account; GenerateStatement skips regeneration but re-sends StatementReady, so owners get duplicate emails and the batch job count is inflated",
+     "#[DeleteWhenMissingModels] on GenerateStatement (app/Jobs/GenerateStatement.php:20): an account deleted mid-run is recorded as a batch success, so the run is 'completed' with failed_accounts 0 although no statement was produced (probe confirmed)",
+     "A failure of the fan-out job itself is counted in $batch->failedJobs as a failed account",
+     "No scheduled queue:prune-batches / queue:prune-failed; every failed account (after 3 tries) also lands in failed_jobs, so the queue tables grow without bound"
+    ],
+    "antipatterns": [
+     "tests/Feature/StatementRunTest.php:168 asserts QueueStatementJobs::class toBeString(), which tests nothing",
+     "tests/Feature/StatementRunTest.php:26-32 drainQueue loops queue:work 5 times with travel(); this works but is brittle ceremony",
+     "app/Actions/StartStatementRun.php:13 hard-codes the queue name as a class constant rather than putting it in config",
+     "app/Mail/StatementReady.php:32 duplicates the path format from GenerateStatement"
+    ],
+    "strengths": [
+     "Failure count comes from $batch->failedJobs, so killed or timed-out jobs are counted correctly (probe: completed_with_errors, failed 1)",
+     "The PDF write is safe to repeat: it skips the generator if the file exists and throws if put() returns false",
+     "Retries with backoff and timeouts via queue attributes; the PDF is attached from the storage disk",
+     "Conditional update on status=Running means the run can't be finalised twice or send two summaries",
+     "Tests run a real database queue worker, covering retry, failure, an empty run, queue placement and repeat runs"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 6,
+     "architecture_fit": 7,
+     "modern_laravel": 6,
+     "focus_area": 5,
+     "tests": 6,
+     "correctness": 5,
+     "simplicity": 9
+    },
+    "overall": 5.5,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "failed_accounts is incremented only inside the job's try/catch (app/Jobs/GenerateStatement.php:36-38); a worker timeout or kill bypasses it, so the run ends 'completed' with failed 0 and finance is misinformed (probe confirmed)",
+     "QueueStatementJobs has tries=1 and no timeout: if pushing 40k jobs to SQS exceeds the worker timeout, the remaining accounts are silently never processed and the run still reports 'completed'",
+     "No GenerateStatement timeout is set for slow PDF work, so it falls back to the worker default",
+     "No pruning of job_batches is scheduled"
+    ],
+    "antipatterns": [
+     "app/Models/StatementRun.php:13-17 uses string constants instead of a backed enum, and status is not cast",
+     "app/Models/StatementRun.php:13-20 puts the constants above the trait `use` statement, an unusual member order",
+     "app/Models/StatementRun.php:22 adds $attributes failed_accounts default that duplicates the DB default",
+     "tests/Feature/StatementRunTest.php:14 calls uses(RefreshDatabase) per file instead of pest()->use in Pest.php",
+     "app/Mail/StatementRunSummary.php:21 uses the cryptic $r alias"
+    ],
+    "strengths": [
+     "Smallest, easiest-to-read implementation: the batch is seeded by a job inside it, so it can't finish early",
+     "chunkById with select('id') and batch()->add per chunk",
+     "An atomic increment of failed_accounts avoids races",
+     "Tests cover a failing account, an empty run, inactive accounts and queue name"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 6,
+     "tests": 7,
+     "correctness": 5.5,
+     "simplicity": 7
+    },
+    "overall": 6.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "failed() hook (app/Jobs/GenerateStatement.php:47-50) runs after Laravel records the failure on the batch, so when the last job is killed or times out the finally callback finalises first: the run ends 'completed' with failed_accounts=1 and the summary says 0 failed (probe confirmed)",
+     "QueueStatementJobs has #[Tries(3)] with no dedupe (app/Jobs/QueueStatementJobs.php:14): a retry after partial fan-out regenerates and re-emails already-queued accounts",
+     "No pruning of job_batches is scheduled"
+    ],
+    "antipatterns": [
+     "app/Jobs/GenerateStatement.php:23 stores the whole StatementRun model in each of the ~40k jobs, adding a needless re-fetch per job when only the id is used",
+     "app/Jobs/GenerateStatement.php:41-49 swallows all Throwables plus a failed() hook, so there are two failure paths with different timing",
+     "app/Jobs/QueueStatementJobs.php:30-31 lazyById(500)->chunk(500) is a roundabout chunkById",
+     "tests/Feature/StatementRunTest.php:63-69 asserts the queue property on hand-built job instances rather than on actual dispatches"
+    ],
+    "strengths": [
+     "Backed enum with model cast, #[Scope] attribute, #[Tries]/#[Timeout] job attributes",
+     "Invokable FinalizeStatementRun with a status=Running guard against finalising twice",
+     "StatementReady attaches the stored PDF from the disk",
+     "Queue name is in config",
+     "Tests include a mocked disk failure proving no email is sent without the file"
+    ]
+   },
+   "rationale": "All three share the same batch design: a job inside the batch adds the per-account jobs, allowFailures, a dedicated statements queue and a finally step. The deciding factor was whether the failure count stays accurate when a job dies outside its own try/catch, for example on a worker timeout. A probe that fails the last statement job through $job->fail() showed impl-1 correct (uses $batch->failedJobs), impl-3 inconsistent (failed()=1 but status completed and a summary saying 0 failed, because failed() runs after the batch has finalised) and impl-2 plainly wrong (completed, 0 failed). impl-1 also writes the PDF safely on retry and has the strongest tests on a real database queue. Its main defects are duplicate emails if the fan-out job is retried and counting a deleted account as a success. impl-3 is modern and clean but has the ordering bug and the same retry-duplication risk. impl-2 is the simplest but uses string constants, sets no timeouts, and silently loses failures and possibly accounts. None of the three prunes job_batches."
+  },
+  "cost_usd": 0.719946
+ },
+ {
+  "key": "stock-sync-dispatcher",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 9,
+     "eloquent_idioms": 9,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 9
+    },
+    "overall": 8.4,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "synced_at is stored at second precision, so an edit made in the same second as the pre-request read leaves updated_at == synced_at and the change is never re-sent (probe confirmed). impl-2 and impl-3 have the same flaw.",
+     "The job does not check that the rows are still claimed (no whereNotNull('sync_started_at')). A duplicate SQS delivery, or a re-run after success, posts the rows again.",
+     "Retry-After is passed to release() without a cap (app/Jobs/PushStockAllocations.php:46). SQS rejects delays over 900s.",
+     "withoutOverlapping() keeps its default 24h lock expiry (routes/console.php:11). If a scheduler process crashes mid-run, dispatching stops for up to a day."
+    ],
+    "antipatterns": [
+     "routes/console.php:11 withoutOverlapping() with no expiry, on a job that runs every minute",
+     "app/Jobs/PushStockAllocations.php:24 retryUntil leaves only a 1-minute margin (CLAIM_TTL-1) while the job timeout is 60s, so the margin is tight"
+    ],
+    "strengths": [
+     "Modern Laravel 13 style throughout: #[Signature]/#[Description], #[Timeout, Backoff, MaxExceptions] queue attributes, #[Scope], #[Fillable], casts() method",
+     "retryUntil is derived from StockAllocation::CLAIM_TTL_MINUTES, so a job always gives up before its claim is treated as abandoned. failed() releases the claim",
+     "Claims each batch inside a transaction with lockForUpdate, and uses toBase() updates so claiming and syncing don't touch updated_at",
+     "synced_at is taken from the time before the read, so edits made during a slow request are re-synced",
+     "Http::baseUrl(config('services.storefront.url')) and partition() on collections read cleanly",
+     "Tests are concise Pest tests covering the scope, batching, re-claiming abandoned rows, 429 release, 5xx, failed(), the retryUntil bound and the schedule"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 7,
+     "architecture_fit": 8,
+     "modern_laravel": 6,
+     "focus_area": 8,
+     "tests": 7,
+     "correctness": 8,
+     "simplicity": 7
+    },
+    "overall": 7.7,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Same-second edit during the request is lost because timestamps are second-precision (probe confirmed).",
+     "Retry-After is not capped (app/Jobs/PushStockAllocations.php:58). Values over 900s exceed SQS's DelaySeconds limit."
+    ],
+    "antipatterns": [
+     "app/Jobs/PushStockAllocations.php:16 the endpoint is a hardcoded class constant instead of services config",
+     "app/Jobs/PushStockAllocations.php:30 retryUntil hardcodes 10 minutes rather than deriving it from CLAIM_TTL_MINUTES, so the coupling exists only in a comment",
+     "app/Models/StockAllocation.php:27 uses a legacy scopeReadyToSync and a $fillable property where #[Scope]/#[Fillable] are available",
+     "app/Models/StockAllocation.php:10 #[UseFactory] is redundant alongside HasFactory, and so is $model in the factory",
+     "Job settings are public properties ($tries, $maxExceptions, $backoff) rather than the queue attributes",
+     "tests/Feature/DispatchStockSyncTest.php:31 the updated_at assertion (equalTo(...)->toBeFalse) is confusing and weak",
+     "Deleted the base ExampleTest files, which was out of scope"
+    ],
+    "strengths": [
+     "The job only sends rows that are still claimed and not disabled, so redelivery is idempotent",
+     "withoutOverlapping(10) sets a bounded lock expiry",
+     "Transactional claim with lockForUpdate, toBase() updates, and synced_at taken before the request",
+     "Updated .env.example for SQS/Redis",
+     "Tests are split per component, including a test that edits a row mid-request"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 7,
+     "modern_laravel": 8,
+     "focus_area": 5,
+     "tests": 8,
+     "correctness": 6,
+     "simplicity": 7
+    },
+    "overall": 6.4,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "Job lifetime is not bounded by the 15-minute claim: #[Tries(10)] with no retryUntil, and 429 releases of up to 600s each. A rate-limited job can still be alive after its claim expires. The dispatcher then re-claims and re-dispatches the same rows, both jobs send (whereNotNull('sync_started_at') still matches), and the old job's failed() later clears the new claim, causing a third dispatch. Probe confirmed the re-dispatch.",
+     "The job doesn't filter on disabled_at, so rows disabled after being claimed are still POSTed and marked synced (probe confirmed).",
+     "Same-second edit during the request is lost because timestamps are second-precision (probe confirmed)."
+    ],
+    "antipatterns": [
+     "app/Providers/AppServiceProvider.php:23 Schedule::useCache('redis') hardcodes the store globally when CACHE_STORE config already covers it",
+     "app/Jobs/PushStockAllocations.php:44 the URL is built by string concatenation instead of Http::baseUrl(), and the redundant asJson() is the client default",
+     "app/Console/Commands/DispatchStockSync.php:20 claims rows with no transaction or row lock and relies entirely on onOneServer",
+     "tests/Feature/StockAllocationTest.php:63 the isSameDay assertion for updated_at is weak"
+    ],
+    "strengths": [
+     "chunkById over the ready scope is a neat, idiomatic way to batch while mutating the filter column",
+     "Wraps the synced/disabled updates in a transaction. Caps release delay below SQS's 900s limit",
+     "Modern attributes (#[Tries], #[Backoff], #[Scope], #[Fillable]) and config-driven URL",
+     "Most thorough test suite, including an idempotency-on-rerun test"
+    ]
+   },
+   "rationale": "impl-1 and impl-2 handle the core risk the same way: retryUntil keeps the job alive for less time than the 15-minute claim, and failed() releases the claim, so work is never lost or stuck. impl-1 ranks first because its idioms are more current (queue and Eloquent attributes, #[Scope], config baseUrl) and its retryUntil is derived from the claim constant. Against it: no idempotency guard on redelivery and a 24h overlap lock. impl-2 has the stronger idempotency guard and a bounded overlap lock, but uses older conventions (legacy scope, property-based job config, hardcoded endpoint, redundant UseFactory). impl-3 is clean and well tested, but it has no retryUntil and allows 10 tries with up to 600s release each. A rate-limited job can outlive its claim, which leads to duplicate sends and claim clobbering, the exact multi-server and exactly-once problem the task highlights. It also sends rows that were disabled after being claimed. All three lose an edit made in the same second as the read, because timestamps are second-precision."
+  },
+  "cost_usd": 0.5683919999999999
+ },
+ {
+  "key": "stock-sync-dispatcher",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 9,
+     "eloquent_idioms": 8,
+     "architecture_fit": 7,
+     "modern_laravel": 9,
+     "focus_area": 6,
+     "tests": 8,
+     "correctness": 6,
+     "simplicity": 8
+    },
+    "overall": 6.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Job never checks that its rows are still claimed (app/Jobs/PushStockAllocations.php:32-35). SQS delivers at least once, so a redelivered or duplicate message pushes rows that are already synced again. Probe: running dispatchSync twice sent 2 HTTP requests.",
+     "routes/console.php:11 calls withoutOverlapping() with the default 1440-minute mutex expiry. If a scheduler container dies mid-run (deploy, OOM), stock:dispatch-sync is blocked on all three servers for 24 hours.",
+     "synced_at uses second precision. An edit in the same second after the rows are read gives updated_at == synced_at, so the change is never re-sent (probe confirmed; the other two have the same issue).",
+     "failed() clears sync_started_at on every id without checking whose claim it is. A stale job that fails after its rows were re-claimed releases the newer claim and causes a duplicate dispatch (probe confirmed). retryUntil makes this rare."
+    ],
+    "antipatterns": [
+     "routes/console.php:11 withoutOverlapping() with no expiry, in a multi-server cron setup",
+     "app/Jobs/PushStockAllocations.php:23 inline \\DateTimeInterface FQN instead of an import",
+     "app/Console/Commands/DispatchStockSync.php:45 runs an empty whereKey([]) update on the last loop iteration",
+     "app/Jobs/PushStockAllocations.php:60-61 missing SKUs get disabled_at but not synced_at, although they were sent"
+    ],
+    "strengths": [
+     "retryUntil is derived from CLAIM_TTL_MINUTES - 1, so rate-limit retries stop before the claim counts as abandoned, and a test pins this",
+     "Claims each group inside a transaction with lockForUpdate and a toBase() update, so updated_at is not bumped",
+     "Modern attributes throughout: #[Signature], #[Scope], #[Fillable], #[Timeout]/#[Backoff]/#[MaxExceptions]",
+     "Good collection use: partition, flatMap higher-order proxy, map->only, modelKeys",
+     "Storefront URL in config/services.php with Http::baseUrl",
+     "Tests are tidy, use describe blocks and travel(), and check the failed-to-redispatch round trip"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 7,
+     "architecture_fit": 8,
+     "modern_laravel": 7,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 7.8,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "synced_at uses second precision. An edit in the same second after $syncedAt is taken gives updated_at == synced_at, so the change is lost (probe confirmed; shared by all three).",
+     "failed() releases sync_started_at on every id unconditionally. A job that only fails after the 15-minute TTL (for example, picked up late past retryUntil) clears a newer job's claim and causes a duplicate dispatch (probe confirmed). retryUntil of 10 minutes makes this an edge case."
+    ],
+    "antipatterns": [
+     "app/Jobs/PushStockAllocations.php:8 unused import of RequestException",
+     "app/Jobs/PushStockAllocations.php:33 retryUntil hard-codes 10 minutes instead of deriving it from StockAllocation::CLAIM_TTL_MINUTES; a comment carries the coupling instead",
+     "app/Models/StockAllocation.php:31 old-style scopeReadyToSync instead of the #[Scope] attribute (available in 13.x)",
+     "app/Models/StockAllocation.php:18 $fillable includes the sync timestamp columns; database/factories/StockAllocationFactory.php:11 redundant $model alongside #[UseFactory]",
+     "app/Jobs/PushStockAllocations.php:18-25 public properties for tries/backoff/maxExceptions/timeout instead of the queue attributes",
+     "tests/Feature/DispatchStockSyncTest.php:32 confusing assertion (equalTo(now()->subDay()) is false) for checking updated_at",
+     "Endpoint is a class constant rather than in config/services.php"
+    ],
+    "strengths": [
+     "Job only processes rows still claimed and not disabled, so redelivered or duplicate SQS messages are harmless (probe: 1 request on double run)",
+     "tries=0 with a bounded retryUntil, maxExceptions and backoff: unlimited 429 releases inside a window shorter than the claim TTL, then failed() frees rows for the next run",
+     "Claims each group in a transaction with lockForUpdate and a toBase() update so updated_at is untouched; jobs are dispatched after commit",
+     "Scheduler uses onOneServer plus withoutOverlapping(10), so a crashed run cannot block for long",
+     "Best test of in-flight edits: the edit happens inside the Http::fake callback, during the request",
+     "Clear tests for 429 Retry-After, 500 throw, failed() requeue and the retryUntil < TTL invariant; preventStrayRequests set globally"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 9,
+     "eloquent_idioms": 9,
+     "architecture_fit": 6,
+     "modern_laravel": 9,
+     "focus_area": 5,
+     "tests": 7,
+     "correctness": 5,
+     "simplicity": 8
+    },
+    "overall": 6,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "Job retry lifetime is not tied to the 15-minute claim TTL. #[Tries(10)] combined with 429 releases of up to 600s and backoff up to 300s lets a job keep retrying well past 15 minutes. The dispatcher then re-claims the rows and dispatches a second job. The old job still passes whereNotNull('sync_started_at') and pushes duplicates, and its later failed() clears the new claim, which triggers yet another dispatch (probe confirmed the claim stomping). This is exactly the rate-limited scenario the task describes.",
+     "synced_at uses second precision, so a same-second edit during the request is lost (probe confirmed; shared by all three).",
+     "app/Providers/AppServiceProvider.php:23 Schedule::useCache('redis') hard-codes the store, so local and dev environments need Redis even when CACHE_STORE is set differently."
+    ],
+    "antipatterns": [
+     "app/Jobs/PushStockAllocations.php:16 Tries/Backoff chosen with no relation to StockAllocation::CLAIM_TIMEOUT_MINUTES",
+     "app/Console/Commands/DispatchStockSync.php:20-26 claims via chunkById with a separate update and no transaction or row lock, so it relies entirely on onOneServer",
+     "app/Jobs/PushStockAllocations.php:29 inline \\DateTimeInterface in the factory, and the job does not skip disabled rows",
+     "tests/Feature/StockAllocationTest.php:147-156 the 'edit made after the rows were read' test edits after the job finishes, so it would pass even if synced_at were taken after the request"
+    ],
+    "strengths": [
+     "Most modern style: #[Scope], #[Fillable], queue attributes #[Tries]/#[MaxExceptions]/#[Backoff]/#[Timeout]",
+     "Concise dispatcher using chunkById + modelKeys + whereKey + toBase() update (safe with chunkById despite filtering on the column being changed)",
+     "Caps the Retry-After delay and falls back to 60s; config-driven storefront URL",
+     "Job is idempotent on redelivery because it checks the claim; updates run in a transaction",
+     "Well-structured Pest tests with describe blocks, dispatch_sync, an idempotency test and 429/500/failed paths"
+    ]
+   },
+   "rationale": "I ran `php artisan test` on all three (17, 20 and 16 tests, all passing), read every added or changed file, and ran six throwaway probes on each, then deleted them. All three share two edge bugs. First, a same-second edit during the HTTP request is lost because timestamps have second precision. Second, failed() clears claims without checking ownership. The ranking comes down to how each one ties queue retries to the 15-minute claim TTL, and whether a job survives SQS delivering it more than once.\n\nimpl-2 gets both right. It uses tries=0 with retryUntil(10 min) below the TTL, plus a claim guard in handle(), so a duplicate delivery sends nothing. It also claims under a transaction with lockForUpdate, sets withoutOverlapping(10), and has the best in-flight-edit test. Its flaws are idiom-level: an unused import, the old scope syntax, a hard-coded 10 instead of a value derived from the TTL, and redundant fillable/model settings.\n\nimpl-1 is the most idiomatic and derives retryUntil from the TTL. However, its job doesn't check the claim, so SQS redelivery causes duplicate pushes (probe: 2 requests). Its withoutOverlapping() also keeps the default 24-hour mutex, which can stop syncing on all servers after a crash.\n\nimpl-3 has the cleanest modern syntax, but nothing bounds its retry lifetime: 10 tries with 429 delays of up to 600s. Under the 429 storms the task describes, jobs outlive the claim. That leads to re-claims, duplicate pushes, and old jobs' failed() releasing newer claims. It also hard-codes Schedule::useCache('redis') and has a weaker in-flight-edit test. That design flaw in the task's focus area puts it last."
+  },
+  "cost_usd": 0.6065128
+ },
+ {
+  "key": "webhook-worker",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 6,
+     "thin_controllers": 4,
+     "validation_form_requests": 3,
+     "eloquent_idioms": 7,
+     "architecture_fit": 5,
+     "modern_laravel": 6,
+     "focus_area": 8,
+     "tests": 7,
+     "correctness": 8,
+     "simplicity": 7
+    },
+    "overall": 6.5,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "A valid event whose `data` is an empty object `{}` gets a 422, because the `required` rule on `data` rejects an empty array (PaymentWebhookController.php:27). It is never stored, so the provider keeps redelivering it. Confirmed with a probe.",
+     "An integer payment_id (e.g. `123`) is treated as a permanent failure (`! is_string($paymentId)`, ProcessWebhookEvent.php:60), so the event is marked failed even though a matching order exists. Confirmed with a probe.",
+     "`WebhookEvent::create` and `dispatch` are not atomic (PaymentWebhookController.php:37-46). If the dispatch fails, the event stays pending for good, and every redelivery is answered 'duplicate' and never processed."
+    ],
+    "antipatterns": [
+     "The controller does the HMAC check and inline `Validator::make` itself, with no middleware and no FormRequest (app/Http/Controllers/PaymentWebhookController.php:16-32).",
+     "The webhook route is in web.php and strips CSRF with `withoutMiddleware(PreventRequestForgery)`, so session/cookie middleware runs on a machine-to-machine endpoint (routes/web.php:8-9).",
+     "`JsonResource::collection($events->through(fn => [...]))` builds arrays inline instead of using a dedicated API Resource (app/Http/Controllers/WebhookEventController.php:25).",
+     "Statuses are string class constants rather than a backed enum with a cast (app/Models/WebhookEvent.php:15-19).",
+     "Empty `app/Http/Middleware` and `app/Http/Resources` directories are left behind.",
+     "A test reaches into the middleware array by index, `middleware()[1]`, and mocks the Job contract (tests/Feature/PaymentWebhookTest.php:200)."
+    ],
+    "strengths": [
+     "Uses MassPrunable with a `model:prune` daily schedule.",
+     "Combines WithoutOverlapping keyed on event_id with the RateLimited `payments-api` limiter (`Limit::perSecond(10)`).",
+     "Sets `tries=0` with `maxExceptions` so rate-limit releases don't use up retries, and `backoff()` returns increasing delays.",
+     "Processing runs in a DB transaction with lockForUpdate. The receipt notification is queued with afterCommit and is guarded so it is only sent once (`alreadyPaid`).",
+     "Separates permanent failures (4xx, unknown order) from retryable ones, and handles 429 Retry-After by releasing the job.",
+     "`markFailed` is a guarded conditional update. The README worker section is solid."
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 9,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 9,
+     "correctness": 8,
+     "simplicity": 6
+    },
+    "overall": 8,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "The webhook FormRequest requires `data.payment_id` (a string) on every event, plus refund fields for refunds (PaymentWebhookRequest.php:18-20). Events of other types, or with integer ids, get a 422 and are never stored, which conflicts with 'store every event'. Confirmed with a probe.",
+     "The handler is not transactional (ProcessWebhookEvent.php:56-70). The receipt is sent before `markReceiptSent` is saved, so a crash in between re-sends the receipt on retry. Order and event updates can also be left partly applied."
+    ],
+    "antipatterns": [
+     "PaymentReceipt is not ShouldQueue, so mail is sent inline inside the job and a mail failure counts as a job exception (app/Notifications/PaymentReceipt.php:10).",
+     "`->afterCommit()` on a dispatch that is outside any transaction does nothing (app/Http/Controllers/PaymentWebhookController.php:20).",
+     "The extra `webhooks:redispatch-stuck` command and its 10-minute schedule add ceremony beyond the brief (app/Console/Commands/RedispatchStuckWebhookEvents.php, routes/console.php:13).",
+     "A test reads the Backoff attribute through reflection, which is brittle (tests/Feature/ProcessWebhookEventTest.php:109)."
+    ],
+    "strengths": [
+     "Uses modern queue attributes, verified in the installed vendor: `#[Backoff]`, `#[MaxExceptions]`, `#[Timeout]`, `#[DeleteWhenMissingModels]`. Uses FailOnException middleware for permanent errors, and `retryUntil` bounds attempts released by the rate limiter.",
+     "Signature check lives in middleware and refuses an empty secret. Uses `createOrFirst` plus `wasRecentlyCreated` for race-safe idempotency.",
+     "Thin controllers with FormRequests, an API Resource, a policy auto-discovered for `can:viewAny`, and enums with casts.",
+     "Receipt deduplication via `receipt_sent_at`, and refunds are idempotent through `firstOrCreate` on `provider_refund_id`.",
+     "Tests are the strongest of the three. They run a real database queue: retry after a 5xx, and 10 requests per second across 12 jobs with time travel. Datasets cover validation, tampered body and empty secret. My probe confirmed that retry exhaustion through the real worker marks the event failed.",
+     "Scheduler uses onOneServer, and the README covers deployment thoroughly (pcntl, retry_after, shared cache)."
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 9,
+     "validation_form_requests": 9,
+     "eloquent_idioms": 9,
+     "architecture_fit": 6,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 9,
+     "correctness": 7,
+     "simplicity": 8
+    },
+    "overall": 7.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "There is no guard against a second receipt. `markPaid` notifies every time a payment.succeeded event is processed, so two distinct succeeded events for the same payment send two receipts, and `paid_at` is overwritten (ProcessWebhookEvent.php:125-130). Confirmed with a probe.",
+     "A valid event with empty `data` `{}` gets a 422 (`required` on an array) and is never stored. An integer payment_id fails permanently (ProcessWebhookEvent.php:63). Confirmed with a probe.",
+     "The README tells workers to run with `--tries=3`, which is misleading: the job's `retryUntil` silently overrides it (README.md, Supervisor block)."
+    ],
+    "antipatterns": [
+     "The admin API route is declared in web.php under a hard-coded `/api/` prefix with session `auth`, instead of an api routes file (routes/web.php:10-12).",
+     "`lockForUpdate` on the event row inside the transaction is redundant alongside WithoutOverlapping (app/Jobs/ProcessWebhookEvent.php:103).",
+     "Currency silently falls back to a hard-coded 'USD' (app/Jobs/ProcessWebhookEvent.php:129,148).",
+     "A global `const SECRET` in a Pest test file pollutes the global namespace (tests/Feature/PaymentWebhookTest.php:20).",
+     "Controllers do not extend the base Controller, which is inconsistent with the app skeleton."
+    ],
+    "strengths": [
+     "The receipt uses ShouldQueueAfterCommit and is sent from inside the transaction, the correct idiom.",
+     "Uses modern job attributes (`#[Backoff]`, `#[MaxExceptions]`, `#[Timeout]`, `#[DeleteWhenMissingModels]`) with `retryUntil`, explained by a single concise comment.",
+     "Clean FormRequests with typed accessors (`$this->enum()`, `$this->integer()`), a `#[Scope]` attribute scope, an API Resource, a policy, and enums.",
+     "`createOrFirst` plus `wasRecentlyCreated` for idempotent ingestion. Signature check is in middleware and rejects an empty secret.",
+     "Real database-queue tests check that backoff delays increase, that exhaustion marks the event failed, the 10 requests/second limit, an end-to-end run, and that an event locked by another worker is skipped.",
+     "Also schedules `queue:prune-failed`. Simpler than impl-2: no extra command."
+    ]
+   },
+   "rationale": "All three suites pass (impl-1 22 tests, impl-2 37, impl-3 31). I probed each implementation and deleted the probe files afterwards.\n\nimpl-2 ranks first. It has the most idiomatic queue setup: attribute-configured job, FailOnException for permanent errors, retryUntil to bound rate-limit releases, WithoutOverlapping, and the RateLimited limiter. Controllers are thin, with FormRequests, a policy and a Resource, and receipts are deduplicated. Its tests are the strongest and run a real database queue. Its weaknesses: the receipt notification is not queued, the handler is not transactional, the webhook FormRequest is too strict and rejects some events, and a stuck-event redispatcher adds unneeded ceremony.\n\nimpl-3 ranks second. Its idioms are about as good (ShouldQueueAfterCommit inside the transaction, #[Scope], typed FormRequest accessors) and it is simpler. However, it has a real duplicate-receipt bug that a probe confirmed, the admin API route is in web.php under a hard-coded /api prefix, and the README's --tries flag is misleading.\n\nimpl-1 ranks third. Its processing logic is correct, and it is the only one of the three that is both transactional and dedupes receipts. But the controller is fat (inline HMAC and Validator::make, no FormRequest or middleware), the webhook route is in web.php with CSRF stripped, it uses string constants instead of enums, the list endpoint uses an inline array resource, and its tests are weaker."
+  },
+  "cost_usd": 1.1111722
+ },
+ {
+  "key": "webhook-worker",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 6,
+     "thin_controllers": 3,
+     "validation_form_requests": 3,
+     "eloquent_idioms": 5,
+     "architecture_fit": 4,
+     "modern_laravel": 4,
+     "focus_area": 7,
+     "tests": 6,
+     "correctness": 5,
+     "simplicity": 6
+    },
+    "overall": 4.5,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "Signature check accepts forged requests when PAYMENTS_WEBHOOK_SECRET is unset: hash_hmac with an empty key is computable by anyone (probe: unset secret plus a signature made with an empty key returned 200) (app/Http/Controllers/PaymentWebhookController.php:18-20)",
+     "Unknown event types are silently marked 'processed' (match default => null) after a needless provider API call, so they never surface as failed (app/Jobs/ProcessWebhookEvent.php:114)",
+     "On Postgres, catching UniqueConstraintViolationException from a plain create() aborts any surrounding transaction. createOrFirst (which uses a savepoint) is the safe idiom (app/Http/Controllers/PaymentWebhookController.php:36-44)"
+    ],
+    "antipatterns": [
+     "Fat controller: HMAC verification, inline Validator::make and a hand-built 422 response all sit in the controller. There is no middleware and no FormRequest (app/Http/Controllers/PaymentWebhookController.php:16-32)",
+     "Webhook route is in web.php with withoutMiddleware(PreventRequestForgery), so every provider call starts a session and sets cookies (routes/web.php:8-9)",
+     "Inline $request->validate plus an array map through JsonResource::collection instead of a FormRequest and an API Resource (app/Http/Controllers/WebhookEventController.php:15-33)",
+     "String constants and literal 'paid'/'payment_failed' strings instead of backed enums with casts (app/Models/WebhookEvent.php:15-19, app/Jobs/ProcessWebhookEvent.php:111-152)",
+     "Legacy job trait set (Dispatchable, InteractsWithQueue, Queueable, SerializesModels) instead of Foundation\\Queue\\Queueable, and properties instead of the queue attributes (app/Jobs/ProcessWebhookEvent.php:23-30)",
+     "Redundant $this->event->fresh(): SerializesModels already re-fetches the model (app/Jobs/ProcessWebhookEvent.php:52)",
+     "Status strings in the Rule::in list are duplicated from the model constants (app/Http/Controllers/WebhookEventController.php:16)",
+     "The rate-limit test mocks the Job contract and calls middleware()[1] by index, which is brittle (tests/Feature/PaymentWebhookTest.php:193-206)",
+     "Empty app/Http/Middleware and app/Http/Resources directories were left behind"
+    ],
+    "strengths": [
+     "Correct WithoutOverlapping plus RateLimited middleware, with maxExceptions and unlimited tries so rate-limit releases don't exhaust attempts",
+     "Honours a 429 Retry-After from the provider by releasing the job",
+     "Order row is locked inside a transaction, and the receipt is sent only on the first transition to paid, so a second succeeded event sends no duplicate receipt",
+     "PaymentReceipt is ShouldQueue with afterCommit",
+     "Concise, accurate README on running workers, with a shared cache, retry_after and the scheduler",
+     "MassPrunable with a daily schedule"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 9,
+     "eloquent_idioms": 9,
+     "architecture_fit": 9,
+     "modern_laravel": 10,
+     "focus_area": 9,
+     "tests": 9,
+     "correctness": 9,
+     "simplicity": 7
+    },
+    "overall": 8.8,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "PaymentReceipt is not queued (no ShouldQueue): mail is sent synchronously inside the worker, so an SMTP failure re-runs the whole job, including the provider API call (app/Notifications/PaymentReceipt.php:10)",
+     "Ingress rejects a numeric data.payment_id with 422 because of the 'string' rule, so a provider that sends numeric IDs would be dropped (app/Http/Requests/PaymentWebhookRequest.php:18)"
+    ],
+    "antipatterns": [
+     "The extra webhooks:redispatch-stuck command with --dry-run/--limit options goes beyond the brief. It is useful, but adds ceremony (app/Console/Commands/RedispatchStuckWebhookEvents.php)",
+     "markPaid, notify and markReceiptSent run outside one transaction, while the refund path does use DB::transaction, so the two paths are inconsistent (app/Jobs/ProcessWebhookEvent.php:81-100)",
+     "Leftover base stub function something() kept in tests/Pest.php (tests/Pest.php:47)"
+    ],
+    "strengths": [
+     "Idiomatic, thin ingestion: signature middleware, a FormRequest, createOrFirst and wasRecentlyCreated, dispatch()->afterCommit()",
+     "Rejects an empty configured secret explicitly (VerifyPaymentWebhookSignature.php:17)",
+     "Modern Laravel 13 job: #[Backoff], #[MaxExceptions], #[Timeout], #[DeleteWhenMissingModels], plus retryUntil so releases don't burn tries",
+     "FailOnException middleware fails 4xx (except 429) and domain errors at once, while 5xx and connection errors retry with backoff",
+     "WithoutOverlapping keyed per event, plus a shared RateLimited('payments-api') with Limit::perSecond(10)",
+     "Enums with casts, intention-revealing model methods (markPaid, refund), and an idempotent refund via firstOrCreate on provider_refund_id",
+     "Receipt idempotency through receipt_sent_at",
+     "Policy and can middleware, an API Resource, a validated per_page, and paginate()->withQueryString()",
+     "MassPrunable plus a model:prune schedule with onOneServer and withoutOverlapping",
+     "Tests run through the real database queue to prove the 5xx retry and the 10/s limit. They also cover 404, an unknown type, an unknown order, prune boundaries and policy",
+     "Best README: Supervisor config, shared cache, pcntl, retry_after versus timeout, queue:restart, scheduler"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 7,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 9,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 8,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "GET /api/webhook-events is registered in web.php behind session 'auth'. A guest request without an Accept: application/json header returns 500, because Route [login] is not defined (probe confirmed) (routes/web.php:10-11)",
+     "Two distinct payment.succeeded events for the same order send two receipts. There is no already-paid or receipt-sent guard, and paid_at is overwritten each time (app/Jobs/ProcessWebhookEvent.php:125-130)",
+     "The README tells you to run queue:work --tries=3, which contradicts the job's retryUntil/MaxExceptions design and the README's own claim of 6 exceptions or 2 hours (README.md worker block)",
+     "OrderFactory has no user_id even though orders.user_id is a required FK, so Order::factory()->create() fails unless ->for(User) is chained (database/factories/OrderFactory.php:15-19)"
+    ],
+    "antipatterns": [
+     "An /api/* endpoint defined in routes/web.php with session auth instead of routes/api.php (routes/web.php:10)",
+     "Payment currency silently falls back to a hardcoded 'USD' (app/Jobs/ProcessWebhookEvent.php:129,148)",
+     "An ad-hoc try/catch plus $this->fail() instead of the FailOnException middleware available in this version (app/Jobs/ProcessWebhookEvent.php:58-68)",
+     "Inline comment explaining retryUntil versus tries restates framework knowledge (app/Jobs/ProcessWebhookEvent.php:44)"
+    ],
+    "strengths": [
+     "Thin controller with a FormRequest and createOrFirst/wasRecentlyCreated, and a signature middleware that rejects an empty secret",
+     "Modern job: queue attributes (#[Backoff], #[MaxExceptions], #[Timeout], #[DeleteWhenMissingModels]), retryUntil, and per-event WithoutOverlapping plus a RateLimited limiter",
+     "Re-checks the Processed status under lockForUpdate inside the transaction, then locks the Order. This is a strong exactly-once guarantee",
+     "PaymentReceipt implements ShouldQueueAfterCommit, the most idiomatic option",
+     "Separates retryable 5xx/429 from permanent 4xx in a dedicated method",
+     "#[Scope] attribute, enum request helpers ($this->enum, $this->integer), and an API Resource",
+     "Excellent tests: verifies that backoff delays increase via jobs.available_at, exhausts retries through the real database worker, skips a held overlap lock, and enforces the 10/s rate limit through the worker",
+     "Schedules queue:prune-failed in addition to model:prune"
+    ]
+   },
+   "rationale": "All three suites pass (impl-2: 37 tests, impl-3: 31, impl-1: 22). I ran throwaway probes against each one and deleted them afterwards.\n\nimpl-2 ranks first. Ingestion is thin and idiomatic: signature middleware that rejects an empty secret, a FormRequest, createOrFirst, and dispatch()->afterCommit(). The job uses the modern queue attributes, FailOnException to fail permanent 4xx errors at once, retryUntil, per-event WithoutOverlapping and a shared RateLimited limiter. Receipts and refunds can't be duplicated. A policy, an API Resource and a validated per_page guard the admin list. Its tests prove retries and the 10/s limit through the real database queue, and its README is the most complete. In probes it held up: invalid JSON returns 422, and persistent 5xx errors end with the event marked failed and the error saved. Its only real weakness is that the receipt notification is sent synchronously inside the worker rather than queued, and the extra redispatch command adds some ceremony.\n\nimpl-3 ranks a close second. Its idempotency is excellent (it re-checks the event status under a row lock inside the transaction), it uses ShouldQueueAfterCommit for the receipt, and its retry tests are the strongest of the three. But probes found real problems:\n- An admin /api route lives in web.php behind session auth, and a guest without a JSON Accept header gets a 500.\n- Two separate succeeded events for the same order send two receipts.\n- The README's --tries=3 contradicts the job's own retry design.\n- The Order factory is missing its required user_id.\n\nimpl-1 ranks last. Probes confirmed a security bug: with no secret configured, it accepts requests signed with an empty key (forged requests return 200). Unknown event types are silently marked processed. The controller does signature checking and validation inline with no middleware or FormRequest, the webhook route sits in web.php with the CSRF check removed, statuses are strings instead of enums, and it uses the old job traits. Its queue mechanics (WithoutOverlapping, RateLimited, maxExceptions, honouring 429 Retry-After, afterCommit receipt) are sound, but the bugs and non-idiomatic structure put it third."
+  },
+  "cost_usd": 1.198688
+ }
+]
