@@ -1,7 +1,7 @@
 {
   "name": "laravel-idioms",
-  "version": "0.2.1",
-  "description": "Idiomatic modern Laravel (11-13) for coding agents: thin controllers, FormRequests, Eloquent, queues, caching, Blade, Filament 5, Pest 5, plus a codebase audit mode with an HTML refactor report.",
+  "version": "0.3.0",
+  "description": "Idiomatic modern Laravel (11-13) for coding agents: thin controllers, FormRequests, API auth, Eloquent, migrations, races, queues, scheduler, commands, uploads, HTTP client, events, caching, Blade, Filament 5, Pest 5, plus a codebase audit mode with an HTML refactor report.",
   "author": {
     "name": "Alf Henderson"
   },
