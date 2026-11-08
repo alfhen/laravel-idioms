@@ -17,4 +17,4 @@ Judging rounds:
 - `round2/rep1`, `round2/rep2`: `prev`, `mid` (and `plain` in replicate 1).
 - `round3/rep1`, `round3/rep2`: `prev`, `skill` (and `plain` in replicate 1).
 
-`hidden.json` holds the hidden behavioural test results per build, `builds.json` the per-build cost, time, skills fired and reference files read, and `static.json` the `static.py` counts. `trigger/` holds two full Haiku triggering rounds each for `main` and this branch, and `audit-scores.json` the audit trap runs (`main`, `head` = the draft, `final` = this PR). Each `tables.md` is the expected `aggregate.py` output for its replicate, and CI checks it.
+`hidden.json` holds the hidden behavioural test results per build, `builds.json` the per-build cost, time, skills fired and reference files read, and `static.json` the `static.py` counts. `trigger/` holds two full Haiku triggering rounds each for `main` and this branch, and `audit-scores.json` the audit trap runs (`main`, `head` = the draft, `final` = this PR). Each replicate's `judgements.json` holds its 46 judgements, and its `tables.md` is the expected `aggregate.py` output for its replicate, and CI checks it.

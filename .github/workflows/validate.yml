@@ -58,7 +58,7 @@ jobs:
           done
           r=eval/results/races-round
           for run in round1/rep1 round2/rep1 round2/rep2 round3/rep1 round3/rep2; do
-            python3 eval/aggregate.py --judgements $r/$run/judgements --mapping $r/$run/mapping.json \
+            python3 eval/aggregate.py --judgements $r/$run/judgements.json --mapping $r/$run/mapping.json \
               --builds $r/builds.json --hidden $r/hidden.json \
               | diff -u $r/$run/tables.md -
           done
