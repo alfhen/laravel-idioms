@@ -12,7 +12,7 @@ $table->foreignId('customer_id')->nullable()->constrained()->nullOnDelete();
 ```
 - Column and FK chains are not type-checked. `Fluent` turns any unknown or misordered method into a silent attribute. Put every column modifier (`nullable`, `default`, `after`, `unsigned`) before `constrained()`, because `constrained()` returns the FK definition, not the column.
 - Start an FK column from `foreignId()`, `foreignUuid()`, `foreignUlid()` or `foreignIdFor()`. Never chain `foreignId()` or `constrained()` onto `integer()` or `unsignedBigInteger()`. A plain `unsignedBigInteger()` plus an explicit `$table->foreign()->references()->on()` is valid for an odd column name.
-- Match the parent's key type. `foreignId()` is `UNSIGNED BIGINT`. For a UUID or ULID parent use `foreignUuid()` / `foreignUlid()`. `foreignIdFor(Customer::class)` (and `foreignUuidFor`, `foreignUlidFor`) read the model's key type, table and key name, so a bare `->constrained()` works even for a column named `created_by`.
+- Match the parent's key type. `foreignId()` is `UNSIGNED BIGINT`. For a UUID or ULID parent use `foreignUuid()` / `foreignUlid()`. `foreignIdFor(Customer::class)` (and, from Laravel 13, `foreignUuidFor` and `foreignUlidFor`; on 11 and 12 use `foreignUuid('customer_id')->constrained()`) read the model's key type, table and key name, so a bare `->constrained()` works even for a column named `created_by`.
 - With `foreignId('owner_id')` the table is guessed from the name (`owners`). Pass the table when the name does not follow `{singular}_id`: `->constrained('users')`.
 - After writing the migration, run `php artisan migrate --pretend` and check the `foreign key` clause and `null` / `not null` in the SQL.
 
@@ -70,7 +70,7 @@ DB::table('customers')->whereNull('currency')->update(['currency' => 'USD']);
 // good: row-dependent values, paged by key (safe while updating the filtered rows)
 DB::table('customers')->whereNull('slug')->chunkById(1000, function ($rows) {
     foreach ($rows as $row) {
-        DB::table('customers')->where('id', $row->id)->update(['slug' => Str::slug($row->name)]);
+        DB::table('customers')->where('id', $row->id)->whereNull('slug')->update(['slug' => Str::slug($row->name)]);   // keep a slug the app wrote meanwhile
     }
 });
 ```

@@ -179,7 +179,7 @@ $user->saveQuietly();
 $user->posts()->createQuietly([...]);
 User::withoutEvents(fn () => User::findOrFail(1)->delete());
 ```
-Observers over `User::observe()` in a provider; closures in `booted()` only for one-liners. Model events fire only for instance `save()`/`delete()`. `upsert()`, `insert()`/`insertOrIgnore()`, builder `update()`/`delete()`/`increment()`, `DB::table()`, `MassPrunable`, pivot `attach()`/`detach()` without a pivot model, `saveQuietly()` and `withoutEvents()` fire none. For a field that must be right on every path, use an `Attribute` mutator or cast, or a database constraint or generated column.
+Observers over `User::observe()` in a provider; closures in `booted()` only for one-liners. Model events fire only for instance `save()`/`delete()`. `upsert()`, `insert()`/`insertOrIgnore()`, builder `update()`/`delete()`/`increment()`, `DB::table()`, `MassPrunable`, pivot `attach()`/`detach()` without a pivot model, `saveQuietly()` and `withoutEvents()` fire none. Mass writes skip mutators and casts too, so for a field that must be right on every path, use a database constraint or generated column, or make every write path set it explicitly.
 
 ## Lifecycle traits
 

@@ -45,7 +45,7 @@ public function handle(PaymentGateway $gateway): void
     $this->order->update(['charged_at' => now()]);
 }
 ```
-- Key writes on a natural key (`firstOrCreate`/`updateOrCreate` over a unique index that must exist), not a blind `create()`. That makes the row idempotent for absolute values only: the update branch is a plain `fill()->save()`, so a redelivered "add points" job still adds twice. Accumulators use `incrementOrCreate()` or a conditional update on a claimed row.
+- Key writes on a natural key (`firstOrCreate`/`updateOrCreate` over a unique index that must exist), not a blind `create()`. That makes the row idempotent for absolute values only: the update branch is a plain `fill()->save()`, so a redelivered "add points" job still adds twice. An accumulator first claims the delivery (a unique delivery or event id, `insertOrIgnore() === 1`) and applies the increment in the same transaction: `incrementOrCreate()` alone adds again on every redelivery.
 - The externally visible effect (mail, payment, coupon) goes last, behind a persisted marker.
 
 ## Failures: throw, don't log-and-return
