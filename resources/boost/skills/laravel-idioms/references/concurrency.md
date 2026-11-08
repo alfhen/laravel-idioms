@@ -93,7 +93,7 @@ $c = DB::table('counters')->where('org_id', $id)->lockForUpdate()->first();
 
 - Use the closure form `DB::transaction(fn () => ...)`. After `DB::beginTransaction()`, an early return, `abort()` or exception leaves it open. Under FPM the connection closes and the work rolls back. In a queue worker or Octane it leaks into later writes.
 - `DB::transaction($fn, 3)` retries only on concurrency errors (deadlock, SQLSTATE 40001, lock wait timeout, SQLite "database is locked", a few more) and re-runs the whole closure. Nothing else is retried. Set attempts on the outermost transaction that takes locks. A nested transaction with attempts does not retry: it throws `DeadlockException` to the outer one.
-- So the closure holds only database work: no HTTP, mail, dispatch, cache or file writes. Run those after it returns, or with `DB::afterCommit(fn () => ...)` (runs at once outside a transaction, discarded on rollback). Observer methods `creating`, `updating`, `saving`, `deleting` are not deferred by `ShouldHandleEventsAfterCommit`.
+- So the closure holds only database work: no HTTP, mail, dispatch, cache or file writes. Run those after it returns, or with `DB::afterCommit(fn () => ...)` (runs at once outside a transaction, discarded on rollback). Observer methods `creating`, `updating`, `saving`, `deleting` are not deferred by `ShouldHandleEventsAfterCommit` from Laravel 12.54; before that they are.
 ```php
 $order = DB::transaction(function () use ($ids) {
     $rows = Stock::whereIn('id', $ids)->orderBy('id')->lockForUpdate()->get();
