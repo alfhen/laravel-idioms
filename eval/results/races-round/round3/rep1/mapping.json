@@ -1,0 +1,104 @@
+{
+ "coupon-redeem": {
+  "impl-1": "prev",
+  "impl-2": "skill",
+  "impl-3": "plain"
+ },
+ "orders-api": {
+  "impl-1": "skill",
+  "impl-2": "plain",
+  "impl-3": "prev"
+ },
+ "stock-csv-import": {
+  "impl-1": "skill",
+  "impl-2": "prev",
+  "impl-3": "plain"
+ },
+ "document-vault": {
+  "impl-1": "plain",
+  "impl-2": "prev",
+  "impl-3": "skill"
+ },
+ "orders-customer-link": {
+  "impl-1": "plain",
+  "impl-2": "skill",
+  "impl-3": "prev"
+ },
+ "carrier-quote": {
+  "impl-1": "prev",
+  "impl-2": "plain",
+  "impl-3": "skill"
+ },
+ "ship-order": {
+  "impl-1": "prev",
+  "impl-2": "skill",
+  "impl-3": "plain"
+ },
+ "token-login": {
+  "impl-1": "skill",
+  "impl-2": "plain",
+  "impl-3": "prev"
+ },
+ "thread-mentions": {
+  "impl-1": "skill",
+  "impl-2": "prev",
+  "impl-3": "plain"
+ },
+ "profile-nickname": {
+  "impl-1": "plain",
+  "impl-2": "prev",
+  "impl-3": "skill"
+ },
+ "sales-report": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "blog-crud": {
+  "impl-1": "prev",
+  "impl-2": "skill"
+ },
+ "csv-import": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "blade-catalogue": {
+  "impl-1": "prev",
+  "impl-2": "skill"
+ },
+ "caching": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "webhook-worker": {
+  "impl-1": "prev",
+  "impl-2": "skill"
+ },
+ "shipment-sync": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "statement-batch": {
+  "impl-1": "prev",
+  "impl-2": "skill"
+ },
+ "scheduled-reports": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "export-purge-command": {
+  "impl-1": "prev",
+  "impl-2": "skill"
+ },
+ "stock-sync-dispatcher": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "queue-bugfix": {
+  "impl-1": "prev",
+  "impl-2": "skill"
+ },
+ "inactive-count": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ }
+}

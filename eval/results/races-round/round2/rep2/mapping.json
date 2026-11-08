@@ -1,0 +1,94 @@
+{
+ "coupon-redeem": {
+  "impl-1": "mid",
+  "impl-2": "prev"
+ },
+ "orders-api": {
+  "impl-1": "prev",
+  "impl-2": "mid"
+ },
+ "stock-csv-import": {
+  "impl-1": "mid",
+  "impl-2": "prev"
+ },
+ "document-vault": {
+  "impl-1": "prev",
+  "impl-2": "mid"
+ },
+ "orders-customer-link": {
+  "impl-1": "mid",
+  "impl-2": "prev"
+ },
+ "carrier-quote": {
+  "impl-1": "prev",
+  "impl-2": "mid"
+ },
+ "ship-order": {
+  "impl-1": "mid",
+  "impl-2": "prev"
+ },
+ "token-login": {
+  "impl-1": "prev",
+  "impl-2": "mid"
+ },
+ "thread-mentions": {
+  "impl-1": "mid",
+  "impl-2": "prev"
+ },
+ "profile-nickname": {
+  "impl-1": "prev",
+  "impl-2": "mid"
+ },
+ "sales-report": {
+  "impl-1": "mid",
+  "impl-2": "prev"
+ },
+ "blog-crud": {
+  "impl-1": "prev",
+  "impl-2": "mid"
+ },
+ "csv-import": {
+  "impl-1": "mid",
+  "impl-2": "prev"
+ },
+ "blade-catalogue": {
+  "impl-1": "prev",
+  "impl-2": "mid"
+ },
+ "caching": {
+  "impl-1": "mid",
+  "impl-2": "prev"
+ },
+ "webhook-worker": {
+  "impl-1": "prev",
+  "impl-2": "mid"
+ },
+ "shipment-sync": {
+  "impl-1": "mid",
+  "impl-2": "prev"
+ },
+ "statement-batch": {
+  "impl-1": "prev",
+  "impl-2": "mid"
+ },
+ "scheduled-reports": {
+  "impl-1": "mid",
+  "impl-2": "prev"
+ },
+ "export-purge-command": {
+  "impl-1": "prev",
+  "impl-2": "mid"
+ },
+ "stock-sync-dispatcher": {
+  "impl-1": "mid",
+  "impl-2": "prev"
+ },
+ "queue-bugfix": {
+  "impl-1": "prev",
+  "impl-2": "mid"
+ },
+ "inactive-count": {
+  "impl-1": "mid",
+  "impl-2": "prev"
+ }
+}
