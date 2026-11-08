@@ -47,7 +47,7 @@ final class OrderShipped extends Notification implements ShouldQueueAfterCommit
 }
 ```
 - `ShouldHandleEventsAfterCommit` on a queued listener does nothing. `PendingMail` (`Mail::to()`) has no `afterCommit()`: the method lives on the mailable via `Queueable`.
-- Synchronous before-events (`creating`, `updating`, `saving`, `deleting`, `restoring`, `forceDeleting`) ignore every after-commit switch and always run inside the transaction. A queued observer (`ShouldQueue`/`ShouldQueueAfterCommit`) is picked before that check, so its `creating()` runs later on a worker and can neither set fields nor veto the write: keep before-event invariants synchronous. Do side effects (jobs, HTTP, cache) in `created`/`updated`/`deleted`. A `deleting` handler that dispatches also fires when the delete is later aborted or rolled back. Snapshot what you need and act in `deleted()`.
+- Synchronous observer methods for before-events (`creating`, `updating`, `saving`, `deleting`, `restoring`, `forceDeleting`) ignore every after-commit switch and always run inside the transaction. Never map a before-event through `$dispatchesEvents` to an event class with `ShouldDispatchAfterCommit`: its listeners are then deferred too. A queued observer (`ShouldQueue`/`ShouldQueueAfterCommit`) is picked before that check, so its `creating()` runs later on a worker and can neither set fields nor veto the write: keep before-event invariants synchronous. Do side effects (jobs, HTTP, cache) in `created`/`updated`/`deleted`. A `deleting` handler that dispatches also fires when the delete is later aborted or rolled back. Snapshot what you need and act in `deleted()`.
 - With hand-rolled `DB::beginTransaction()`, dispatch after `DB::commit()` and roll back on every early return. Prefer the closure form.
 - An observer that waits for commit reads changes with `wasChanged('col')` / `getChanges()`. It runs after `syncOriginal()`, so `isDirty()` is false and `getOriginal('col')` already returns the new value. In a `RefreshDatabase` test only the wrapper transaction is open, so the callback runs at once and `isDirty()` still passes. `wasChanged()` is right in both cases. In a plain sync `updated()`, `isDirty()` works.
 
@@ -104,7 +104,7 @@ final class FetchOrderHistory implements ShouldQueueAfterCommit
 ```php
 public function via(object $notifiable): array
 {
-    return $notifiable->email ? ['mail', 'database'] : ['database'];   // queued: runs at dispatch, keep it cheap
+    return $notifiable->routeNotificationFor('mail', $this) ? ['mail', 'database'] : ['database'];   // queued: runs at dispatch, keep it cheap
 }
 
 public function shouldSend(object $notifiable, string $channel): bool
@@ -113,7 +113,7 @@ public function shouldSend(object $notifiable, string $channel): bool
 }
 ```
 - Notifications and mailables are `ShouldQueue`, unless the call already runs in a worker. A sync `notify()` or `Notification::send($many)` sends inline, one notifiable at a time, and the first exception aborts the loop. A single critical mail that should fail the request (a sync password reset) is the exception. Large audiences fan out from a job (see `queues-and-workers.md`).
-- The mail channel silently skips a notifiable with no routable email. Drop only `mail` from `via()` for that case (as above), so the other channels still send.
+- The mail channel silently skips a notifiable with no routable email. Drop only `mail` from `via()` when `routeNotificationFor('mail')` is empty (as above, so a custom `routeNotificationForMail()` still counts), and the other channels still send. A `toMail()` that returns a `Mailable` with its own `to()` doesn't need the route.
 - The `database` channel needs the table: `php artisan make:notifications-table && php artisan migrate`. The skeleton ships no migration. `toDatabase()` wins over `toArray()`.
 - `Notification::route('mail', $email)` makes an `AnonymousNotifiable`: no locale preference, and `route('database', ...)` throws `InvalidArgumentException`.
 - `NotificationSent` and `NotificationFailed` fire per channel and attempt.

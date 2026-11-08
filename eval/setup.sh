@@ -53,7 +53,8 @@ fi
 
 # Sanctum pre-installed (install:api + HasApiTokens), so API tasks start equal in every arm.
 install_api() {
-    php artisan install:api --no-interaction >/dev/null
+    php artisan install:api --no-interaction >/dev/null || return 1
+    test -f config/sanctum.php && test -d vendor/laravel/sanctum || return 1
     sed -i.bak -e 's/^use Illuminate\\Notifications\\Notifiable;/&\nuse Laravel\\Sanctum\\HasApiTokens;/' \
         -e 's/use HasFactory, Notifiable;/use HasApiTokens, HasFactory, Notifiable;/' app/Models/User.php
     rm app/Models/User.php.bak

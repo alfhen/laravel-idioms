@@ -18,7 +18,7 @@ if ($booking->wasRecentlyCreated) {
 }
 ```
 - The claim is one of: `createOrFirst()` + `wasRecentlyCreated`, `insertOrIgnore() === 1`, or `where('status', 'pending')->update([...]) === 1`. Charge, send or dispatch only after it succeeded.
-- A queued dispatch after the claim can still be lost if the process dies between them. If that is unacceptable, use an outbox row written in the claim's transaction, or claim and enqueue in one `DB::transaction()` on a `database` queue that uses the same connection as the claim and inserts the job before the commit (no `after_commit` on that connection or the dispatch). With Redis, `->afterCommit()` gives at-most-once.
+- A queued dispatch after the claim can still be lost if the process dies between them. If that is unacceptable, use an outbox row written in the claim's transaction, or claim and enqueue in one `DB::transaction()` on a `database` queue that uses the same connection as the claim and inserts the job before the commit (no `after_commit` on that connection or the dispatch). With Redis, `->afterCommit()` only stops the job being queued for a rolled-back claim: the dispatch can still be lost after the commit, and a queued job can run more than once (a worker crash, a retry), so the job's effects must be idempotent too.
 
 ## Unique index as the guard
 

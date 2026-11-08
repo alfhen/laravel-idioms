@@ -49,7 +49,7 @@ CHECKS = [
     ('mimes:csv without txt', 'app', r"mimes:csv(?!,txt)['\]]"),
     ('Mail::to(collection)', 'app', r'Mail::to\(\$\w+s\)'),
     # a model queried in a migration; imports and ::class for foreignIdFor() don't count
-    ('model query in migration', 'database/migrations', r'(?<![\w\\])\\?(?:[A-Za-z]\w*\\)*(?!Schema\b|DB\b|Str\b|Arr\b|Carbon\b)[A-Z]\w*::(?:query|where\w*|all|each|chunk\w*|lazy\w*|update|find\w*|first\w*|create)\('),
+    ('model query in migration', 'database/migrations', r'(?<![\w\\])\\?(?:[A-Za-z]\w*\\)*(?!Schema\b|DB\b|Str\b|Arr\b|Carbon\b)[A-Z]\w*::(?:query|where\w*|all|get|pluck|value|count|cursor|each|chunk\w*|lazy\w*|update|find\w*|first\w*|create)\('),
     ('manual beginTransaction', 'app', r'DB::beginTransaction\('),
     ('signedRoute without expiry', 'app', r'URL::signedRoute\('),
     # round 6: over-application (count on the probe and regression tasks)
