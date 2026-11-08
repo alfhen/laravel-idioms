@@ -13,9 +13,9 @@ The 11+ `app/` ships only `Http/Controllers/Controller.php` (empty abstract clas
 | `app/Console/Kernel.php` | `Schedule::` in `routes/console.php` (or `->withSchedule()`); commands auto-discovered from `app/Console/Commands`. A leftover `Kernel::schedule()` is dead only once `bootstrap/app.php` uses `Application::configure()`; an upgraded app that still binds `App\Console\Kernel` keeps running it |
 | `RouteServiceProvider` | `->withRouting(web:, api:, commands:, health:, apiPrefix:)` |
 | `AuthServiceProvider` / `$policies` | policy auto-discovery, `#[UsePolicy]`, `Gate::policy()` in `AppServiceProvider` |
-| `EventServiceProvider` / `$listen` | listener discovery from `app/Listeners` |
+| `EventServiceProvider` / `$listen` | listener discovery from `app/Listeners` (on by default under `Application::configure()`, which registers the framework's discovering provider even when the app also has its own `EventServiceProvider` subclass, so listing a discovered listener in `$listen` runs it twice; `withEvents(discover: false)` turns discovery off; an old bootstrap without `Application::configure()` discovers nothing and needs `$listen` or `Event::listen()`) |
 | providers in `config/app.php` | `bootstrap/providers.php` |
-| `routes/api.php` by hand | `php artisan install:api` (installs Sanctum, wires `api:`) |
+| `routes/api.php` by hand | `php artisan install:api` (installs Sanctum, or Passport with `--passport`, and wires `api:`; it does not enable `statefulApi()` or throttling, define an `api` limiter or guard, or add `HasApiTokens` to `User`) |
 | `routes/channels.php` by hand | `php artisan install:broadcasting` |
 | missing config file by hand | `php artisan config:publish <name>` |
 | middleware stubs (`TrustProxies`, `EncryptCookies`, `TrimStrings`, `RedirectIfAuthenticated`, `VerifyCsrfToken`) | `$middleware->trustProxies()`, `encryptCookies(except:)`, `redirectGuestsTo()`, `redirectUsersTo()`, `preventRequestForgery(except:)` |
@@ -119,4 +119,4 @@ $status = $request->enum('status', ServerStatus::class);
 Post::whereRelation('comments', 'is_approved', true)->get();
 ```
 
-Evidence: `laravel/laravel/bootstrap/app.php`, `bootstrap/providers.php`, `app/Models/User.php`; `Illuminate/Foundation/Configuration/{ApplicationBuilder,Middleware,Exceptions}.php`; `laravel/docs/upgrade.md`, `releases.md`, `structure.md`.
+Evidence: `laravel/laravel/bootstrap/app.php`, `bootstrap/providers.php`, `app/Models/User.php`; `Illuminate/Foundation/Configuration/{ApplicationBuilder,Middleware,Exceptions}.php`, `Illuminate/Foundation/Console/ApiInstallCommand.php`, `Illuminate/Foundation/Support/Providers/EventServiceProvider.php`; `laravel/docs/upgrade.md`, `releases.md`, `structure.md`.

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds the base apps and one copy per setup ("arm") under $WORK:
-#   bases:  base (PHPUnit), base-pest, base-filament, base-queue-bugfix (base-pest + fixtures/queue-bugfix)
+#   bases:  base (PHPUnit), base-pest, base-filament, base-queue-bugfix (base-pest + fixtures/queue-bugfix),
+#           base-api (base-pest + Sanctum), base-api-phpunit (base + Sanctum), base-orders-schema (+ fixtures/orders-schema)
 #   arms:   plain, skill, boost, both, augment  ×  each base
 # ARMS and BASES (space-separated) limit what is built. The arm "prev" holds the skill as it was at the git ref
 # $PREV_REF (default: the latest v* tag), for comparing a change against the released skill.
@@ -10,7 +11,7 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="${WORK:-$REPO/eval/.work}"
 LARAVEL="${LARAVEL:-laravel/laravel:^13.0}"
 SKILL="$REPO/resources/boost/skills/laravel-idioms"
-read -r -a BASES <<< "${BASES:-base base-pest base-filament base-queue-bugfix}"
+read -r -a BASES <<< "${BASES:-base base-pest base-filament base-queue-bugfix base-api base-api-phpunit base-orders-schema}"
 read -r -a ARMS <<< "${ARMS:-plain skill boost both augment}"
 
 wants() { [[ " ${ARMS[*]} " == *" $1 "* ]]; }
@@ -48,6 +49,32 @@ if wants_base base-queue-bugfix && [ ! -d base-queue-bugfix ]; then
     cp -R base-pest base-queue-bugfix
     rsync -a "$REPO/eval/fixtures/queue-bugfix/" base-queue-bugfix/
     (cd base-queue-bugfix && composer dump-autoload -q && php artisan test >/dev/null)
+fi
+
+# Sanctum pre-installed (install:api + HasApiTokens), so API tasks start equal in every arm.
+install_api() {
+    php artisan install:api --no-interaction >/dev/null || return 1
+    test -f config/sanctum.php && test -d vendor/laravel/sanctum || return 1
+    sed -i.bak -e 's/^use Illuminate\\Notifications\\Notifiable;/&\nuse Laravel\\Sanctum\\HasApiTokens;/' \
+        -e 's/use HasFactory, Notifiable;/use HasApiTokens, HasFactory, Notifiable;/' app/Models/User.php
+    rm app/Models/User.php.bak
+    grep -q 'use HasApiTokens, HasFactory, Notifiable;' app/Models/User.php
+}
+
+if wants_base base-api && [ ! -d base-api ]; then
+    cp -R base-pest base-api
+    (cd base-api && install_api && php artisan test >/dev/null) || { rm -rf base-api; exit 1; }
+fi
+
+if { wants_base base-api-phpunit || wants_base base-orders-schema; } && [ ! -d base-api-phpunit ]; then
+    cp -R base base-api-phpunit
+    (cd base-api-phpunit && install_api && php artisan test >/dev/null) || { rm -rf base-api-phpunit; exit 1; }
+fi
+
+if wants_base base-orders-schema && [ ! -d base-orders-schema ]; then
+    cp -R base-api-phpunit base-orders-schema
+    rsync -a "$REPO/eval/fixtures/orders-schema/" base-orders-schema/
+    (cd base-orders-schema && composer dump-autoload -q && php artisan test >/dev/null) || { rm -rf base-orders-schema; exit 1; }
 fi
 
 install_boost() {

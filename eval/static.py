@@ -41,6 +41,21 @@ CHECKS = [
     ('chunk() (not ById)', 'app', r'->chunk\('),
     ('static Pest closure', 'tests', r'(it|test)\([^,]+, static fn'),
     ('raw FK arrays in tests', 'tests', r"'\w+_id' => \$\w+->id"),
+    # round 6: misses
+    ('caught getMessage() in a response', 'app', r'json\(\[[^\]]*\$e(x|xception)?->getMessage\(\)'),
+    ('Http call without timeout', 'app', r'Http::(?![^;]*timeout\()[^;]*->(get|post|put|patch|delete)\('),
+    ('retry() without when', 'app', r'(->|::)retry\(\s*\d+\s*(,\s*\d+\s*)?\)'),
+    ('client filename stored', 'app', r'storeAs\([^;]*getClientOriginal(Name|Extension)\('),
+    ('mimes:csv without txt', 'app', r"mimes:csv(?!,txt)['\]]"),
+    ('Mail::to(collection)', 'app', r'Mail::to\(\$\w+s\)'),
+    # a model queried in a migration; imports and ::class for foreignIdFor() don't count
+    ('model query in migration', 'database/migrations', r'(?<![\w\\])\\?(?:[A-Za-z]\w*\\)*(?!Schema\b|DB\b|Str\b|Arr\b|Carbon\b)[A-Z]\w*::(?:query|where\w*|all|get|pluck|value|count|cursor|each|chunk\w*|lazy\w*|update|find\w*|first\w*|create)\('),
+    ('manual beginTransaction', 'app', r'DB::beginTransaction\('),
+    ('signedRoute without expiry', 'app', r'URL::signedRoute\('),
+    # round 6: over-application (count on the probe and regression tasks)
+    ('lockForUpdate', 'app', r'lockForUpdate\('),
+    ('Cache::lock', 'app', r'Cache::lock\('),
+    ('Idempotency-Key', 'app', r'Idempotency-Key'),
 ]
 
 

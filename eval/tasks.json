@@ -53,7 +53,8 @@
     "pest": true,
     "focus": "Queues/workers: idempotency, uniqueness/WithoutOverlapping, retries/backoff/ThrottlesExceptions, RateLimited middleware, failed(), afterCommit, queued notifications, pruning/scheduling, worker deployment config, Queue/Bus fakes",
     "text": "Ingest payment-provider webhooks. POST /webhooks/payments receives JSON events {id, type, data} with an X-Signature header: HMAC-SHA256 of the raw body using a secret from configuration; invalid or missing signatures get 401. Store every event exactly once by its id (a duplicate delivery returns 200 and is not processed again) and respond quickly; process events in the background. Types: payment.succeeded (mark the Order paid and send the customer a receipt notification), payment.failed (mark the order payment_failed), refund.created (create a Refund and mark the order refunded). While processing, fetch payment details from the provider API GET https://api.payments.test/payments/{payment_id}; that API allows at most 10 requests per second and sometimes returns 5xx errors, so processing must retry with increasing delays, respect the limit, and never process the same event twice at the same time. Events that permanently fail must be marked failed with the error and be visible via GET /api/webhook-events?status=failed (admin only). Add a daily cleanup that deletes processed events older than 30 days. Document in the README how the queue workers must be run in production.",
-    "set": "target"
+    "set": "target",
+    "round": "queues"
   },
   "shipment-sync": {
     "base": "base-pest",
@@ -65,7 +66,8 @@
       "validation_form_requests"
     ],
     "focus": "Background integration with an unreliable partner API: no duplicate shipments, nothing shipped for cancelled orders, transient errors retried without hammering the partner, permanent errors surfaced to ops, checkout stays fast",
-    "text": "Push paid orders to our warehouse partner. Create an Order model (soft-deletable, with a factory) with columns customer_email, shipping_address (text), total_cents, status (pending/paid), shipment_status (nullable: pending/sent/failed), shipment_reference (nullable) and shipment_failure_reason (nullable text). Add `Order::markAsPaid()`, which sets status paid in a database transaction and arranges for the shipment to be created in the background via a queued job `App\\Jobs\\SendOrderToWarehouse` that takes the order in its constructor. The job calls POST {services.warehouse.url}/shipments (default https://warehouse.example.test/api, bearer token services.warehouse.token) with the order id, address and total; a 201 returns {\"id\": \"SHP-...\"}, stored as shipment_reference with shipment_status sent. The partner allows 5 requests per second for our whole account, regularly answers 429 or 5xx for a minute or two and sometimes hangs. A 422 means the address is invalid: mark the shipment failed with the reason so ops can fix it by hand, without retrying. Orders cancelled (soft-deleted) before the job runs must never be shipped. Once the shipment exists, email the customer the mailable `App\\Mail\\ShipmentCreated` exactly once. If a shipment ultimately cannot be created, ops must see shipment_status failed and why."
+    "text": "Push paid orders to our warehouse partner. Create an Order model (soft-deletable, with a factory) with columns customer_email, shipping_address (text), total_cents, status (pending/paid), shipment_status (nullable: pending/sent/failed), shipment_reference (nullable) and shipment_failure_reason (nullable text). Add `Order::markAsPaid()`, which sets status paid in a database transaction and arranges for the shipment to be created in the background via a queued job `App\\Jobs\\SendOrderToWarehouse` that takes the order in its constructor. The job calls POST {services.warehouse.url}/shipments (default https://warehouse.example.test/api, bearer token services.warehouse.token) with the order id, address and total; a 201 returns {\"id\": \"SHP-...\"}, stored as shipment_reference with shipment_status sent. The partner allows 5 requests per second for our whole account, regularly answers 429 or 5xx for a minute or two and sometimes hangs. A 422 means the address is invalid: mark the shipment failed with the reason so ops can fix it by hand, without retrying. Orders cancelled (soft-deleted) before the job runs must never be shipped. Once the shipment exists, email the customer the mailable `App\\Mail\\ShipmentCreated` exactly once. If a shipment ultimately cannot be created, ops must see shipment_status failed and why.",
+    "round": "queues"
   },
   "statement-batch": {
     "base": "base-pest",
@@ -77,7 +79,8 @@
       "validation_form_requests"
     ],
     "focus": "Fan-out background processing of many accounts: one broken account does not stop the rest, the run always reaches a final status with an accurate failure count, slow work kept off the default queue, request side stays fast, queue tables do not grow forever",
-    "text": "Finance wants month-end statements. Create BillingAccount (name, email, active boolean; factory) and StatementRun (status: running/completed/completed_with_errors, total_accounts, failed_accounts default 0, completed_at nullable; factory). Add an invokable action `App\\Actions\\StartStatementRun` whose `__invoke(): StatementRun` creates a run (status running) and starts background processing for every active account, then returns immediately; production has about 40,000 active accounts. For each account, generate the PDF with the class `App\\Services\\StatementGenerator` (create it; `generate(BillingAccount $account): string` returning PDF bytes, a simple placeholder is fine), store it on the `local` disk at `statements/{run id}/{account id}.pdf`, then email the owner the mailable `App\\Mail\\StatementReady` (only after the file exists). PDF generation is slow and must not run on the default queue. One account failing (the generator throws) must not stop the others. When every account has been attempted, set the run to completed, or completed_with_errors with failed_accounts set to the number of accounts that failed, set completed_at, and email config('billing.finance_email') the mailable `App\\Mail\\StatementRunSummary`. We deploy on SQS with Redis as cache."
+    "text": "Finance wants month-end statements. Create BillingAccount (name, email, active boolean; factory) and StatementRun (status: running/completed/completed_with_errors, total_accounts, failed_accounts default 0, completed_at nullable; factory). Add an invokable action `App\\Actions\\StartStatementRun` whose `__invoke(): StatementRun` creates a run (status running) and starts background processing for every active account, then returns immediately; production has about 40,000 active accounts. For each account, generate the PDF with the class `App\\Services\\StatementGenerator` (create it; `generate(BillingAccount $account): string` returning PDF bytes, a simple placeholder is fine), store it on the `local` disk at `statements/{run id}/{account id}.pdf`, then email the owner the mailable `App\\Mail\\StatementReady` (only after the file exists). PDF generation is slow and must not run on the default queue. One account failing (the generator throws) must not stop the others. When every account has been attempted, set the run to completed, or completed_with_errors with failed_accounts set to the number of accounts that failed, set completed_at, and email config('billing.finance_email') the mailable `App\\Mail\\StatementRunSummary`. We deploy on SQS with Redis as cache.",
+    "round": "queues"
   },
   "scheduled-reports": {
     "base": "base-pest",
@@ -89,7 +92,8 @@
       "validation_form_requests"
     ],
     "focus": "Recurring tasks on several servers: each runs exactly once per occurrence at the intended local time, long or crashed runs cannot block or double up, large cleanups stay memory-safe, the schedule is tested",
-    "text": "We run the shop on three app servers behind a load balancer; each runs the scheduler cron, and Redis is the shared cache and queue. The business runs on Copenhagen time. Add three recurring tasks. (1) Every Monday at 07:30 Copenhagen time, run a new command `reports:unshipped` that emails config('warehouse.email') the number of orders still unshipped 48 hours after being placed (create a minimal Order model: placed_at, shipped_at nullable). (2) Every night, run a new command `carts:prune-abandoned` that deletes carts not updated for 30 days (Cart model and factory, table `carts` with timestamps); there can be hundreds of thousands. (3) Every hour, dispatch a new queued job `App\\Jobs\\SyncSupplierStock` (no constructor arguments; a placeholder handle() that would call the supplier API is fine). It can take 20 to 40 minutes when the supplier is slow. Last quarter some tasks ran three times, and after a server was killed mid-run another task did not run again for a day; neither may happen. Add tests, and tell me how to check the schedule from the command line."
+    "text": "We run the shop on three app servers behind a load balancer; each runs the scheduler cron, and Redis is the shared cache and queue. The business runs on Copenhagen time. Add three recurring tasks. (1) Every Monday at 07:30 Copenhagen time, run a new command `reports:unshipped` that emails config('warehouse.email') the number of orders still unshipped 48 hours after being placed (create a minimal Order model: placed_at, shipped_at nullable). (2) Every night, run a new command `carts:prune-abandoned` that deletes carts not updated for 30 days (Cart model and factory, table `carts` with timestamps); there can be hundreds of thousands. (3) Every hour, dispatch a new queued job `App\\Jobs\\SyncSupplierStock` (no constructor arguments; a placeholder handle() that would call the supplier API is fine). It can take 20 to 40 minutes when the supplier is slow. Last quarter some tasks ran three times, and after a server was killed mid-run another task did not run again for a day; neither may happen. Add tests, and tell me how to check the schedule from the command line.",
+    "round": "queues"
   },
   "export-purge-command": {
     "base": "base",
@@ -101,7 +105,8 @@
       "validation_form_requests"
     ],
     "focus": "An operational command that deletes data: safe to run by hand against production, previewable, memory-safe on millions of rows, failures visible to automation through the exit code, safe to schedule on two servers",
-    "text": "Customers can request a CSV export of their data. Create an Export model with factory (table `exports`: id, user_id, path, timestamps); the files live on a new `exports` filesystem disk (local driver, root storage/app/exports). Add the console command `exports:purge` that deletes exports older than a retention period: the file and then the row. The retention is 30 days by default and can be changed with `--days=N`. The table has a few million rows in production. Support runs the command by hand against production when a customer complains, and wants to preview what would be removed with `--dry-run` (nothing is deleted then; print how many would be). In production the command must never delete anything unless the operator confirms it interactively or passes `--force` for unattended runs; when it refuses, it exits with a failure code. If a file cannot be deleted, keep its row so the next run retries it, carry on with the rest, and exit with a failure code so our automation notices. Print how many exports were removed. It must also run unattended every night at 03:00 on our two web servers (shared Redis cache), without overlapping a manual run. Write PHPUnit feature tests."
+    "text": "Customers can request a CSV export of their data. Create an Export model with factory (table `exports`: id, user_id, path, timestamps); the files live on a new `exports` filesystem disk (local driver, root storage/app/exports). Add the console command `exports:purge` that deletes exports older than a retention period: the file and then the row. The retention is 30 days by default and can be changed with `--days=N`. The table has a few million rows in production. Support runs the command by hand against production when a customer complains, and wants to preview what would be removed with `--dry-run` (nothing is deleted then; print how many would be). In production the command must never delete anything unless the operator confirms it interactively or passes `--force` for unattended runs; when it refuses, it exits with a failure code. If a file cannot be deleted, keep its row so the next run retries it, carry on with the rest, and exit with a failure code so our automation notices. Print how many exports were removed. It must also run unattended every night at 03:00 on our two web servers (shared Redis cache), without overlapping a manual run. Write PHPUnit feature tests.",
+    "round": "queues"
   },
   "stock-sync-dispatcher": {
     "base": "base-pest",
@@ -113,7 +118,8 @@
       "validation_form_requests"
     ],
     "focus": "A scheduled dispatcher feeding queued API work: every ready row is sent exactly once per change, abandoned work is picked up again, rate limits and API errors handled without loss, safe on several servers",
-    "text": "Push stock allocations to our storefront. Create a StockAllocation model with factory (table `stock_allocations`: id, sku unique, quantity, sync_started_at nullable, synced_at nullable, disabled_at nullable, timestamps). A row is ready to sync when it is not disabled and has never been synced or was updated after its last sync. Add the command `stock:dispatch-sync`, scheduled every minute, which claims ready rows by setting sync_started_at and dispatches the queued job `App\\Jobs\\PushStockAllocations` in groups of at most 100; the job takes the list of row ids in its constructor and exposes it as the public property `$allocationIds`. A claim older than 15 minutes counts as abandoned and the row is ready again. The job sends POST https://storefront.example.test/api/stock with [{sku, quantity}, ...]; a 200 returns {\"missing\": [skus unknown to the storefront]}. Mark the sent rows synced (synced_at now, sync_started_at cleared) and set disabled_at on missing ones so they are not retried. The API is slow and returns 429 when we exceed its limit. If a job gives up for good, its rows must be picked up again by the next dispatcher run. Peak volume is about 5,000 ready rows; three containers run the scheduler, with Redis as the shared cache and SQS as the queue."
+    "text": "Push stock allocations to our storefront. Create a StockAllocation model with factory (table `stock_allocations`: id, sku unique, quantity, sync_started_at nullable, synced_at nullable, disabled_at nullable, timestamps). A row is ready to sync when it is not disabled and has never been synced or was updated after its last sync. Add the command `stock:dispatch-sync`, scheduled every minute, which claims ready rows by setting sync_started_at and dispatches the queued job `App\\Jobs\\PushStockAllocations` in groups of at most 100; the job takes the list of row ids in its constructor and exposes it as the public property `$allocationIds`. A claim older than 15 minutes counts as abandoned and the row is ready again. The job sends POST https://storefront.example.test/api/stock with [{sku, quantity}, ...]; a 200 returns {\"missing\": [skus unknown to the storefront]}. Mark the sent rows synced (synced_at now, sync_started_at cleared) and set disabled_at on missing ones so they are not retried. The API is slow and returns 429 when we exceed its limit. If a job gives up for good, its rows must be picked up again by the next dispatcher run. Peak volume is about 5,000 ready rows; three containers run the scheduler, with Redis as the shared cache and SQS as the queue.",
+    "round": "queues"
   },
   "queue-bugfix": {
     "base": "base-queue-bugfix",
@@ -125,7 +131,8 @@
       "validation_form_requests"
     ],
     "focus": "Debugging existing background processing: find the root causes behind each symptom and fix them without breaking existing behaviour",
-    "text": "Our app syncs newsletter subscribers to a CRM (see app/Jobs, app/Console/Commands, routes/console.php and the existing tests). Ops reported four problems. 1) When the CRM has an outage, affected subscribers never reach the CRM later, and nothing ever shows up in failed_jobs. 2) While the queue is backed up, the CRM receives the same subscriber many times. 3) After a container was killed during a deploy, the `crm:dispatch-sync` task did not run again for about a day. 4) The nightly `subscribers:normalize-emails` run leaves roughly half of the rows untouched each night. Find the root causes and fix them. Keep the existing behaviour and tests working, and add tests that prove each fix."
+    "text": "Our app syncs newsletter subscribers to a CRM (see app/Jobs, app/Console/Commands, routes/console.php and the existing tests). Ops reported four problems. 1) When the CRM has an outage, affected subscribers never reach the CRM later, and nothing ever shows up in failed_jobs. 2) While the queue is backed up, the CRM receives the same subscriber many times. 3) After a container was killed during a deploy, the `crm:dispatch-sync` task did not run again for about a day. 4) The nightly `subscribers:normalize-emails` run leaves roughly half of the rows untouched each night. Find the root causes and fix them. Keep the existing behaviour and tests working, and add tests that prove each fix.",
+    "round": "queues"
   },
   "inactive-count": {
     "base": "base-pest",
@@ -136,6 +143,125 @@
       "validation_form_requests"
     ],
     "focus": "A small read-only command and a schedule entry: correct, tested and proportionate to the need",
-    "text": "Add a nullable last_login_at column to users. Add an Artisan command `users:inactive-count` that prints how many users have not logged in for the last N days (default 90, configurable with `--days`), counting users who never logged in as inactive. Run it once a day at 06:00 so the number shows up in our logs; we have a single server. Add tests."
+    "text": "Add a nullable last_login_at column to users. Add an Artisan command `users:inactive-count` that prints how many users have not logged in for the last N days (default 90, configurable with `--days`), counting users who never logged in as inactive. Run it once a day at 06:00 so the number shows up in our logs; we have a single server. Add tests.",
+    "round": "queues"
+  },
+  "coupon-redeem": {
+    "base": "base-api-phpunit",
+    "pest": false,
+    "set": "target",
+    "hidden": "eval/hidden/CouponRedeemHiddenTest.php",
+    "focus": "Concurrent writes: a per-user once rule and a hard cap that hold when requests for the same coupon race on several servers, side effects only for the request that actually created the redemption, correct API status codes",
+    "text": "Add coupon redemption to our JSON API (Laravel Sanctum is installed; clients authenticate with bearer tokens). Create `App\\Models\\Coupon` (table `coupons`: `code` unique, `max_redemptions`, `redeemed_count` default 0) and `App\\Models\\CouponRedemption` (table `coupon_redemptions`: `coupon_id`, `user_id`, timestamps), with factories. `POST /api/coupons/{code}/redeem` is for authenticated users. An unknown code gets 404. Each user can redeem a coupon once: the first request returns 201, and repeating it returns 200 with the same redemption instead of creating another. Both return JSON `{\"redemption_id\": int, \"redeemed_count\": int}`. A coupon must never be redeemed more than `max_redemptions` times: once it is used up, other users get 409 with a `message`. Each new redemption dispatches the event `App\\Events\\CouponRedeemed` (its constructor takes the CouponRedemption) exactly once. We run several app servers on MySQL, and mobile clients retry and double-submit, so requests for the same coupon often arrive at the same moment.",
+    "round": "races-api-files"
+  },
+  "orders-api": {
+    "base": "base-api",
+    "pest": true,
+    "set": "target",
+    "hidden": "eval/hidden/OrdersApiHiddenTest.php",
+    "skip_dimensions": [
+      "thin_controllers"
+    ],
+    "focus": "An API for third-party integrations: correct authentication and authorization status codes and JSON bodies for every client, token abilities enforced, no data from other users, no internals in error responses",
+    "text": "Add an orders API for third-party integrations, authenticated with Sanctum personal access tokens (Sanctum is installed; integrations get tokens from `$user->createToken($name, $abilities)` and send them as a bearer token). Create `App\\Models\\Order` (table `orders`: `user_id`, `reference` unique, `total_cents`, timestamps) with a factory. Routes: `GET /api/orders` lists the token owner's orders, newest first, 20 per page; `GET /api/orders/{order}` shows one; `POST /api/orders` (`reference`, `total_cents` integer ≥ 1) creates one and returns 201. Reading needs the token ability `orders:read` and creating needs `orders:write`; a token without the ability gets 403. Nobody may see another user's order: answer 404 for it, the same as for an order that doesn't exist. Many integrations are scripts that send no `Accept` header, and they still need JSON responses with correct status codes. Production runs with APP_DEBUG off, and error responses must not reveal class names or other internals.",
+    "round": "races-api-files"
+  },
+  "stock-csv-import": {
+    "base": "base-api",
+    "pest": true,
+    "set": "target",
+    "hidden": "eval/hidden/StockCsvImportHiddenTest.php",
+    "skip_dimensions": [
+      "thin_controllers"
+    ],
+    "focus": "Importing untrusted files: real-world CSVs from several systems accepted, bad rows reported precisely without blocking good ones, uploads validated, memory and file handles managed",
+    "text": "Add a stock import to our API. `POST /api/stock-imports` (Sanctum-authenticated, multipart field `file`, a CSV of up to 5 MB) upserts rows into a `stock_levels` table (`sku` unique string, `quantity` unsigned integer, timestamps; model `App\\Models\\StockLevel`). Files come from several warehouse systems: the header row names the columns `sku` and `quantity` in any order and letter case, possibly with spaces around them, and a file may start with a UTF-8 byte-order mark and use CRLF or LF line endings. The delimiter is always a comma. Import the valid rows even when other rows are invalid. A row is invalid when it has the wrong number of columns, an empty sku, or a quantity that is not a whole number ≥ 0. Ignore blank lines. Respond 200 with JSON `{\"imported\": int, \"errors\": [{\"line\": int, \"message\": string}]}`, where `line` is the row's line number in the file (the header is line 1, and blank lines count). A file without both headers, or anything that is not a CSV file, gets 422. Importing a sku again updates its quantity.",
+    "round": "races-api-files"
+  },
+  "document-vault": {
+    "base": "base-api-phpunit",
+    "pest": false,
+    "set": "target",
+    "hidden": "eval/hidden/DocumentVaultHiddenTest.php",
+    "skip_dimensions": [
+      "thin_controllers"
+    ],
+    "focus": "Handling confidential uploads: only the allowed file types accepted, files stored safely and privately, download links that cannot be guessed, reused or kept, correct errors",
+    "text": "Add confidential document storage to our API (Sanctum is installed). `POST /api/documents` (multipart: `file` = a PDF, PNG or JPEG up to 5 MB; `title` = string up to 100 characters) stores the file and a `documents` row (`user_id`, `title`, `path`, `original_name`; model `App\\Models\\Document`) and returns 201 with `{\"id\": int}`. Documents are confidential and only their owner may get a download link. `GET /api/documents/{document}/link` returns `{\"url\": string}`: a link that downloads the file as an attachment without logging in (owners email it to their accountant) and stops working after 10 minutes. Another user asking for a link gets 404. If the stored file has gone missing, the link answers 404.",
+    "round": "races-api-files"
+  },
+  "orders-customer-link": {
+    "base": "base-orders-schema",
+    "pest": false,
+    "set": "target",
+    "hidden": "eval/hidden/OrdersCustomerLinkHiddenTest.php",
+    "skip_dimensions": [
+      "thin_controllers",
+      "validation_form_requests"
+    ],
+    "focus": "Changing the schema of a large production table: zero-downtime release, correct foreign key behaviour, a safe and resumable backfill, indexes that fit the queries",
+    "text": "This app runs in production on MySQL 8, and `orders` has 20 million rows. Orders point at customers only through `orders.customer_email`, which old checkouts stored without normalising (mixed case, spaces around it); `customers.email` is always lowercase and trimmed. Ship the first release of linking orders to customers by id. Add `orders.customer_id` referencing `customers`. Customers can be deleted (GDPR), and their orders must stay, detached from the customer. This release must deploy without downtime while the previous app version, which only knows `customer_email`, keeps running, so `customer_email` stays for now. `App\\Actions\\PlaceOrder` sets the new column as well. Add an Artisan command `orders:link-customers` that fills `customer_id` on existing orders by matching the email case-insensitively and ignoring spaces around it. It must be safe to re-run, leave orders whose email matches no customer untouched, and not change `updated_at` (our warehouse sync reads it). Switch `GET /api/customers/{customer}/orders?status=` to the new column. That endpoint is called very often, so make sure the database can answer it efficiently.",
+    "round": "races-api-files"
+  },
+  "carrier-quote": {
+    "base": "base-api",
+    "pest": true,
+    "set": "target",
+    "hidden": "eval/hidden/CarrierQuoteHiddenTest.php",
+    "skip_dimensions": [
+      "thin_controllers"
+    ],
+    "focus": "Calling an unreliable partner API from a request: bounded time, retries only where they help, clean error mapping, a fallback, configuration and tests without real network calls",
+    "text": "Add shipping quotes from our carrier. `GET /api/shipping/quotes?postcode=XXXX` (public; the postcode is 4 digits, anything else gets 422) returns `{\"estimated\": false, \"rates\": [{\"service\": string, \"price_cents\": int}]}` from the carrier, through a class `App\\Services\\CarrierClient` with a method `quote(string $postcode): array` that returns the rates. Its configuration lives in `config/services.php` under `carrier`: `base_url` (default https://carrier.example.test), `key`, and `fallback_cents` (default 995). The carrier's API is `GET {base_url}/v2/rates?postcode=...` with the key as a bearer token, and it returns `{\"rates\": [...]}` in the same shape. For an unknown postcode it answers 404: respond 422 with a `message`. The carrier is flaky: it sometimes answers 5xx or hangs. Our checkout calls this endpoint and must get an answer within 5 seconds. Call the carrier at most 3 times in total per quote, and if it still fails, respond 200 with `{\"estimated\": true, \"rates\": [{\"service\": \"standard\", \"price_cents\": <fallback_cents>}]}`. A 401 from the carrier means our key is wrong: don't retry it, report the error so we get alerted, and serve the fallback.",
+    "round": "races-api-files"
+  },
+  "ship-order": {
+    "base": "base-api",
+    "pest": true,
+    "set": "target",
+    "hidden": "eval/hidden/ShipOrderHiddenTest.php",
+    "skip_dimensions": [
+      "thin_controllers"
+    ],
+    "focus": "Side effects of a state change: email and points exactly once, nothing when the surrounding transaction rolls back, no double shipping under concurrent requests, testable mail",
+    "text": "Staff ship orders through our API (Sanctum is installed). Add a boolean `users.is_staff` (default false) and an unsigned integer `users.points` (default 0). Create `App\\Models\\Order` (`user_id` = the customer, `status` pending/paid/shipped, `total_cents`) and `App\\Models\\OrderShipment` (table `order_shipments`: `order_id` unique, `carrier`, `tracking_number`, timestamps), with factories. Add `Order::ship(string $carrier, string $trackingNumber): OrderShipment`. It marks the order shipped, records the shipment, emails the customer the mailable `App\\Mail\\OrderShipped` (which shows the tracking number), and adds `total_cents / 100` points (rounded down) to the customer. `POST /api/orders/{order}/ship` (body: `carrier`, `tracking_number`) calls it and returns 201. Only staff may call it (others get 403). An order that is already shipped gets 409, and nothing happens again. Back-office tools often call `ship()` inside larger database transactions. If such a transaction rolls back, the customer must not get an email and no points may be added.",
+    "round": "races-api-files"
+  },
+  "token-login": {
+    "base": "base-api",
+    "pest": true,
+    "set": "holdout",
+    "hidden": "eval/hidden/TokenLoginHiddenTest.php",
+    "skip_dimensions": [
+      "thin_controllers"
+    ],
+    "focus": "Issuing and revoking API tokens: correct status codes and JSON bodies for every client, brute-force protection that cannot be bypassed or that blocks the wrong people, no secrets in responses",
+    "text": "Add token login for our mobile app (Sanctum is installed). `POST /api/auth/token` (public; `email`, `password`, `device_name`) returns 201 with `{\"token\": string}`, a Sanctum personal access token, for valid credentials. A missing field gets 422 with validation errors, and a wrong email or password gets 401 with `{\"message\": \"Invalid credentials.\"}`. To slow down password guessing, allow at most 5 attempts per minute for the same email from the same IP address; further attempts get 429. `DELETE /api/auth/token` (authenticated) revokes the token used for that request and returns 204. `GET /api/me` (authenticated) returns the user's `id`, `name` and `email`.",
+    "round": "races-api-files"
+  },
+  "thread-mentions": {
+    "base": "base-api-phpunit",
+    "pest": false,
+    "set": "holdout",
+    "hidden": "eval/hidden/ThreadMentionsHiddenTest.php",
+    "skip_dimensions": [
+      "thin_controllers"
+    ],
+    "focus": "Notifications triggered by a write: the right people notified exactly once each, private emails, nothing sent when the write fails, counters kept correct, tests that prove it",
+    "text": "Add replies with @mentions to discussion threads in our API (Sanctum is installed). Users get a unique, lowercase `username` column (add it, and to the user factory). Create `App\\Models\\Thread` (`user_id`, `title`, `reply_count` default 0) and `App\\Models\\Reply` (`thread_id`, `user_id`, `body`), with factories. `POST /api/threads/{thread}/replies` (authenticated; `body` = required string up to 2000 characters) creates a reply, increments `threads.reply_count` and returns 201 with `{\"id\": int}`. Every distinct `@username` in the body (matched case-insensitively) that names an existing user other than the reply's author gets one email, the mailable `App\\Mail\\MentionedInReply`, addressed only to them, and one database notification, `App\\Notifications\\MentionedInReply`, stored in the standard `notifications` table. Unknown usernames are ignored. If storing the reply fails, nobody is emailed or notified.",
+    "round": "races-api-files"
+  },
+  "profile-nickname": {
+    "base": "base-api",
+    "pest": true,
+    "set": "probe",
+    "hidden": "eval/hidden/ProfileNicknameHiddenTest.php",
+    "skip_dimensions": [
+      "thin_controllers"
+    ],
+    "focus": "A small profile endpoint: correct, tested and proportionate to the need",
+    "text": "Add a nullable `nickname` column (at most 30 characters) to users. `GET /api/me` returns the authenticated user's `id`, `name` and `nickname`, and `PATCH /api/me` sets or clears the nickname. Both use Sanctum authentication (installed).",
+    "round": "races-api-files"
   }
 }

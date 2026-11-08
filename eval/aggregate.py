@@ -92,17 +92,34 @@ def builds(source):
         print(line)
 
 
+GUEST = 'guest_without_accept'
+
+
+def is_guest_test(name):
+    """The shared "guest without an Accept header" check, which one bootstrap/app.php line flips in every API task."""
+    return GUEST in name.lower().replace(' ', '_')
+
+
 def hidden(path):
     results = json.loads(Path(path).read_text())
     cells = collections.defaultdict(lambda: [0, 0, 0])
+    shared = any(is_guest_test(name) for row in results.values() for name in row['tests'])
     for row in results.values():
-        for key in ((row['task'], row['arm']), ('ALL', row['arm'])):
-            cells[key][0] += sum(row['tests'].values())
-            cells[key][1] += len(row['tests'])
+        keys = [(row['task'], row['arm']), ('ALL', row['arm'])]
+        own = {name: ok for name, ok in row['tests'].items() if not is_guest_test(name)}
+        guest = {name: ok for name, ok in row['tests'].items() if is_guest_test(name)}
+        parts = [(key, row['tests']) for key in keys]
+        if shared:
+            parts += [((f'ALL without {GUEST}', row['arm']), own)]
+            parts += [((GUEST, row['arm']), guest)] if guest else []
+        for key, tests in parts:
+            cells[key][0] += sum(tests.values())
+            cells[key][1] += len(tests)
             cells[key][2] += 1
     arms = sorted({arm for _, arm in cells})
     print('\n| Hidden tests | ' + ' | '.join(arms) + ' |\n|---|' + '---|' * len(arms))
-    for task in sorted({t for t, _ in cells if t != 'ALL'}) + ['ALL']:
+    summary = ['ALL', f'ALL without {GUEST}', GUEST] if shared else ['ALL']
+    for task in sorted({t for t, _ in cells if t not in summary}) + summary:
         row = []
         for arm in arms:
             passed, total, n = cells.get((task, arm), (0, 0, 0))
