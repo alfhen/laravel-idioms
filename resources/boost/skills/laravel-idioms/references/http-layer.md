@@ -170,7 +170,7 @@ The skeleton's `shouldRenderJsonWhen(fn ($r) => $r->is('api/*') || $r->expectsJs
 - An upgraded app with `app/Http/Middleware/Authenticate.php` fixes it there (`redirectTo()` returns null for `api/*`), not with a second mechanism.
 
 ### Routes and guards
-- JSON endpoints go in `routes/api.php`. It is mounted in the `api` group with an automatic `/api` prefix (`withRouting(apiPrefix:)` changes it), so never add `Route::prefix('api')` inside it (`/api/api/...`). The `api` group has no session, cookies or CSRF. `routes/web.php` has all three, so a JSON POST there returns 419. Fix a 419 by moving the route, never by excluding `api/*` from CSRF. Blade or Inertia pages and AJAX in the session app stay in `web`.
+- JSON endpoints go in `routes/api.php`. It is mounted in the `api` group with an automatic `/api` prefix (`withRouting(apiPrefix:)` changes it), so never add `Route::prefix('api')` inside it (`/api/api/...`). The `api` group has no session, cookies or CSRF. `routes/web.php` has all three, so a JSON POST there gets 419 when it carries no valid CSRF token. A stateless JSON API route that landed in `web` moves to `api`, never gets an `api/*` CSRF exclusion. Blade or Inertia pages and session-backed AJAX stay in `web` and send the CSRF token.
 - Pick the guard to match the credential. `auth:sanctum` for bearer tokens and SPA cookies. A bare `auth` uses the default `web` session guard, which the `api` group never starts, so a browser cookie gives 401. `auth:api` throws `Auth guard [api] is not defined` (500) unless `config/auth.php` defines it; the skeleton has only `web`.
 - `php artisan install:api` installs Sanctum (Passport with `--passport`) and wires `api:` routing. It does not call `statefulApi()` or `throttleApi()`, define a limiter, or add `HasApiTokens` to `User`. Do not run it in an app that already has a JWT, Passport or custom guard.
 - `auth:sanctum,api` tries guards in order and the first that passes becomes the default guard for the request. Two middleware strings (`['auth:sanctum', 'auth:api']`) mean both must pass.
@@ -185,7 +185,7 @@ The skeleton's `shouldRenderJsonWhen(fn ($r) => $r->is('api/*') || $r->expectsJs
 
 ### Rate limits
 - `throttle:api` with no `RateLimiter::for('api', ...)` throws `MissingRateLimiterException` (500) on every request. Neither the skeleton nor the framework defines it, and the `api` group is not throttled by default. `$middleware->throttleApi()` adds `throttle:api` to the whole group and still needs the limiter in `AppServiceProvider::boot()`. Key by user id, with the IP for guests.
-- Login, sign-up, password reset, token issue and OTP endpoints get their own named limiter keyed on identifier plus IP: `Limit::perMinute(5)->by($request->string('email')->lower().'|'.$request->ip())`. A per-IP limiter alone lets one attacker try every account.
+- Login, sign-up, password reset, token issue and OTP endpoints get their own named limiter keyed on identifier plus IP: `Limit::perMinute(5)->by($request->string('email')->lower().'|'.$request->ip())`. Add a second, looser per-IP limit on the same route (`[Limit::perMinute(5)->by($email.'|'.$ip), Limit::perMinute(30)->by($ip)]`): the email + IP key alone lets one IP try many accounts, and a per-IP limit alone lets it lock out every account.
 - A throttled request returns 429 with `Retry-After`. Do not catch it to return 200.
 
 ### Status codes and error shapes

@@ -62,18 +62,18 @@ install_api() {
 
 if wants_base base-api && [ ! -d base-api ]; then
     cp -R base-pest base-api
-    (cd base-api && install_api && php artisan test >/dev/null)
+    (cd base-api && install_api && php artisan test >/dev/null) || { rm -rf base-api; exit 1; }
 fi
 
 if { wants_base base-api-phpunit || wants_base base-orders-schema; } && [ ! -d base-api-phpunit ]; then
     cp -R base base-api-phpunit
-    (cd base-api-phpunit && install_api && php artisan test >/dev/null)
+    (cd base-api-phpunit && install_api && php artisan test >/dev/null) || { rm -rf base-api-phpunit; exit 1; }
 fi
 
 if wants_base base-orders-schema && [ ! -d base-orders-schema ]; then
     cp -R base-api-phpunit base-orders-schema
     rsync -a "$REPO/eval/fixtures/orders-schema/" base-orders-schema/
-    (cd base-orders-schema && composer dump-autoload -q && php artisan test >/dev/null)
+    (cd base-orders-schema && composer dump-autoload -q && php artisan test >/dev/null) || { rm -rf base-orders-schema; exit 1; }
 fi
 
 install_boost() {

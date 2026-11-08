@@ -18,7 +18,7 @@ if ($booking->wasRecentlyCreated) {
 }
 ```
 - The claim is one of: `createOrFirst()` + `wasRecentlyCreated`, `insertOrIgnore() === 1`, or `where('status', 'pending')->update([...]) === 1`. Charge, send or dispatch only after it succeeded.
-- A queued dispatch after the claim can still be lost if the process dies between them. If that is unacceptable, claim and enqueue in one `DB::transaction()` on the `database` queue connection, or use an outbox row. With Redis, `->afterCommit()` gives at-most-once.
+- A queued dispatch after the claim can still be lost if the process dies between them. If that is unacceptable, use an outbox row written in the claim's transaction, or claim and enqueue in one `DB::transaction()` on a `database` queue that uses the same connection as the claim and inserts the job before the commit (no `after_commit` on that connection or the dispatch). With Redis, `->afterCommit()` gives at-most-once.
 
 ## Unique index as the guard
 
@@ -132,13 +132,13 @@ $v = Cache::get("user:{$id}:posts:v", 1);
 Cache::remember("user:{$id}:posts:count:{$v}", 600, fn () => $posts->count());
 // observer: Cache::add("user:{$id}:posts:v", 1, 86400); Cache::increment("user:{$id}:posts:v");
 ```
-  The version key's TTL must outlive the value's TTL. Seconds of staleness with a short TTL needs none of this.
+  Versions must never repeat: `increment()` doesn't refresh the key's TTL, so once it expires, `add()` restarts at 1 and old values cached under that number come back. Keep the version durable (`Cache::forever()`, or a `version` column on the parent row), or use a non-repeating id (`Str::ulid()`) per write. Seconds of staleness with a short TTL needs none of this.
 - Take `Cache::lock()` before the transaction and release it after the commit. Inside the transaction, a database-store lock row is rolled back with it and blocks other acquirers until the commit.
 ```php
 Cache::lock("orders:{$id}:ship", 30)->block(5, fn () => DB::transaction(fn () => Order::findOrFail($id)->ship()));
 ```
 - The lock's seconds must exceed the worst run of the guarded work. On expiry another process gets the lock while you still work, and your `release()` is owner-checked, so it stays silent. For long work call `$lock->refresh()` or split the work. `block()` throws `LockTimeoutException` (catch it and return 409 or 429). `get()` returns `false` when busy.
-- `RateLimiter::attempt()` is not atomic. It runs `tooManyAttempts()`, your callback, then `hit()`, so N concurrent requests all pass before the first hit lands. For a strict cap, compare the value `RateLimiter::increment($key, $decay)` returns, on a store with atomic increment:
+- `RateLimiter::attempt()` is not atomic. It runs `tooManyAttempts()`, your callback, then `hit()`, so N concurrent requests all pass before the first hit lands. Comparing the value `RateLimiter::increment($key, $decay)` returns, on a store with atomic increment, closes most of that gap. Its fallback `put()` after a key expires mid-call can still overwrite a newer count, so a cap that must never be exceeded (money, stock) is a guarded `UPDATE` instead:
 ```php
 abort_if(RateLimiter::increment("reset:{$user->id}", 3600) > 3, 429);
 ```
@@ -156,7 +156,7 @@ abort_if($ok === 0, 409, 'Changed by someone else');
 ## Testing races
 
 - SQLite (the skeleton's test database) compiles `lockForUpdate()` and `sharedLock()` to nothing. A passing SQLite test proves nothing about a lock. Unique indexes and conditional updates are enforced there, so test those by calling the operation twice in a row, and assert one row, one dispatch, final state.
-- Simulate the interleaving without threads or `sleep()`: a one-shot hook writes the competing change between your read and your write. Guard it, and clear it in `tearDown`:
+- For code that reads the model outside its own transaction, simulate the interleaving without threads or `sleep()`: a one-shot hook writes the competing change between your read and your write. Guard it, and clear it in `tearDown`:
 ```php
 it('does not oversell when a competing order lands between read and write', function () {
     $product = Product::factory()->create(['stock' => 5]);

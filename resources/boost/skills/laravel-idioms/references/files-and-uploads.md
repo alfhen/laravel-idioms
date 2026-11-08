@@ -54,9 +54,9 @@ return response()->download(storage_path('app/exports/'.$request->query('f')));
 public function __invoke(Document $document): StreamedResponse
 {
     Gate::authorize('view', $document);
-    abort_unless(Storage::exists($document->path), 404);
+    abort_unless(Storage::disk('local')->exists($document->path), 404);
 
-    return Storage::download($document->path, (Str::slug($document->title) ?: 'document').'.pdf');
+    return Storage::disk('local')->download($document->path, (Str::slug($document->title) ?: 'document').'.pdf');
 }
 ```
 - Authorize the model, not the path. Never let the request carry a storage path. `response()->download()` and `response()->file()` take an absolute filesystem path with no root, so request input in them is path traversal. A Flysystem disk is rooted and throws `PathTraversalDetected` (a 500) for `../`, but that does not stop one user reading another's file.
@@ -88,11 +88,8 @@ public function rows(string $path): LazyCollection
         throw_if($handle === null, new RuntimeException("Missing {$path}"));
 
         try {
-            if (fread($handle, 3) !== "\xEF\xBB\xBF") {
-                rewind($handle);
-            }
-
-            $header = array_map(fn ($h) => mb_strtolower(trim($h)), str_getcsv(rtrim((string) fgets($handle), "\r\n"), ',', '"', ''));
+            $first = preg_replace('/^\xEF\xBB\xBF/', '', (string) fgets($handle));   // no rewind: S3 streams can't seek
+            $header = array_map(fn ($h) => mb_strtolower(trim($h)), str_getcsv(rtrim($first, "\r\n"), ',', '"', ''));
             $line = 1;
 
             while (($text = fgets($handle)) !== false) {   // one physical line per row: line numbers stay true
@@ -118,7 +115,9 @@ public function rows(string $path): LazyCollection
 - A generator's `finally` runs when the `LazyCollection` finishes or is abandoned, so `fclose()` goes there. Use `->chunk(500)` and write each chunk with `upsert()` instead of row by row. Don't use `file()` or `Storage::get()` for an upload of megabytes.
 - Large or slow import: store the file, create an `imports` row, dispatch a job with the row id, read from `Storage::readStream($import->path)` in the job, and delete the file when the job finishes or fails.
 ```php
-$import = Import::create(['path' => $request->file('import')->store('imports', 'local'), 'user_id' => $request->user()->id]);
+$path = $request->file('import')->store('imports', 'local');
+abort_if($path === false, 503, 'Upload could not be stored.');   // the local disk returns false instead of throwing
+$import = Import::create(['path' => $path, 'user_id' => $request->user()->id]);
 ImportStock::dispatch($import->id);   // never the UploadedFile: PHP deletes its temp file when the request ends
 ```
 - A small import that finishes inside the request may read `$file->getRealPath()` directly.

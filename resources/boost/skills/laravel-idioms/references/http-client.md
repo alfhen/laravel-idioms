@@ -19,7 +19,9 @@ class CarrierClient
             ->withToken(config('services.carrier.key'))
             ->acceptJson()
             ->timeout(config('services.carrier.timeout', 3))
-            ->connectTimeout(2);
+            ->connectTimeout(2)
+            ->retry(2, 200, fn (?Throwable $e) => $e instanceof ConnectionException
+                || ($e instanceof RequestException && ($e->response->serverError() || $e->response->tooManyRequests())));
     }
 }
 ```
@@ -102,7 +104,7 @@ $rates = $responses['rates'] instanceof Response && $responses['rates']->success
 
 ## User-supplied URLs and paths
 
-- Guzzle follows up to 5 redirects by default. For a URL a user, tenant or webhook config supplies, call `->withoutRedirecting()` and validate each hop yourself (scheme, host, resolved IP, no private or link-local ranges). Checking only the first URL lets a 302 to `169.254.169.254` through. Cap the size of downloads (`sink()`/stream). Fixed first-party hosts need none of this.
+- Guzzle follows up to 5 redirects by default. For a URL a user, tenant or webhook config supplies, call `->withoutRedirecting()` and validate each hop yourself (scheme, host, resolved IP, no private or link-local ranges). Checking only the first URL lets a 302 to `169.254.169.254` through. Validation and connection resolve DNS separately, so a rebinding host can pass the check and then connect inside: pin the connection to the IP you validated (Guzzle's `curl` `CURLOPT_RESOLVE` option via `withOptions()`, keeping the hostname for TLS and `Host`), or send such calls through an egress proxy that enforces the same rules. Cap the size of downloads (`sink()`/stream). Fixed first-party hosts need none of this.
 - Path parameters: `->withUrlParameters(['org' => $org])->get('https://api.example.test/orgs/{org}')` percent-encodes `/ ? #` in the value. `"/orgs/{$org}"` does not. A bare `.` or `..` survives both and `rawurlencode()`, so validate the id format when the value is user-supplied.
 - Query data goes in the second argument of `get()` or `withQueryParameters()`, not in a concatenated string.
 
