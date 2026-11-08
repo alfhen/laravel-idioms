@@ -1,0 +1,49 @@
+{
+ "shipment-sync": {
+  "impl-1": "prev",
+  "impl-2": "skill",
+  "impl-3": "plain"
+ },
+ "statement-batch": {
+  "impl-1": "skill",
+  "impl-2": "plain",
+  "impl-3": "prev"
+ },
+ "scheduled-reports": {
+  "impl-1": "skill",
+  "impl-2": "prev",
+  "impl-3": "plain"
+ },
+ "export-purge-command": {
+  "impl-1": "plain",
+  "impl-2": "prev",
+  "impl-3": "skill"
+ },
+ "webhook-worker": {
+  "impl-1": "plain",
+  "impl-2": "skill",
+  "impl-3": "prev"
+ },
+ "stock-sync-dispatcher": {
+  "impl-1": "prev",
+  "impl-2": "plain",
+  "impl-3": "skill"
+ },
+ "queue-bugfix": {
+  "impl-1": "prev",
+  "impl-2": "skill",
+  "impl-3": "plain"
+ },
+ "inactive-count": {
+  "impl-1": "prev",
+  "impl-2": "skill"
+ },
+ "sales-report": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "blade-catalogue": {
+  "impl-1": "prev",
+  "impl-2": "skill"
+ }
+}
