@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Builds the base apps and one copy per setup ("arm") under $WORK:
 #   bases:  base (PHPUnit), base-pest, base-filament, base-queue-bugfix (base-pest + fixtures/queue-bugfix),
-#           base-api (base-pest + Sanctum), base-api-phpunit (base + Sanctum), base-orders-schema (+ fixtures/orders-schema)
+#           base-api (base-pest + Sanctum), base-api-phpunit (base + Sanctum), base-orders-schema (+ fixtures/orders-schema),
+#           base-livewire (base-pest + Livewire 4), base-inertia (base-pest + inertia-laravel 3, server side only),
+#           base-inertia-projects (+ fixtures/inertia-projects)
 #   arms:   plain, skill, boost, both, augment  ×  each base
 # ARMS and BASES (space-separated) limit what is built. The arm "prev" holds the skill as it was at the git ref
 # $PREV_REF (default: the latest v* tag), for comparing a change against the released skill.
@@ -11,7 +13,7 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="${WORK:-$REPO/eval/.work}"
 LARAVEL="${LARAVEL:-laravel/laravel:^13.0}"
 SKILL="$REPO/resources/boost/skills/laravel-idioms"
-read -r -a BASES <<< "${BASES:-base base-pest base-filament base-queue-bugfix base-api base-api-phpunit base-orders-schema}"
+read -r -a BASES <<< "${BASES:-base base-pest base-filament base-queue-bugfix base-api base-api-phpunit base-orders-schema base-livewire base-inertia base-inertia-projects}"
 read -r -a ARMS <<< "${ARMS:-plain skill boost both augment}"
 
 wants() { [[ " ${ARMS[*]} " == *" $1 "* ]]; }
@@ -75,6 +77,44 @@ if wants_base base-orders-schema && [ ! -d base-orders-schema ]; then
     cp -R base-api-phpunit base-orders-schema
     rsync -a "$REPO/eval/fixtures/orders-schema/" base-orders-schema/
     (cd base-orders-schema && composer dump-autoload -q && php artisan test >/dev/null) || { rm -rf base-orders-schema; exit 1; }
+fi
+
+# Livewire with a minimal layout and no front-end build, so Livewire tasks start equal in every arm.
+if wants_base base-livewire && [ ! -d base-livewire ]; then
+    cp -R base-pest base-livewire
+    (
+        cd base-livewire
+        composer require livewire/livewire:^4.0 --no-interaction -W -q
+        mkdir -p resources/views/layouts
+        printf '<!DOCTYPE html>\n<html lang="en">\n<head>\n    <meta charset="utf-8">\n    <title>{{ $title ?? config('"'"'app.name'"'"') }}</title>\n    @livewireStyles\n</head>\n<body>\n    {{ $slot }}\n    @livewireScripts\n</body>\n</html>\n' > resources/views/layouts/app.blade.php
+        printf "\nRoute::get('/login', fn () => 'Log in')->name('login');\n" >> routes/web.php
+        php artisan test >/dev/null
+    ) || { rm -rf base-livewire; exit 1; }
+fi
+
+# Inertia's server side only: middleware registered, a root view without Vite, and no page files required in tests.
+if { wants_base base-inertia || wants_base base-inertia-projects; } && [ ! -d base-inertia ]; then
+    cp -R base-pest base-inertia
+    (
+        cd base-inertia
+        composer require inertiajs/inertia-laravel:^3.0 --no-interaction -W -q
+        php artisan inertia:middleware --no-interaction >/dev/null
+        php artisan vendor:publish --provider='Inertia\ServiceProvider' --no-interaction >/dev/null
+        sed -i.bak "/'testing' => \[/,/\]/ s/'ensure_pages_exist' => true/'ensure_pages_exist' => false/" config/inertia.php
+        rm config/inertia.php.bak
+        grep -A3 "'testing' => \[" config/inertia.php | grep -q "'ensure_pages_exist' => false"
+        printf '<!DOCTYPE html>\n<html lang="en">\n<head>\n    <meta charset="utf-8">\n    @inertiaHead\n</head>\n<body>\n    @inertia\n</body>\n</html>\n' > resources/views/app.blade.php
+        sed -i.bak 's/->withMiddleware(function (Middleware $middleware): void {/&\n        $middleware->web(append: [\n            \\App\\Http\\Middleware\\HandleInertiaRequests::class,\n        ]);/' bootstrap/app.php
+        rm bootstrap/app.php.bak
+        grep -q 'HandleInertiaRequests::class' bootstrap/app.php
+        php artisan test >/dev/null
+    ) || { rm -rf base-inertia; exit 1; }
+fi
+
+if wants_base base-inertia-projects && [ ! -d base-inertia-projects ]; then
+    cp -R base-inertia base-inertia-projects
+    rsync -a "$REPO/eval/fixtures/inertia-projects/" base-inertia-projects/
+    (cd base-inertia-projects && composer dump-autoload -q && php artisan test >/dev/null) || { rm -rf base-inertia-projects; exit 1; }
 fi
 
 install_boost() {
