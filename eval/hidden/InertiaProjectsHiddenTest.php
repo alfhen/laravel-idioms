@@ -57,7 +57,7 @@ class InertiaProjectsHiddenTest extends TestCase
 
     private function seedActivity(Project $project, int $count): void
     {
-        for ($i = 0; $i < $count; $i++) {
+        for ($i = $count - 1; $i >= 0; $i--) {
             AuditEntry::factory()->create([
                 'project_id' => $project->id,
                 'message' => "entry-{$i}",
@@ -318,7 +318,7 @@ class InertiaProjectsHiddenTest extends TestCase
             ->put(route('projects.update', $project), ['title' => 'Bridge Repaint II', 'status' => 'archived'], self::INERTIA_FORM)
             ->assertRedirect(route('projects.show', $project));
         $this->assertSame('Bridge Repaint II', $project->fresh()->title);
-        $this->assertSame('archived', $project->fresh()->status);
+        $this->assertSame('archived', DB::table('projects')->where('id', $project->id)->value('status'));
 
         $this->actingAs($owner)
             ->delete(route('projects.destroy', $project), [], self::INERTIA_FORM)
