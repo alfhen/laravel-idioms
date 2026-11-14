@@ -84,11 +84,11 @@ return response()->noContent();
 
 Delivery is at-least-once: retries after a timeout or 5xx are normal.
 - Table `webhook_events` with `unique(['provider', 'event_id'])`. Use the provider's delivery id, stable across redeliveries, and only one the signature covers (an `id` in the signed body, or a header the provider includes in the signed string). An unsigned id header lets anyone replay a captured delivery under a new id.
-- Claim with `createOrFirst()` + `wasRecentlyCreated`, or `insertOrIgnore([...]) === 1`. `insertOrIgnore` is a query-builder call: no timestamps, casts or events, so set `created_at` yourself or use `fillAndInsertOrIgnore` (12+) on the model builder.
+- Claim with `createOrFirst()` + `wasRecentlyCreated`, and let any error other than the duplicate fail. Not `insertOrIgnore()`: on MySQL it is `INSERT IGNORE`, which also turns truncation and bad data into warnings, so a too-long id can be cut short, collide with another delivery, and be acknowledged without ever being stored.
 - A duplicate answers the same 2xx, never 409 or 422: the provider must stop retrying.
 - Never `Cache::has()` then `put()` (races, marks before the work succeeded). `Cache::add()` is atomic but not durable: a cache flush means duplicates. Use the table for orders, stock, money, deletions. A cache key is fine only for loss-tolerant notifications.
 - The unique row protects intake, not processing. If the insert committed but the dispatch was lost, a redelivery hits the duplicate branch and nothing runs. Set `processed_at` at the end of the job; on a duplicate with `processed_at` null, re-dispatch; or sweep rows with `processed_at IS NULL` older than N minutes with a scheduled command. A processed duplicate does nothing.
-- A re-dispatch can overlap a job that is still running. Unless the effects are idempotent, the job claims the row first with one conditional update (`whereKey($id)->whereNull('processed_at')->where(fn ($q) => $q->whereNull('claimed_at')->orWhere('claimed_at', '<', now()->subMinutes(15)))->update(['claimed_at' => now()]) === 1`) and returns when the claim fails. The stale-claim window, longer than the job's `timeout`, lets a crashed worker's row be picked up again.
+- A re-dispatch can overlap a job that is still running. Unless the effects are idempotent, the job claims the row first with one conditional update (`whereKey($id)->whereNull('processed_at')->where(fn ($q) => $q->whereNull('claimed_at')->orWhere('claimed_at', '<', now()->subMinutes(15)))->update(['claimed_at' => now()]) === 1`) and returns when the claim fails. Set the window above the job's `timeout`: the worker kills a job at its timeout, so an expired claim has no live owner. A crashed claim is not picked up by a redelivery (the provider already has its 2xx), so the scheduled sweep of rows with `processed_at IS NULL` is required whenever the job claims.
 
 ## Ordering and unknown types
 
@@ -99,8 +99,8 @@ Order::updateOrCreate(['remote_id' => $id], ['status' => $s, 'remote_updated_at'
 // good
 $newer = fn ($q) => $q->whereNull('remote_updated_at')->orWhere('remote_updated_at', '<', $at);
 $n = Order::where('remote_id', $id)->where($newer)->update(['status' => $s, 'remote_updated_at' => $at]);
-if ($n === 0 && ! Order::where('remote_id', $id)->exists() && Order::query()->insertOrIgnore([...]) === 0) {
-    // a concurrent delivery inserted first: apply the same guarded update again
+if ($n === 0 && ! Order::createOrFirst(['remote_id' => $id], [...])->wasRecentlyCreated) {
+    // the row exists (or a concurrent delivery created it): apply the same guarded update again
     Order::where('remote_id', $id)->where($newer)->update(['status' => $s, 'remote_updated_at' => $at]);
 }
 ```
