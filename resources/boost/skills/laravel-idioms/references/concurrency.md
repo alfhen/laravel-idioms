@@ -119,7 +119,7 @@ try {
 ## Idempotency keys for writes
 
 - For a retried or double-submitted write, store a key with a unique index (`unique(user_id, idempotency_key)`), claim it with `createOrFirst()` or `insertOrIgnore()`, and return the stored result to the replay.
-- Never `Cache::has()` then `Cache::put()`, and never mark the key "seen" before the work succeeded.
+- Never `Cache::has()` then `Cache::put()`, and never mark the key "seen" before the work succeeded. `Cache::add()` is atomic but not durable (a flush or deploy forgets it), so it is no dedupe store for money, stock or deletions. `insertOrIgnore()` sets no timestamps or casts.
 - Skip it for naturally idempotent writes (a PUT of full state, an upsert on a natural key) and for reads.
 - An outbound POST that creates something is retried only with a key the partner honours.
 

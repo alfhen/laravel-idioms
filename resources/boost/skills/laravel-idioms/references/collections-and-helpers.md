@@ -153,7 +153,7 @@ public function frames(): array
 
 ```php
 Number::fileSize($bytes, 2);
-Number::currency($amount, in: 'EUR', locale: 'da');
+Number::currency($amount, in: 'EUR', locale: 'da');   // major units, display only; see dates-and-money.md
 Number::ordinal($position);
 
 Sleep::for(2)->seconds();          // tests: Sleep::fake(); Sleep::assertSleptTimes(3);

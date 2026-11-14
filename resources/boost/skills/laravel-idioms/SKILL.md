@@ -1,6 +1,6 @@
 ---
 name: laravel-idioms
-description: Use for any work in a Laravel codebase, whether reviewing, planning, building, refactoring, debugging, speeding up or testing PHP code in a project with an artisan file or laravel/framework in composer.json, even when the user never says "Laravel". Load it before planning a change or answering a question about the code, not only before editing. Also use it to audit a Laravel codebase, judge its health, find code smells or write a refactor report. Concrete rules for Laravel 11-13 on thin controllers, Form Requests, policies, collections over loops, Eloquent, N+1 and slow queries, migrations and indexes, API auth and error responses, file uploads, races, outbound HTTP, events and mail, jobs, queues and workers, scheduled tasks, Artisan commands, caching and locks, Blade components, Filament 5, Pest and PHPUnit tests, plus a mandatory "Before you finish" checklist. Not for PHP projects that aren't Laravel. Complements Laravel Boost's laravel-best-practices skill, so load both when both are installed.
+description: Use for any work in a Laravel codebase, whether reviewing, planning, building, refactoring, debugging, speeding up or testing PHP code in a project with an artisan file or laravel/framework in composer.json, even when the user never says "Laravel". Load it before planning a change or answering a question about the code, not only before editing. Also use it to audit a Laravel codebase, judge its health, find code smells or write a refactor report. Concrete rules for Laravel 11-13 on controllers, Form Requests, policies, collections, Eloquent and N+1, migrations, API auth and errors, webhooks, security, uploads, races, outbound HTTP, events and mail, queues, scheduler, Artisan commands, caching, Blade, Livewire, Inertia, Filament 5, error reporting and logging, dates and money, Pest and PHPUnit tests, plus a mandatory "Before you finish" checklist. Not for PHP projects that aren't Laravel. Complements Laravel Boost's laravel-best-practices skill, so load both when both are installed.
 ---
 
 # Laravel idioms
@@ -49,6 +49,8 @@ public function rules(): array
 - Checks that need the database or another model go in `after()`, and they stop at the first failure so the client gets one clear message per request.
 - Normalise input in `prepareForValidation()`. Add typed accessors (`filters()`, `coupon()`) that read `validated()`. Memoise lookups with `once(fn () => ...)`, not hand-written `$resolved` flags.
 - Omit `authorize()` when it would just `return true`.
+- Input that names a column or a direction (`?sort=`, `?dir=`, a filter key) passes an allow-list (`Rule::in([...])` or a `match`); columns are never bound, so anything else is a 500 or lets a client sort by a hidden column. Never put request data in `whereRaw`/`selectRaw`/`orderByRaw`/`DB::raw`; bind it with `?`. A user's LIKE search escapes `%` and `_` with an explicit `ESCAPE` character, in one scope (`whereLike` doesn't escape, and a backslash matches nothing on SQLite). `exists`/`unique` on tenant data carry the owner: `Rule::exists('folders', 'id')->where('team_id', $this->user()->team_id)`.
+- Test optional input with `filled()` or `!== null`, never truthiness: `->when($term, ...)` skips a search for `0`. Details: `references/security.md`.
 
 ## 3. Authorization: policies, one mechanism per controller
 
@@ -76,6 +78,12 @@ Choose one mechanism per controller and use it for every action: `Gate::authoriz
 - JSON endpoints live in `routes/api.php` (`install:api`; it adds the `api/` prefix and no session, cookies or CSRF), never in `routes/web.php` and never with the `web` group. A token API uses `auth:sanctum`; a bare `auth` is the session guard. On a public route that personalises for logged-in callers, read `$request->user('sanctum')`.
 - 401 = not authenticated, 403 = authenticated but not allowed (policy), 404 = not found *or* another user's record you don't reveal (scope the query, or `Response::denyAsNotFound()`), 422 = invalid input. Let the framework render them: never `catch (Exception $e) { return response()->json(['error' => $e->getMessage()]) }`. With debug off, a 404 still names the model class (`No query results for model [App\Models\Order]`). Only when the app must not reveal internals, render `NotFoundHttpException` on `api/*` with a plain message.
 - Token abilities go on the route, so a token without the scope gets 403 before validation or a lookup runs: alias Sanctum's middleware in `bootstrap/app.php` (`$middleware->alias(['abilities' => CheckAbilities::class])`), run it before route-model binding (`$middleware->prependToPriorityList(SubstituteBindings::class, CheckAbilities::class)`, or a missing id answers 404 and someone else's 403), and use `->middleware('abilities:orders:write')`. Ownership stays in a policy or a query scoped to the user. Don't move `tokenCan()` into a policy or controller: they run after the FormRequest has already answered 422. `throttle:api` needs a `RateLimiter::for('api', ...)`; a login or token endpoint gets its own limiter keyed by email + IP.
+
+## 3c. Inbound webhooks
+
+- A provider's signed delivery goes in `routes/api.php` (no session, cookies or CSRF), without `auth` or `throttle`. A fresh 13 skeleton has none: add the file and `api:` to `withRouting()` by hand (`install:api` also installs Sanctum). Not `web` plus a CSRF exclusion: `web` starts a session on every delivery, and a FormRequest there answers a bad payload with a 302.
+- Verify in middleware before anything parses the body: `hash_equals(hash_hmac('sha256', $request->getContent(), $secret), (string) $request->header(...))`, failing closed (401) on a missing header or an empty configured secret. Never sign re-encoded JSON.
+- Answer 2xx fast and queue the work. Dedupe on the delivery id with a unique index (`createOrFirst()` + `wasRecentlyCreated`), not the cache, and answer a duplicate with the same 2xx. Unknown types: 2xx, ignored. State from a delivery is applied only if newer, in one statement (`where('remote_updated_at', '<', $at)->update([...])`). A naturally idempotent single write may run inline. Tests post the exact signed bytes with `$this->call()` (`postJson()` re-encodes). Details: `references/webhooks.md`.
 
 ## 4. One source of truth for query rules
 
@@ -116,6 +124,7 @@ class Post extends Model
 - Use backed enums for every fixed set of states, never class constants. Compare cases (`=== PostStatus::Published`), validate with `Rule::enum`, and set defaults with `->default(PostStatus::Draft->value)` in migrations.
 - Write through relationships: `$user->posts()->create()`, `->associate()`, `whereBelongsTo`, `whereRelation`. Add the inverse `hasMany` to the parent model when you need it.
 - Derived fields (slug, published_at) go in model events or an observer, so they apply on every Eloquent write. Mass writes skip model events: `where()->update()/delete()`, `insert`, `upsert`, builder `increment`, `DB::table()`. Where an observer must run (audit rows, cache busting), loop with `lazyById()` and save each model, or do the observer's work in the same method.
+- Columns holding tokens or secrets go in `#[Hidden]` (13; `$hidden` before). A token you only verify is stored as `hash('sha256', $plain)` and compared with `hash_equals`; `encrypted` casts are for secrets you must read back, and can't be queried.
 - No N+1: eager load what loops and resources touch (`with('author:id,name')`), use `whenLoaded()` in resources, and enable `Model::shouldBeStrict(! $this->app->isProduction())`.
 
 ## 5b. Migrations and schema
@@ -135,7 +144,9 @@ $names = []; foreach ($users as $u) { if ($u->active) { $names[] = $u->name; } }
 $names = $users->filter->active->pluck('name')->values();
 [$active, $idle] = $users->partition(fn (User $u) => $u->isActive());
 ```
-A closure inside `map`/`each`/`mapWithKeys` never captures `&$var`. If a step needs a running total, use a plain `foreach` with a named accumulator, or `reduce`. Call `->values()` after `filter/reject/unique` before JSON. Format money with `Number::currency($cents / 100, in: 'USD')`, not `number_format`.
+A closure inside `map`/`each`/`mapWithKeys` never captures `&$var`. If a step needs a running total, use a plain `foreach` with a named accumulator, or `reduce`. Call `->values()` after `filter/reject/unique` before JSON. Format money with `Number::currency($major, in: 'EUR')` (major units, display only), not `number_format`.
+
+**Money and dates.** Money is integer minor units or a decimal string, never a float: no `(int) ($price * 100)` (19.99 → 1998). The minor-unit exponent depends on the currency (JPY 0, most 2, KWD 3), so never hard-code `/ 100` when several currencies are in play. Round once, at a stated point (per line or on the total), and split a total by largest remainder so the parts add back up. Validate money input with `decimal:0,2` (`numeric` accepts `1e2`) and convert the string without floats. Store UTC; parse a user's input in their zone, then `->utc()`. A user's "today" is `[local midnight, next local midnight)` converted to UTC, never `whereDate()` or `today()`. `addMonth()` overflows (Jan 31 → Mar 3): `$start->addMonthsNoOverflow($n)` from the original date, not chained from the last result. Never mutate a date you didn't create (`->copy()`, `toImmutable()`); switching the app default with `Date::use()` is a project decision, not part of a feature. Details: `references/dates-and-money.md`.
 
 Pipelines replace loops; they are not a mandate to rewrite `array_*` calls. Never add a temp variable and `@var`, or silence the error (`@phpstan-ignore`, `assert()`, a cast), just to make a pipeline fit a declared type.
 ```php
@@ -261,7 +272,7 @@ $booking = DB::transaction(function () use ($workshop, $user) {
 }, 3);
 if ($booking->wasRecentlyCreated) { BookingConfirmed::dispatch($booking); }   // only the request that created it
 ```
-- Decide from the database's answer: `createOrFirst()` + `wasRecentlyCreated` (needs the unique index, and only the key columns as its first argument), `insertOrIgnore() === 1`, or `where('status', 'paid')->update(['status' => 'shipped']) === 1`. Never `exists()`/`if ($model->status ...)` then write, and never send, charge or dispatch before the claim succeeded. `firstOrCreate` without a unique index is check-then-insert, and the `unique` validation rule is only a pre-check.
+- Decide from the database's answer: `createOrFirst()` + `wasRecentlyCreated` (needs the unique index, and only the key columns as its first argument), `insertOrIgnore() === 1`, or `where('status', 'paid')->update(['status' => 'shipped']) === 1`. Never `exists()`/`if ($model->status ...)` then write, never read a counter or state and save it back (`$model->count++; $model->save()`, `refresh()` is not a lock), and never send, charge or dispatch before the claim succeeded. `firstOrCreate` without a unique index is check-then-insert, and the `unique` validation rule is only a pre-check.
 - A limit on a single row lives in the `UPDATE`'s `WHERE` (`->where('stock', '>=', $qty)->decrement('stock', $qty)` returns 0 or 1). When the decision also inserts a child row, lock the parent first as above: inserting the child first takes a shared foreign-key lock on the parent, and two requests then deadlock on the parent's `UPDATE`. After `$model->increment()`, the model holds the loaded value + n, not the database's value, so never branch on it.
 - `lockForUpdate()` holds only inside `DB::transaction()`: re-read the row with the lock there, then decide. Use the closure form, not `beginTransaction()`, so an early return can't leave it open. `DB::transaction($fn, 3)` re-runs the whole closure after a deadlock, so the closure holds no HTTP calls, mail or dispatches (`afterCommit()`). SQLite compiles locks to nothing, so a passing SQLite test proves nothing about a lock: also test the outcome with the competing write injected (§13).
 
@@ -292,6 +303,16 @@ public function rates(string $postcode): array
 - Forms: `@csrf` on every non-GET form, `method="POST"` + `@method('PUT')`, `old('title', $post->title)`, `@error`, `@checked`/`@selected`, `route('posts.edit', $post)`. After a POST, redirect with a flash (`to_route(...)->with('status', ...)`), never `return view()`.
 - `{{ }}` always; `{!! !!}` only for HTML you sanitised. PHP → JS via `@js()` / `Js::from()`. `@class([...])` instead of `@if` inside `class=""`. `@can`, not inline ownership checks.
 
+## 9b. Livewire
+
+- Every public property is browser-writable and every public method and `#[On]` listener is an endpoint. Hold the model as a typed property (`public Article $article`, tamper-proof) or `#[Locked]` an id; never lock a `wire:model` field. Authorize inside every action, not only in `mount()`, and keep helpers `protected`.
+- `$this->validate()` (or `$this->form->validate()`) before every write, persisting what it returns. Query in `#[Computed]` methods with eager loading, never Eloquent collections in public properties (they lose their eager loads on the next request). Tests use `Livewire::test('articles.edit', [...])` (single-file and class components alike) and count queries on a later `->set()`/`->call()` too, at 5 and 25 rows. Details: `references/livewire.md`.
+
+## 9c. Inertia
+
+- Every prop and shared prop is public JSON in the page. Pass arrays (`->only(...)`, `->through(fn ...)`), never models, loaded relations or bare paginators. A resource class only when an API shares it (a `JsonResource` prop arrives wrapped in `data`; never `JsonResource::withoutWrapping()` to unwrap a page prop). Share `'auth' => ['user' => fn () => $request->user()?->only('id', 'name', 'email')]`, not the model.
+- Only closures, `Inertia::optional()` and `Inertia::defer()` are lazy: a query written as a plain value runs on every visit and partial reload. Validation fails with the normal redirect and `errors` prop, never a 422 JSON. Tests: `assertInertia()` with `component($name, false)` when page files are absent, writes sent with `X-Inertia`. Details: `references/inertia.md`.
+
 ## 10. Filament (v4/v5)
 
 Check `filament/filament` in `composer.lock`, scaffold with `make:filament-resource X --generate`, and use the v4/v5 API, not v3:
@@ -316,6 +337,11 @@ public static function form(Schema $schema): Schema { return CustomerForm::confi
 - Helpers: `Arr::wrap`, `data_get`, `str()->slug()`, `filled()`, `abort_unless`, `throw_if`, `?->`, `once()`, `Number::*`.
 - Style (Pint laravel preset): guard clauses, no `else`, `match` over `switch`, native types everywhere, docblocks only for generics or array shapes, constructor promotion, a blank line before `return`, and typed return types on every controller action.
 
+## 11b. Errors and logging
+
+- Log an exception as the object: `report($e)`, or `Log::warning('...', ['exception' => $e])` for a chosen level. Never `getMessage()` alone (no trace), and report and continue, or rethrow, never both. `catch (Throwable)` only at a boundary that reports (a per-item loop, a job's tail); `catch (\Exception)` misses `TypeError`.
+- Expected outcomes don't page anyone: `ShouldntReport` on your own exceptions, `$exceptions->dontReport()` for vendor ones, `$exceptions->level()` for "seen but not a bug", and `$exceptions->throttle()` matching only the noisy class (`default => null`). A secret posted to a `web` form that can fail validation goes in `$exceptions->dontFlash([...])`; never log `$request->all()`. `logger()` is debug level. `health: '/up'` proves only that the app booted: add a `DiagnosingHealth` listener for the app's own database or cache. Pulse and Nightwatch only where installed. Details: `references/observability.md`.
+
 ## 12. Where logic goes: no fat, no ceremony
 
 | Situation | Put it in |
@@ -325,7 +351,7 @@ public static function form(Schema $schema): Schema { return CustomerForm::confi
 | Rule belonging to one model | model method / scope / observer |
 | Logic shared by 2+ callers, or a queue boundary | action or job |
 
-Don't add a repository, a service interface, or a DTO whose only job is `toArray()` for JSON. Return an array or a `JsonResource` instead. Don't wrap a single `create()` in an action. Don't add `final`/`strict_types` unless the project already uses them. An event earns its place when one fact has two or more independent effects or crosses a module boundary; one effect that must succeed with the request is a direct call (but keep an event the brief asks for). Register each listener once: discovery plus `Event::listen()` runs it twice.
+Don't add a repository, a service interface, or a DTO whose only job is `toArray()` for JSON. Return an array or a `JsonResource` instead (an array for Inertia props). Don't wrap a single `create()` in an action. Don't add `final`/`strict_types` unless the project already uses them. An event earns its place when one fact has two or more independent effects or crosses a module boundary; one effect that must succeed with the request is a direct call (but keep an event the brief asks for). Register each listener once: discovery plus `Event::listen()` runs it twice.
 
 ## 13. Tests prove every requirement and every failure
 
@@ -352,9 +378,11 @@ Run `php artisan test` and `vendor/bin/pint --dirty` if present. Then go through
 - [ ] **Authorization:** policy-based, with the same mechanism in every action of a controller. No `$this->authorize()` on an 11+ base controller.
 - [ ] **Queries:** each filter rule exists once, as a scope. No `DB::table()` duplicates a model query, no joins the query doesn't read, no N+1.
 - [ ] **Models:** enums (not constants) with casts, `casts()` method, L13 attributes in every new model, writes go through relationships, and the inverse relations exist.
-- [ ] **Collections:** no accumulate-foreach, no `&$` in collection closures, no temp + `@var` to fit a pipeline to `list<…>`, and strict `in_array` checks stay strict (`uniqueStrict`, `containsStrict`). Money uses `Number::currency`.
+- [ ] **Collections:** no accumulate-foreach, no `&$` in collection closures, no temp + `@var` to fit a pipeline to `list<…>`, and strict `in_array` checks stay strict (`uniqueStrict`, `containsStrict`). Money is displayed with `Number::currency` in major units.
 - [ ] **Jobs:** failures throw or `fail()` (no catch-log-return), `handle()` is idempotent (persisted guard, natural keys, `trashed()`), tries/`retryUntil` fit every release path with backoff, `WithoutOverlapping` has `expireAfter()`, status rows get `failed()` plus a stuck-row recovery, timeout < `retry_after`/visibility timeout, `afterCommit`/`ShouldQueueAfterCommit` inside transactions, batch completion in `finally()` under `allowFailures()`, unique jobs have `uniqueId()` + `#[UniqueFor]`.
 - [ ] **Scheduler and commands:** `grep -n "withoutOverlapping()" routes/console.php` finds nothing; multi-server tasks use `onOneServer()` on a shared lock store; `Schedule::job()` jobs are `ShouldQueue` and unique; dispatchers claim rows; every command failure path returns non-zero; no constructor work; `--force`/`--dry-run` only on destructive commands; `lazyById`/`chunkById` when mutating the filtered rows.
+- [ ] **Webhooks:** receiver in `routes/api.php` (not `web` plus a CSRF exclusion), signature over `getContent()` with `hash_equals` and fail-closed, delivery-id dedupe in a unique index, duplicates and unknown types answered 2xx, newer-only state updates, tests posting exact signed bytes.
+- [ ] **Security:** `grep -n "orderBy(\$request\|Raw(\|like" app` and check each: allow-listed columns and directions, bound raw SQL, escaped LIKE, owner-scoped `exists`; secret columns hidden, verify-only tokens hashed, no `$request->all()` in logs, no `when($term)` on user input.
 - [ ] **API:** JSON routes in `routes/api.php` with `auth:sanctum` (no `web` group), `redirectGuestsTo()` returns null for `api/*` (a plain `get()` as a guest is a JSON 401, not a 500), token abilities as route middleware, 403 vs 404 deliberate, no `getMessage()` in a response, no model class names in a 404.
 - [ ] **Races:** `grep -n "exists()\|firstOrCreate\|->increment(" app` and check each: a unique index, a guarded `UPDATE` or a lock on the parent row decides, side effects only after a won claim, `lockForUpdate()` only inside `DB::transaction()`, no HTTP/mail/dispatch inside a retried transaction.
 - [ ] **Files:** every upload has a type allow-list and a size cap, files stored under `hashName()` on a private disk, downloads authorized or behind an expiring signature, `exists()` before `download()`, CSV readers strip the BOM, match headers by trimmed lower-case name, check column counts, report line numbers and close handles in `finally`.
@@ -362,6 +390,9 @@ Run `php artisan test` and `vendor/bin/pint --dirty` if present. Then go through
 - [ ] **HTTP client:** every call has `timeout()` sized for its caller, `retry()` has a `when` that skips 4xx, responses are checked (`throw()`/`failed()`) before use, no call inside a transaction, tests use `preventStrayRequests()`.
 - [ ] **Events and mail:** observers aren't relied on for mass writes, one mailable per recipient, mail/notifications/listeners after commit, `notifications` table present for the `database` channel, each listener registered once.
 - [ ] **Caching:** every write has a TTL, keys are namespaced and tenant-scoped, no cached models, no `flush()`, no `has()`+`put()` race, locks have seconds and release in `finally`, no tags on a non-tag store.
+- [ ] **Livewire/Inertia:** ids locked or held as typed models, every action authorized and validated, queries in `#[Computed]`; Inertia props are arrays (no models, bare paginators or global `withoutWrapping()`), `auth.user` shared through `only()`, slow props lazy.
+- [ ] **Errors and logs:** `grep -n "getMessage()\|logger(\|catch (.Exception" app` finds no lost traces or narrow boundary catches; no report-and-rethrow; expected exceptions don't report; secrets in `dontFlash` on web forms; `/up` checks the app's own stores.
+- [ ] **Dates and money:** no float money, per-currency exponents, one rounding point, splits that add up, `decimal:0,n` money validation; UTC storage, user-day ranges instead of `whereDate`, `addMonthsNoOverflow` from the anchor date, no mutated shared dates.
 - [ ] **Blade:** no queries or lazy loads in views, `@props` + root `$attributes`, `@csrf`/`@method`/`old()`/`@error` on forms, redirect after POST, no `{!! !!}` on user data.
 - [ ] **Filament:** no v3 namespaces or deprecated methods, enums carry label/colour/icon, custom actions and inline-edit columns authorized, data scoped in `getEloquentQuery()`, `FilamentUser` on User.
 - [ ] **Tests:** each requirement, each 401/403/422 with the message asserted, limits, empty and edge cases, fakes for queue/mail/storage, factories with `->for()`/states. Jobs: `handle()` run twice, `failed()` called. Schedules asserted via `app(Schedule::class)->events()`. Every command path through `$this->artisan(...)->assertExitCode()`, plus its side effect.
@@ -389,6 +420,12 @@ Run `php artisan test` and `vendor/bin/pint --dirty` if present. Then go through
 | Migrations, foreign keys, indexes, zero-downtime changes, backfills | `references/migrations.md` |
 | Outbound HTTP: client classes, timeouts, retries, fakes | `references/http-client.md` |
 | Events, listeners, observers, notifications, mail and their tests | `references/events-and-notifications.md` |
+| Inbound webhooks: signatures, routing, dedupe, ordering, tests | `references/webhooks.md` |
+| Raw SQL, sort and column allow-lists, LIKE escaping, tenancy in validation, secrets, redirects, rate limits | `references/security.md` |
+| Livewire components: locked state, authorization, validation, computed queries, uploads, tests | `references/livewire.md` |
+| Inertia server side: props, shared data, lazy props, validation, redirects, tests | `references/inertia.md` |
+| Exceptions, reporting, log channels and levels, health checks, Pulse, Nightwatch | `references/observability.md` |
+| Money (minor units, rounding, currencies) and dates (UTC, user time zones, month maths, day ranges) | `references/dates-and-money.md` |
 | Upgrading, `bootstrap/app.php`, Laravel 11-13 attributes, outdated patterns | `references/modern-laravel.md` |
 | Formatting, naming, control flow, exceptions | `references/style.md` |
 | Evaluating a codebase / producing a refactor report (HTML) | `references/audit-mode.md` |

@@ -35,16 +35,18 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias(['subscribed' => EnsureUserIsSubscribed::class]);
         $middleware->redirectGuestsTo('/login');
         $middleware->trustProxies(at: '*');
-        $middleware->preventRequestForgery(except: ['stripe/*']);   // 13
+        $middleware->preventRequestForgery(except: ['webhooks/*']);   // 13; validateCsrfTokens(except:) on 11-12
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(fn (InvalidOrderException $e, Request $request) =>
             response()->view('errors.invalid-order', status: 500));
-        $exceptions->dontReport(MissedFlightException::class);
+        $exceptions->dontReport(VendorNotFound::class);   // your own exceptions: implements ShouldntReport
         $exceptions->shouldRenderJsonWhen(fn (Request $r) => $r->is('api/*') || $r->expectsJson());
     })
     ->create();
 ```
+
+`health: '/up'` answers 200 once the app has booted. It checks the database or cache only through a `DiagnosingHealth` listener, and a failing listener makes it answer 500 (see `observability.md`).
 
 In 13, CSRF middleware is `PreventRequestForgery`; `VerifyCsrfToken` / `ValidateCsrfToken` are deprecated aliases. Tests: `$this->withoutMiddleware([PreventRequestForgery::class])`.
 
