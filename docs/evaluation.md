@@ -41,6 +41,16 @@ All evaluations used fresh Laravel 13.33 apps: PHPUnit, Pest 5.2 and Filament 5.
 | token-login (holdout) | Token login with brute-force limits and revocation |
 | thread-mentions (holdout) | @mentions: one private mail and one notification per user |
 | profile-nickname (probe) | A small profile endpoint that tests for over-engineering |
+| acme-webhooks | A signed webhook receiver: raw-body HMAC, fast acknowledgement, dedupe, unknown types |
+| notes-search-api | Search and sort over a JSON API: sort allow-list, LIKE escaping, scoped `exists` |
+| livewire-notes | A Livewire 4 notes page: locked ids, per-action authorization, queries on later requests |
+| inertia-projects | Server side of Inertia 3 pages: allow-listed and shared props, lazy props, redirects |
+| payments-errors | Errors around a payment gateway: quiet declines, an outage reported once, nothing sensitive in logs or responses |
+| invoice-totals | Invoice money to the cent: lossless parsing, per-currency decimals, VAT, discounts, instalments |
+| team-invitations (holdout) | Invitations with hashed tokens, safe redirects and limits |
+| partner-sync (holdout) | An unattended sync command against a flaky partner: visible failures, no flood, exit codes |
+| subscription-renewals (holdout) | Renewal dates through short months, the customer's own day, real timestamps |
+| team-activity (probe) | A small staff page with relative sign-in times that tests for over-engineering |
 
 ## Skill vs no skill
 
@@ -170,6 +180,65 @@ This version ranked first on 27 and 28 of 46 judgements, against 16 and 18 for `
 **Caveats.** Three snippets use the domain of a target task: bookings with a capacity (coupons), a carrier rate quote, and `orders:write`. That can lift target scores, so the holdouts are the cleaner signal. The hidden tests found one difference between versions. The rest of the evidence is judge scores from two replicates, whose per-task numbers move by up to 1.5 points between replicates.
 
 Raw judgements, mappings, per-build stats, hidden-test results, static counts, triggering and audit runs are in [`eval/results/races-round/`](../eval/results/races-round). CI checks that every table re-derives from them.
+
+## Webhooks, security, Livewire, Inertia, errors and logging, dates and money
+
+This round added six areas to the skill: inbound webhooks (`SKILL.md` §3c), a security baseline (sort allow-lists, bound raw SQL, LIKE escaping, scoped `exists`, secret columns), Livewire without Filament (§9b), the server side of Inertia (§9c), errors and logging (§11b), and dates and money. Six new references cover the details: `webhooks`, `security`, `livewire`, `inertia`, `observability` and `dates-and-money`. The webhook rules are provider-neutral, and the eval task uses a made-up provider.
+
+**Method.** As in the races round, with two changes:
+- `prev` doesn't depend on this round's text, so its builds and one `plain` build per new task ran as a pilot before any skill text was written. Every pilot build passed every hidden test. Two Opus reviewers then read the pilot builds and listed the misses they found, and `eval/misses.py` counts those misses by grep. That list was fixed before the draft, and it is the main measure of this round.
+- Livewire 4 and Inertia 3 got their own base apps (`base-livewire`, `base-inertia`).
+
+There are six target tasks (acme-webhooks, notes-search-api, livewire-notes, inertia-projects, payments-errors, invoice-totals), three holdouts (team-invitations, partner-sync, subscription-renewals) and one probe (team-activity). Target and holdout tasks have three builds per arm, and the probe and the 12 regression tasks two. The regression tasks are sales-report, blog-crud, blade-catalogue, cart-discounts, filament-admin, scheduled-reports, shipment-sync, export-purge-command, carrier-quote, orders-api, stock-csv-import and token-login. Blind Opus judges scored two replicates, with two judges per task. One revision followed the draft, and it was rebuilt on all 22 tasks.
+
+**Pre-registered misses** (builds that make the miss, out of 3 per skill arm and 1 for `plain`):
+
+| Task | Miss | No skill | `main` | Draft | This version |
+|---|---|---|---|---|---|
+| acme-webhooks | the receiver is in the `web` group (session, CSRF exclusion, a 302 on bad input) | 1/1 | 3/3 | 0/3 | 0/3 |
+| notes-search-api | `when($term)` treats a search for `0` as no search | 0/1 | 3/3 | 0/3 | 0/3 |
+| team-invitations (holdout) | the invite token is not in `dontFlash` | 1/1 | 1/3 | 0/3 | 0/3 |
+| subscription-renewals (holdout) | a counter is read and written back without a lock or an atomic update | 0/1 | 1/3 | 0/3 | 0/3 |
+| livewire-notes | the query-count test measures only the first render | 1/1 | 3/3 | 1/3 | 0/3 |
+| inertia-projects | a global `JsonResource::withoutWrapping()` | 0/1 | 1/3 | 0/3 | 0/3 |
+| inertia-projects | two or more resource classes for three-field props | 0/1 | 3/3 | 0/3 | 0/3 |
+| **Total** | | | **15/21** | **1/21** | **0/21** |
+
+A seventh check, an exception throttle on every `Throwable` in partner-sync, was listed as "look at" because the brief makes it debatable. It is 3/3 for `main` and this version and 2/3 for the draft.
+
+**Hidden tests** (43 builds per skill arm, 516 tests): every arm is at the ceiling, `plain` included. The one difference is the earlier guest-without-`Accept` check on orders-api and token-login: `main` passes 2 of 6, the draft and this version 6 of 6.
+
+**Judges** (mean overall score, replicates 1 / 2; `main` was judged again in each round, so its numbers move a little):
+
+| Task set | No skill | `main` | Draft | `main` | This version |
+|---|---|---|---|---|---|
+| Target (6 tasks) | 6.47 / – | 7.33 / 6.92 | 7.69 / 8.22 | 7.23 / 7.28 | **8.38 / 8.34** |
+| Holdout (3 tasks) | 6.73 / – | 7.65 / 7.23 | 8.67 / 8.63 | 8.15 / 6.88 | **8.28 / 8.35** |
+| Probe (1 task) | 7.90 / – | 8.50 / 8.40 | 8.90 / 8.65 | 8.35 / 8.50 | **8.70 / 8.50** |
+| Regression (12 tasks) | – | 7.34 / 7.22 | 8.07 / 8.41 | 7.42 / 7.23 | **8.24 / 8.20** |
+| All 22 | 6.69 / – | 7.43 / 7.20 | 8.09 / 8.40 | 7.51 / 7.25 | **8.30 / 8.28** |
+
+The first `main` column was judged against the draft, and the second against this version. This version ranked first on 34 and 40 of 44 judgements, against 9 and 4 for `main`. It had fewer bugs per build (0.84 and 1.02, against 1.86 and 2.25) and higher correctness on targets and holdouts (8.39 and 8.56, against 7.28 and 6.89).
+
+Two results go the other way:
+- **invoice-totals** (a target) scored lower than `main` in both replicates (7.25 / 7.00 against 8.60 / 7.75). The judges found input-shape bugs: `lines` sent as an object instead of a list, `currency` sent as an array, and an amount regex without the `/D` modifier, so `"1.50\n"` is accepted. Every arm parses amounts with a regex. The skill text has no regex and says nothing about these input shapes, so this round did not revise for them.
+- **Probe simplicity** is below `main` in both replicates (7.50 / 8.50 against 8.00 / 9.00), while the probe's overall score is level or higher.
+
+**What the revision changed.** Each judged miss in the draft's target builds was checked with grep across every build of that task:
+- 2 of 3 draft livewire-notes builds registered components with `Livewire::component()`, copied from a line in the draft. Livewire 4 resolves components by name, so the line is gone, and 0 of 3 builds register.
+- Draft Livewire builds authorized twice, with a policy and a scoped lookup. The skill now says to choose one.
+- 3 of 3 draft invoice-totals builds called `brick/math` without requiring it in `composer.json`. The money paragraph now says to require it when you call it directly, to do integer maths on the digits, and to cast minor-unit columns to `integer`. Now 0 of 3 do it.
+- The webhook section now acknowledges an unknown event type before validating its payload, dispatches a stored but unprocessed delivery again, and is never stricter than the provider's contract.
+
+**Non-regression checks.**
+- **Triggering:** 40 prompts with Haiku over two full rounds (10 new: 6 should trigger and 4 should skip, including an Express webhook, a Vue component, Django time zones and Rails with Inertia). This version loaded the skill on 147 of 150 should-trigger runs, against 141 of 150 for `main`, and on 0 of 90 should-skip runs for both.
+- **Static checks:** no build in any skill arm switches `Date::use`, uses an `encrypted` cast, re-encodes a body before an HMAC, compares a secret with `==`, calls `whereDate(` or `addMonth()`, logs `getMessage()` or holds an Eloquent collection in a Livewire public property. Counts of `#[Locked]`, `throttle`, `report(`, `Log::` and `catch (\Throwable)` per build are within 0.02 of `main` or lower.
+- **Audit traps:** over two runs each, `main` failed trap b twice, the draft once (trap b), and this version once (traps b and d in the same run). The trap b and d rewrites are a known flake from earlier rounds.
+- **Cost:** builds cost $0.40 against $0.34 and take 107 against 92 seconds. `SKILL.md` grew from 394 to 431 lines; the rest went into references.
+
+**Caveats.** The hidden tests found no difference between versions in the new areas, so the evidence is the pre-registered misses (from one pilot, three builds per arm) and judge scores from two replicates. The misses were listed by reading `main` builds, so they measure what `main` got wrong, not every rule in the round. Per-task judge scores move by up to 1.5 points between replicates. The rubric also reflects the conventions the skill teaches.
+
+Raw judgements, mappings, per-build stats, hidden-test results, static and miss counts, triggering and audit runs are in [`eval/results/webhooks-security-round/`](../eval/results/webhooks-security-round). CI checks that every table re-derives from them.
 
 ## Audit mode
 

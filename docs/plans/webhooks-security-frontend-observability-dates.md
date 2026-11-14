@@ -122,3 +122,15 @@ The misses they found, counted by `eval/misses.py` and fixed here before any ski
 - partner-sync (look at, not in the bar): the exception throttle covers every `Throwable`, not only the noisy class (3/3, 1/1); the brief's "same kind of error" makes this debatable.
 
 Pass bar 1(b) has no pilot-failed hidden checks to measure, so it falls away. Bar 1(c) uses this list.
+
+## Outcome
+
+One revision after the draft; the second loop was not needed. Against the pass bar:
+1. (a) Hidden tests: every arm at the ceiling, `plain` included; this version is never below `main`. (b) Falls away (no pilot-failed hidden checks). (c) Pre-registered misses: `main` 15/21, draft 1/21, this version 0/21; no holdout higher. **Met.**
+2. Bugs per build on targets 0.92 / 0.92 against 1.83 / 1.92, on holdouts 0.83 / 1.33 against 0.83 / 2.50; correctness on targets and holdouts 8.39 / 8.56 against 7.28 / 6.89. **Met** (holdout bugs tie in replicate 1).
+3. Regression mean 8.24 / 8.20 against 7.42 / 7.23, regression hidden tests not lower, over-application counts within 0.02 of `main` or lower. Probe simplicity 7.50 / 8.50 against 8.00 / 9.00: **not met**, although the probe's overall score is level or higher.
+4. The skill fired in every `skill`, `rev` and `prev` build. **Met.**
+5. Triggering 147/150 against 141/150, 0/90 false triggers for both. **Met.**
+6. Audit traps: one failing run in two, against two for `main`. **Met.**
+
+invoice-totals, a target, scored lower than `main` in both replicates on input-shape bugs (an object for `lines`, an array for `currency`, a regex without `/D`) that no skill text touches. It is reported in `docs/evaluation.md` and not revised.
