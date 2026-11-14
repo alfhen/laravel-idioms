@@ -107,3 +107,18 @@ An Opus reviewer read the plan, the skill, the research and the harness, and ran
 - **Pilot first.** `prev` doesn't depend on this round's text, so its builds run before any skill text exists. Pass bar 1 now measures the checks `prev` failed in the pilot and a pre-registered miss list, because both earlier rounds ended at the hidden-test ceiling.
 - **SKILL.md budget** is about +100 lines, capped near 480, paid for by moving rarely used text to references. Round 6 builds read the matching new reference in 3 of 18 target builds, so a rule that matters goes in SKILL.md.
 - **Rules that would over-apply:** `Date::use(CarbonImmutable::class)` would land in every fresh eval app, so the rule is "never mutate a date you didn't create", and switching the default is a project decision; `#[Locked]` never on a `wire:model` field; `encrypted` only for secrets the app reads back; LIKE escaping with an explicit `ESCAPE` character, for user-facing literal search only; no throttle on webhook receivers; the inbox only for slow or non-idempotent processing; version-specific APIs marked.
+
+## Pilot and pre-registered misses
+
+Every pilot build (`prev` × 3 and `plain` × 1 on the nine target and holdout tasks, `prev` × 2 and `plain` × 1 on the probe) passed every hidden test, after two hidden checks that rejected correct builds were fixed (an enum cast compared to a string, and an activity seed whose newest entry had the lowest id). The hidden tests therefore measure regressions only. Two Opus reviewers read every pilot build against this round's rules. The builds already met the main rules in every area: raw-body HMAC with `hash_equals`, the sort allow-list, LIKE escaping, scoped `exists`, hashed invite tokens, per-action Livewire authorization, allow-listed Inertia props, integer money, anchored renewals and half-open day ranges.
+
+The misses they found, counted by `eval/misses.py` and fixed here before any skill text was written (pilot counts in brackets, `prev` then `plain`):
+- acme-webhooks: the receiver sits in the `web` group with a CSRF exclusion, so every delivery starts a session and a bad payload gets a 302 (3/3, 1/1).
+- notes-search-api: `when($term)` treats a search for `0` as no search (3/3, 0/1).
+- team-invitations: the invite token is not in `dontFlash`, so a failed accept stores it in the session (1/3, 1/1).
+- subscription-renewals: renew reads a counter and writes it back without a lock or an atomic update (1/3, 0/1).
+- livewire-notes: the query-count test measures only the first render, never a later request (3/3, 1/1).
+- inertia-projects: a global `JsonResource::withoutWrapping()` to unwrap a prop (1/3, 0/1); two or more resource classes for three-field props (3/3, 0/1).
+- partner-sync (look at, not in the bar): the exception throttle covers every `Throwable`, not only the noisy class (3/3, 1/1); the brief's "same kind of error" makes this debatable.
+
+Pass bar 1(b) has no pilot-failed hidden checks to measure, so it falls away. Bar 1(c) uses this list.

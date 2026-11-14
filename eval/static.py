@@ -56,6 +56,33 @@ CHECKS = [
     ('lockForUpdate', 'app', r'lockForUpdate\('),
     ('Cache::lock', 'app', r'Cache::lock\('),
     ('Idempotency-Key', 'app', r'Idempotency-Key'),
+    # round 7: misses
+    ('getMessage() into Log::', 'app', r'(Log::\w+|logger)\([^;]*->getMessage\(\)'),
+    ('logger() call', 'app', r'\blogger\('),
+    ('catch (\\Exception)', 'app', r'catch \(\\?Exception \$'),
+    ('report and Log in one catch', 'app', r'report\(\$\w+\);\s*\n\s*Log::|Log::\w+\([^;]*;\s*\n\s*report\('),
+    ('request->all() into Log::', 'app', r'Log::\w+\([^;]*\$request->(all|input)\(\)'),
+    ('orderBy from request', 'app', r'orderBy\(\s*\$request->'),
+    ("like with input, no ESCAPE", 'app', r"(?i)'like',\s*['\"]%\{?\$|like \?(?![^;]*escape)"),
+    ('bare exists: rule', 'app', r"'exists:\w+,\w+'"),
+    ('re-encoded body near HMAC', 'app', r'hash_hmac\([^;]*json_encode\('),
+    ('== on a secret or signature', 'app', r'(signature|token|secret|hmac)\w*\s*[!=]==?\s*\$|[!=]==?\s*\$\w*(signature|token|secret|hmac)'),
+    ('float money (int)(x * 100)', 'app', r'\(int\)\s*\(?\s*\$[^;]*\*\s*100\b'),
+    ('addMonth() (overflows)', 'app', r'->addMonths?\('),
+    ('whereDate(', 'app', r'whereDate\('),
+    ('Inertia share of the whole user', 'app', r"'user'\s*=>\s*\$request->user\(\)\s*[,\]]"),
+    ('Eloquent collection in Livewire public property', 'app/Livewire', r'public (Collection|EloquentCollection|array) \$\w+'),
+    ('Eloquent collection in Livewire SFC public property', 'resources/views', r'public (Collection|EloquentCollection|array) \$\w+'),
+    ('Computed(cache: true)', 'app', r'Computed\([^)]*cache:\s*true'),
+    # round 7: over-application (count on the probe and regression tasks)
+    ('Date::use', 'app', r'Date::use\('),
+    ("#[Locked]", 'app', r'#\[Locked\]'),
+    ('throttle middleware', 'routes', r'throttle'),
+    ('encrypted cast', 'app', r"=>\s*'encrypted"),
+    ('report(', 'app', r'\breport\('),
+    ('Log:: call', 'app', r'\bLog::'),
+    ('catch (\\Throwable)', 'app', r'catch \(\\?Throwable \$'),
+    ('money package', '.', r'(Brick\\Money|Money\\Money|moneyphp)'),
 ]
 
 
