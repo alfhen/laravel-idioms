@@ -87,7 +87,7 @@ Log::info('Order shipped', ['order_id' => $order->id, 'user_id' => $user->id]);
 ## Channels
 
 - Containers: `LOG_CHANNEL=stderr` (or `LOG_STACK=stderr`), `LOG_STDERR_FORMATTER=Monolog\Formatter\JsonFormatter`. A file in a container's writable layer is lost on deploy.
-- Hosts: `daily` with `max_files`, not `single` (grows forever). `days` is the old spelling and still read.
+- Hosts: `daily` with `max_files` on 13 (`days` on 11-12, where `max_files` is ignored), not `single` (grows forever).
 - Production `LOG_LEVEL=info` (the skeleton default is `debug`, and every vendor debug line is stored). Check where logs ship before changing a host app.
 - Slack/mail channels: `critical` and up only. Leave `ignore_exceptions` `false` so a dead sink surfaces. A named channel for a specific stream (`Log::channel('audit')`), not one per feature.
 - Set `LOG_DEPRECATIONS_CHANNEL` to a real channel in staging.
@@ -100,7 +100,7 @@ Event::listen(DiagnosingHealth::class, function (): void {
     Cache::store()->get('health-probe');
 });
 ```
-- `health: '/up'` proves only that the app booted. A failing `DiagnosingHealth` listener makes it answer 500 (not 503) and is reported on every probe. The status comes from the exception message, so an exception with an empty message (or `'0'`) is reported but answers 200: throw with a message. throttle that report during a DB blip. With `APP_DEBUG=true` the exception is rethrown.
+- `health: '/up'` proves only that the app booted. A failing `DiagnosingHealth` listener makes it answer 500 (not 503) and is reported on every probe. The status comes from the exception message, so an exception with an empty message (or `'0'`) is reported but answers 200: throw with a message. Throttle that report during a DB blip. With `APP_DEBUG=true` the exception is rethrown.
 - Check only the app's own DB and cache, within about 1 s. Never call a vendor from a probe: a vendor outage then removes every instance from rotation.
 - `health:` registers one route. For liveness add `Route::get('/live', fn () => response()->noContent())` with no dependencies, and use `/up` as readiness. A liveness probe on a DB check restarts every pod during a DB blip.
 - Keep a working `/health-check` if the load balancer uses it: `health:` takes any path.

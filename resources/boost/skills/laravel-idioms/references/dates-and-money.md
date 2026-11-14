@@ -52,7 +52,7 @@ $total = $lines->sum('gross');                  // never recomputed from the ord
 [$whole, $frac] = array_pad(explode('.', $input, 2), 2, '');
 $minor = (int) $whole * 100 + (int) str_pad($frac, 2, '0');   // "12.3" => 1230   (exponent 2 only)
 ```
-  or `BigDecimal::of($input)->withPointMovedRight(2)->toInt()` (brick/math is a Laravel dependency). `numeric` accepts `1e2`, and neither rule accepts a locale comma: reject `"12,30"` or normalise it before validating. `decimal:0,2` rejects `12.345`.
+  or `BigDecimal::of($input)->withPointMovedRight(2)->toInt()` (brick/math comes in only as a transitive dependency: require it in `composer.json` if you call it directly). `numeric` accepts `1e2`, and neither rule accepts a locale comma: reject `"12,30"` or normalise it before validating. `decimal:0,2` rejects `12.345`.
 - Tests: assert `'100.00'` or integer minor units, not `(float)`.
 
 ## Time zones
@@ -80,13 +80,13 @@ $label = $booking->starts_at->setTimezone($user->timezone)->isoFormat('LLL');
 ```php
 // bad: Jan 31 -> Feb 28 -> Mar 28
 $next = $last->addMonthNoOverflow();
-// good: Jan 31 -> Feb 28 -> Mar 31
-$next = $start->addMonthsNoOverflow($i);
+// good: Jan 31 -> Feb 28 -> Mar 31 (toImmutable(): on a mutable Carbon the call moves $start itself)
+$next = $start->toImmutable()->addMonthsNoOverflow($i);
 ```
   Same for `addYear()` on 29 Feb, `subMonth()`, and `now()->addMonths($i)->startOfMonth()` (overflows before `startOfMonth`; write `startOfMonth()->addMonthsNoOverflow($i)`).
 ```php
 $start = CarbonImmutable::parse('2026-03-28 00:00', 'Europe/Copenhagen');
-$start->addDays(2);       // 2026-03-30 00:00 +02:00, the next calendar day
+$start->addDays(2);       // 2026-03-30 00:00 +02:00, two calendar days later
 $start->addHours(48);     // 2026-03-30 01:00 +02:00 after the DST change
 ```
 - Calendar days vs elapsed time across DST: `addDay()` keeps the wall clock, `addHours(24)` keeps elapsed time (Copenhagen, 29 Mar 2026: `00:00 + addDay()` is `00:00` on the 30th, `+ addHours(24)` is `01:00`). Calendar steps use `addDay(s)`; TTLs and timeouts use `addHours`/`addSeconds`. A day can be 23 or 25 hours.
@@ -109,13 +109,13 @@ Order::where('placed_at', '>=', $day->utc())->where('placed_at', '<', $day->addD
 - `travelTo(CarbonImmutable::parse('2026-11-14 12:30:00', 'UTC'))` or `freezeTime()`: always build the instant in an explicit zone. `travelTo` sets the test clock for both Carbon classes. After a bare `Carbon::setTestNow()`, clear it in teardown.
 - Day-boundary tests need two zones and the instants either side of local midnight (for example Pacific/Auckland 23:30 on the 14th and 01:30 on the 15th), plus a DST day.
 ```php
-it('puts a 01:30 Auckland order on the 15th, not the 14th', function () {
+it('counts orders by the Auckland day, not the UTC day', function () {
     $user = User::factory()->create(['timezone' => 'Pacific/Auckland']);
-    travelTo(CarbonImmutable::parse('2026-11-14 12:30:00', 'UTC'));        // 01:30 on the 15th locally
-    $order = Order::factory()->for($user)->create(['placed_at' => now()]);
+    $yesterday = Order::factory()->for($user)->create(['placed_at' => '2026-11-14 10:30:00']);   // 23:30 on the 14th locally
+    $today = Order::factory()->for($user)->create(['placed_at' => '2026-11-14 12:30:00']);       // 01:30 on the 15th locally
 
     travelTo(CarbonImmutable::parse('2026-11-14 12:45:00', 'UTC'));
-    expect(Order::placedToday($user)->pluck('id'))->toContain($order->id);
+    expect(Order::placedToday($user)->pluck('id'))->toContain($today->id)->not->toContain($yesterday->id);
 });
 ```
 - Month tests: start on the 31st, advance three times, and on 29 Feb in a leap year.

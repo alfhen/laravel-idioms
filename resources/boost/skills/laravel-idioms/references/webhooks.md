@@ -1,6 +1,6 @@
 # Inbound webhooks
 
-Applies to a receiver for a provider that signs and retries deliveries. Not for webhooks the app sends (`http-client.md`), and not for ordinary authenticated API endpoints. The examples use a made-up provider `Example` with header `X-Example-Signature` (hex HMAC-SHA256 of the raw body).
+Applies to a receiver for a provider that signs and retries deliveries. Not for webhooks the app sends (`http-client.md`), and not for ordinary authenticated API endpoints. The examples use a made-up provider `Example` with header `X-Example-Signature` (hex HMAC-SHA256 of the raw body); the delivery `id` and `type` are fields of the signed body.
 
 ## Verify the signature
 
@@ -59,10 +59,13 @@ $expected = hash_hmac('sha256', $t.'.'.$request->getContent(), $secret);
 ## Acknowledge fast, then queue
 
 ```php
-// good: store the verified raw body, dispatch, answer 2xx with no body
+// good: id and type from the verified body, store the raw bytes, dispatch, answer 2xx with no body
+$payload = json_decode($request->getContent(), true);
+abort_unless(is_array($payload) && filled($payload['id'] ?? null) && filled($payload['type'] ?? null), 400);
+
 $event = WebhookEvent::query()->createOrFirst(
-    ['provider' => 'example', 'event_id' => $request->header('X-Example-Event-Id')],
-    ['type' => $request->header('X-Example-Type'), 'payload' => $request->getContent()],
+    ['provider' => 'example', 'event_id' => $payload['id']],
+    ['type' => $payload['type'], 'payload' => $request->getContent()],
 );
 if ($event->wasRecentlyCreated || $event->processed_at === null) {
     ProcessWebhookEvent::dispatch($event->id);   // ->afterCommit() only when this runs inside a transaction
@@ -71,7 +74,8 @@ if ($event->wasRecentlyCreated || $event->processed_at === null) {
 return response()->noContent();
 ```
 - Inline API calls, mail or a long transaction run past the provider's timeout; the provider retries while the first run is still going, so you get duplicates and parallel runs.
-- Store `getContent()` verbatim in a text column and decode it in the job (`json_decode($event->payload, true, flags: JSON_THROW_ON_ERROR)`). No `array` cast on that column: it would encode the string a second time. The job takes the row id, not the payload.
+- A delivery without an id or type is malformed: answer 400 before the claim, never insert a null `event_id` (nulls never collide in a unique index, so dedupe is silently off).
+- Store `getContent()` verbatim in a `longText` column (a MySQL `text` holds 64 KB; a bigger payload fails the insert and is retried for ever) and decode it in the job (`json_decode($event->payload, true, flags: JSON_THROW_ON_ERROR)`). No `array` cast on that column: it would encode the string a second time. The job takes the row id, not the payload.
 - Validate only what every delivery carries (delivery id, type) before answering. An unknown type is acknowledged before its payload is checked; a known type's fields are checked where it is processed, and never more strictly than the provider's contract, because a rejected delivery comes back for as long as the provider retries.
 - Answer 202 or 204 with an empty body; the provider reads the status only. Don't return the processing result.
 - A naturally idempotent single write (delete a session row, set a flag) needs no inbox: verify, do it inline, answer 200. The inbox is for slow, multi-step or non-idempotent work.
@@ -80,11 +84,11 @@ return response()->noContent();
 
 Delivery is at-least-once: retries after a timeout or 5xx are normal.
 - Table `webhook_events` with `unique(['provider', 'event_id'])`. Use the provider's delivery id, stable across redeliveries, and only one the signature covers (an `id` in the signed body, or a header the provider includes in the signed string). An unsigned id header lets anyone replay a captured delivery under a new id.
-- Claim with `createOrFirst()` + `wasRecentlyCreated`, or `insertOrIgnore([...]) === 1`. `insertOrIgnore` is a query-builder call: no timestamps, casts or events, so set `created_at` yourself or use `fillAndInsertOrIgnore` on the model builder.
+- Claim with `createOrFirst()` + `wasRecentlyCreated`, or `insertOrIgnore([...]) === 1`. `insertOrIgnore` is a query-builder call: no timestamps, casts or events, so set `created_at` yourself or use `fillAndInsertOrIgnore` (12+) on the model builder.
 - A duplicate answers the same 2xx, never 409 or 422: the provider must stop retrying.
 - Never `Cache::has()` then `put()` (races, marks before the work succeeded). `Cache::add()` is atomic but not durable: a cache flush means duplicates. Use the table for orders, stock, money, deletions. A cache key is fine only for loss-tolerant notifications.
 - The unique row protects intake, not processing. If the insert committed but the dispatch was lost, a redelivery hits the duplicate branch and nothing runs. Set `processed_at` at the end of the job; on a duplicate with `processed_at` null, re-dispatch; or sweep rows with `processed_at IS NULL` older than N minutes with a scheduled command. A processed duplicate does nothing.
-- A re-dispatch can overlap a job that is still running. Unless the effects are idempotent, the job claims the row first with one conditional update (`whereKey($id)->whereNull('processed_at')->where(fn ($q) => $q->whereNull('claimed_at')->orWhere('claimed_at', '<', now()->subMinutes(10)))->update(['claimed_at' => now()]) === 1`) and returns when the claim fails. The stale-claim window lets a crashed worker's row be picked up again.
+- A re-dispatch can overlap a job that is still running. Unless the effects are idempotent, the job claims the row first with one conditional update (`whereKey($id)->whereNull('processed_at')->where(fn ($q) => $q->whereNull('claimed_at')->orWhere('claimed_at', '<', now()->subMinutes(15)))->update(['claimed_at' => now()]) === 1`) and returns when the claim fails. The stale-claim window, longer than the job's `timeout`, lets a crashed worker's row be picked up again.
 
 ## Ordering and unknown types
 
@@ -117,12 +121,10 @@ $sig = hash_hmac('sha256', $raw, config('services.example.webhook_secrets')[0]);
 $this->call('POST', '/api/webhooks/example', [], [], [], [
     'CONTENT_TYPE' => 'application/json',
     'HTTP_X_EXAMPLE_SIGNATURE' => $sig,
-    'HTTP_X_EXAMPLE_EVENT_ID' => 'evt-1',
-    'HTTP_X_EXAMPLE_TYPE' => 'order.updated',
-], $raw);
+], $raw);   // $payload carries 'id' => 'evt-1' and 'type' => 'order.updated'
 ```
 - Cases: valid (2xx, one row, `Queue::assertPushed` once); tampered by one byte (401, nothing stored or queued); missing header (401, not 500); empty configured secret (401); previous secret accepted; stale timestamp; duplicate id (2xx twice, one row, one job); redelivery after processing (no second effect); redelivery with `processed_at` null (processed once); older-after-newer (newer value stays); unknown type (2xx, no job). Sign a body that no re-encoding reproduces: pretty-printed, with a string that has surrounding spaces (the global `TrimStrings` middleware changes the input bag), an empty string (becomes `null`) and a float written `10.50`. A compact body with `/` and non-ASCII is reproduced by `json_encode` with the right flags, so it proves nothing.
-- A 419 can't appear under the test runner: CSRF returns early there. To prove the route is exempt, rebind it so it runs, then post without a token:
+- A 419 can't appear under the test runner: CSRF returns early there. To prove the route is exempt, rebind it so it runs, then post without a token (Laravel 13; on 11-12 extend and bind `ValidateCsrfToken`, whose constructor takes the same arguments):
 ```php
 $this->app->bind(PreventRequestForgery::class, fn ($app) => new class($app, $app['encrypter']) extends PreventRequestForgery {
     protected function runningUnitTests(): bool { return false; }

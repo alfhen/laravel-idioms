@@ -46,7 +46,7 @@ public function share(Request $request): array
 - Keep every database, API, cache or session read in `share()` inside a closure; a plain value runs on every request.
 - A shared closure still runs on every full visit. For slow-changing reference data use `Inertia::once()` or `shareOnce()` (v2.0.x and v3); for data only some pages need, `Inertia::optional()` or `defer()`.
 - Dropping `...parent::share($request)` removes the `errors` prop and breaks all form errors.
-- Flash: `Inertia::flash('toast', [...])` before the redirect (v2.0.21+ and v3). It arrives in the page-level `flash` key, not in `props`. The older `with('success', ...)` plus a shared `fn () => $request->session()->only([...])` closure still works. Don't `session()->pull()` eagerly in `share()`. Don't rewrite working flash code on a v2 app without checking the installed version.
+- Flash: `Inertia::flash('toast', [...])` before the redirect (v2.0.20+ and v3). It arrives in the page-level `flash` key, not in `props`. The older `with('success', ...)` plus a shared `fn () => $request->session()->only([...])` closure still works. Don't `session()->pull()` eagerly in `share()`. Don't rewrite working flash code on a v2 app without checking the installed version.
 
 ## Lazy props and partial reloads
 
@@ -103,7 +103,7 @@ $this->actingAs($user)->get(route('tickets.index'))->assertInertia(fn (Assert $p
 - Partial reloads: `->reloadOnly('replies', fn ($r) => $r->has('replies')->missing('ticket'))`, `->reloadExcept(...)`, `->loadDeferredProps('replies')`. A hand-built request with `X-Inertia: true` returns JSON and `assertInertia` fails with "Not a valid Inertia response"; read `$response->json('props')` instead.
 - Writes: send `->withHeader('X-Inertia', 'true')`, then `assertStatus(303)` for PUT or DELETE (a plain PUT gives 302) and `assertSessionHasErrors('subject')` on failure. Never use the `*Json` helpers for page routes: they return 422.
 - Prove laziness with query counts (`DB::listen`, filter by table name): zero statements on the first load and on a partial reload that doesn't ask for the deferred prop, at least one when it does. Add this only for genuinely expensive props.
-- `Inertia::flash` assertions (`assertInertiaFlash`) are v3 only.
+- `assertInertiaFlash` exists from v2.0.21.
 
 ## Version differences
 
@@ -114,8 +114,8 @@ $this->actingAs($user)->get(route('tickets.index'))->assertInertia(fn (Assert $p
 | Nested prop types | top level only | any depth |
 | 302 to 303 | in `Middleware::handle` | also a global `EnsureGetOnRedirect`, and `QUERY` |
 | Config | `testing.{ensure_pages_exist,page_paths}` | `pages.*` plus `testing.ensure_pages_exist` |
-| Flash | `Inertia::flash()` from 2.0.21 | page-level `flash`, `assertInertiaFlash` |
-| Requirements | Laravel 10-12 | PHP 8.2+, Laravel 11+ |
+| Flash | `Inertia::flash()` from 2.0.20, `assertInertiaFlash` from 2.0.21 | page-level `flash`, `assertInertiaFlash` |
+| Requirements | Laravel 10-13 (2.0.21) | PHP 8.2+, Laravel 11.35+ |
 
 `Inertia::optional`, `defer`, `always`, `once`, `shareOnce` and `location` exist in both.
 

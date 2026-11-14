@@ -20,7 +20,7 @@ Rules agents get wrong that no other reference covers. Files, signed URLs and he
 
 ## Column names and sort direction
 
-Identifiers are never bound. On Laravel 13 the grammar quotes them (a `"` is doubled), so `orderBy($request->sort)` is not injectable. The failures are:
+Identifiers are never bound. The grammar quotes them (a `"` is doubled), so `orderBy($request->sort)` is not injectable. The failures are:
 - an unknown column is a `QueryException` 500, and `?sort[]=x` is a `TypeError` 500;
 - a real hidden column (`?sort=password`, `?filter[api_token]=...`) works as a sort or filter oracle that leaks the value bit by bit, and `select($request->fields)` returns columns `$hidden` would have kept back;
 - a direction other than `asc`/`desc` throws `InvalidArgumentException` (500);
@@ -55,7 +55,7 @@ protected function search(Builder $q, string $term): void
     $q->whereRaw("title like ? escape '!'", [$like]);
 }
 ```
-- `#[Scope]` is Laravel 13; on 11-12 write `scopeSearch()`.
+- `#[Scope]` is Laravel 12.4+; before that write `scopeSearch()`.
 - A backslash escape (`\%`) relies on the MySQL and Postgres default escape character and matches nothing on SQLite.
 - Only for user-facing literal search, or where wide scans are costly. A prefix search on a small admin table doesn't need it. `whereFullText` (MySQL/Postgres) is for natural-language search, not a wildcard escape.
 
