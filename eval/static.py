@@ -73,10 +73,10 @@ CHECKS = [
     ('Inertia share of the whole user', 'app', r"'user'\s*=>\s*\$request->user\(\)\s*[,\]]"),
     ('Eloquent collection in Livewire public property', 'app/Livewire', r'public (Collection|EloquentCollection|array) \$\w+'),
     ('Eloquent collection in Livewire SFC public property', 'resources/views', r'public (Collection|EloquentCollection|array) \$\w+'),
-    ('Computed(cache: true)', 'app', r'Computed\([^)]*cache:\s*true'),
+    ('Computed(cache: true)', ('app', 'resources/views'), r'Computed\([^)]*cache:\s*true'),
     # round 7: over-application (count on the probe and regression tasks)
     ('Date::use', 'app', r'Date::use\('),
-    ("#[Locked]", 'app', r'#\[Locked\]'),
+    ("#[Locked]", ('app', 'resources/views'), r'#\[Locked\]'),
     ('throttle middleware', 'routes', r'throttle'),
     ('encrypted cast', 'app', r"=>\s*'encrypted"),
     ('report(', 'app', r'\breport\('),
@@ -87,10 +87,9 @@ CHECKS = [
 
 
 def files(build, prefix):
-    root = build / prefix
-    if not root.exists():
-        return []
-    return [p for p in root.rglob('*.php') if 'vendor' not in p.parts and '/Hidden/' not in str(p)]
+    roots = [build / p for p in (prefix if isinstance(prefix, tuple) else (prefix,))]
+    return [p for root in roots if root.exists() for p in root.rglob('*.php')
+            if 'vendor' not in p.parts and '/Hidden/' not in str(p)]
 
 
 def scan(build):

@@ -100,7 +100,7 @@ Event::listen(DiagnosingHealth::class, function (): void {
     Cache::store()->get('health-probe');
 });
 ```
-- `health: '/up'` proves only that the app booted. A failing `DiagnosingHealth` listener makes it answer 500 (not 503) and is reported on every probe; throttle that report during a DB blip. With `APP_DEBUG=true` the exception is rethrown.
+- `health: '/up'` proves only that the app booted. A failing `DiagnosingHealth` listener makes it answer 500 (not 503) and is reported on every probe. The status comes from the exception message, so an exception with an empty message (or `'0'`) is reported but answers 200: throw with a message. throttle that report during a DB blip. With `APP_DEBUG=true` the exception is rethrown.
 - Check only the app's own DB and cache, within about 1 s. Never call a vendor from a probe: a vendor outage then removes every instance from rotation.
 - `health:` registers one route. For liveness add `Route::get('/live', fn () => response()->noContent())` with no dependencies, and use `/up` as readiness. A liveness probe on a DB check restarts every pod during a DB blip.
 - Keep a working `/health-check` if the load balancer uses it: `health:` takes any path.

@@ -64,14 +64,14 @@ $event = WebhookEvent::query()->createOrFirst(
     ['provider' => 'example', 'event_id' => $request->header('X-Example-Event-Id')],
     ['type' => $request->header('X-Example-Type'), 'payload' => $request->getContent()],
 );
-if ($event->wasRecentlyCreated) {
+if ($event->wasRecentlyCreated || $event->processed_at === null) {
     ProcessWebhookEvent::dispatch($event->id);   // ->afterCommit() only when this runs inside a transaction
 }
 
 return response()->noContent();
 ```
 - Inline API calls, mail or a long transaction run past the provider's timeout; the provider retries while the first run is still going, so you get duplicates and parallel runs.
-- Store `getContent()` verbatim and let the job decode it (an `array` cast on the column does it for you). The job takes the row id, not the payload.
+- Store `getContent()` verbatim in a text column and decode it in the job (`json_decode($event->payload, true, flags: JSON_THROW_ON_ERROR)`). No `array` cast on that column: it would encode the string a second time. The job takes the row id, not the payload.
 - Validate only what every delivery carries (delivery id, type) before answering. An unknown type is acknowledged before its payload is checked; a known type's fields are checked where it is processed, and never more strictly than the provider's contract, because a rejected delivery comes back for as long as the provider retries.
 - Answer 202 or 204 with an empty body; the provider reads the status only. Don't return the processing result.
 - A naturally idempotent single write (delete a session row, set a flag) needs no inbox: verify, do it inline, answer 200. The inbox is for slow, multi-step or non-idempotent work.
@@ -79,11 +79,12 @@ return response()->noContent();
 ## Idempotency
 
 Delivery is at-least-once: retries after a timeout or 5xx are normal.
-- Table `webhook_events` with `unique(['provider', 'event_id'])`. Use the provider's delivery id (a header, or an `id` in the body), stable across redeliveries.
+- Table `webhook_events` with `unique(['provider', 'event_id'])`. Use the provider's delivery id, stable across redeliveries, and only one the signature covers (an `id` in the signed body, or a header the provider includes in the signed string). An unsigned id header lets anyone replay a captured delivery under a new id.
 - Claim with `createOrFirst()` + `wasRecentlyCreated`, or `insertOrIgnore([...]) === 1`. `insertOrIgnore` is a query-builder call: no timestamps, casts or events, so set `created_at` yourself or use `fillAndInsertOrIgnore` on the model builder.
 - A duplicate answers the same 2xx, never 409 or 422: the provider must stop retrying.
 - Never `Cache::has()` then `put()` (races, marks before the work succeeded). `Cache::add()` is atomic but not durable: a cache flush means duplicates. Use the table for orders, stock, money, deletions. A cache key is fine only for loss-tolerant notifications.
 - The unique row protects intake, not processing. If the insert committed but the dispatch was lost, a redelivery hits the duplicate branch and nothing runs. Set `processed_at` at the end of the job; on a duplicate with `processed_at` null, re-dispatch; or sweep rows with `processed_at IS NULL` older than N minutes with a scheduled command. A processed duplicate does nothing.
+- A re-dispatch can overlap a job that is still running. Unless the effects are idempotent, the job claims the row first with one conditional update (`whereKey($id)->whereNull('processed_at')->where(fn ($q) => $q->whereNull('claimed_at')->orWhere('claimed_at', '<', now()->subMinutes(10)))->update(['claimed_at' => now()]) === 1`) and returns when the claim fails. The stale-claim window lets a crashed worker's row be picked up again.
 
 ## Ordering and unknown types
 
@@ -93,8 +94,9 @@ Delivery is at-least-once: retries after a timeout or 5xx are normal.
 Order::updateOrCreate(['remote_id' => $id], ['status' => $s, 'remote_updated_at' => $at]);
 // good
 $n = Order::where('remote_id', $id)->where('remote_updated_at', '<', $at)->update(['status' => $s, 'remote_updated_at' => $at]);
-if ($n === 0 && ! Order::where('remote_id', $id)->exists()) {
-    Order::query()->insertOrIgnore([...]);
+if ($n === 0 && ! Order::where('remote_id', $id)->exists() && Order::query()->insertOrIgnore([...]) === 0) {
+    // a concurrent delivery inserted first: apply the same guarded update again
+    Order::where('remote_id', $id)->where('remote_updated_at', '<', $at)->update(['status' => $s, 'remote_updated_at' => $at]);
 }
 ```
 - Compare on the payload's own timestamp, not arrival time. Use `<=` only if re-applying is harmless.

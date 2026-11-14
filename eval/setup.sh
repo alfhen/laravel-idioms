@@ -83,11 +83,11 @@ fi
 if wants_base base-livewire && [ ! -d base-livewire ]; then
     cp -R base-pest base-livewire
     (
-        cd base-livewire
-        composer require livewire/livewire:^4.0 --no-interaction -W -q
-        mkdir -p resources/views/layouts
-        printf '<!DOCTYPE html>\n<html lang="en">\n<head>\n    <meta charset="utf-8">\n    <title>{{ $title ?? config('"'"'app.name'"'"') }}</title>\n    @livewireStyles\n</head>\n<body>\n    {{ $slot }}\n    @livewireScripts\n</body>\n</html>\n' > resources/views/layouts/app.blade.php
-        printf "\nRoute::get('/login', fn () => 'Log in')->name('login');\n" >> routes/web.php
+        cd base-livewire &&
+        composer require livewire/livewire:^4.0 --no-interaction -W -q &&
+        mkdir -p resources/views/layouts &&
+        printf '<!DOCTYPE html>\n<html lang="en">\n<head>\n    <meta charset="utf-8">\n    <title>{{ $title ?? config('"'"'app.name'"'"') }}</title>\n    @livewireStyles\n</head>\n<body>\n    {{ $slot }}\n    @livewireScripts\n</body>\n</html>\n' > resources/views/layouts/app.blade.php &&
+        printf "\nRoute::get('/login', fn () => 'Log in')->name('login');\n" >> routes/web.php &&
         php artisan test >/dev/null
     ) || { rm -rf base-livewire; exit 1; }
 fi
@@ -96,17 +96,17 @@ fi
 if { wants_base base-inertia || wants_base base-inertia-projects; } && [ ! -d base-inertia ]; then
     cp -R base-pest base-inertia
     (
-        cd base-inertia
-        composer require inertiajs/inertia-laravel:^3.0 --no-interaction -W -q
-        php artisan inertia:middleware --no-interaction >/dev/null
-        php artisan vendor:publish --provider='Inertia\ServiceProvider' --no-interaction >/dev/null
-        sed -i.bak "/'testing' => \[/,/\]/ s/'ensure_pages_exist' => true/'ensure_pages_exist' => false/" config/inertia.php
-        rm config/inertia.php.bak
-        grep -A3 "'testing' => \[" config/inertia.php | grep -q "'ensure_pages_exist' => false"
-        printf '<!DOCTYPE html>\n<html lang="en">\n<head>\n    <meta charset="utf-8">\n    @inertiaHead\n</head>\n<body>\n    @inertia\n</body>\n</html>\n' > resources/views/app.blade.php
-        sed -i.bak 's/->withMiddleware(function (Middleware $middleware): void {/&\n        $middleware->web(append: [\n            \\App\\Http\\Middleware\\HandleInertiaRequests::class,\n        ]);/' bootstrap/app.php
-        rm bootstrap/app.php.bak
-        grep -q 'HandleInertiaRequests::class' bootstrap/app.php
+        cd base-inertia &&
+        composer require inertiajs/inertia-laravel:^3.0 --no-interaction -W -q &&
+        php artisan inertia:middleware --no-interaction >/dev/null &&
+        php artisan vendor:publish --provider='Inertia\ServiceProvider' --no-interaction >/dev/null &&
+        sed -i.bak "/'testing' => \[/,/\]/ s/'ensure_pages_exist' => true/'ensure_pages_exist' => false/" config/inertia.php &&
+        rm config/inertia.php.bak &&
+        grep -A3 "'testing' => \[" config/inertia.php | grep -q "'ensure_pages_exist' => false" &&
+        printf '<!DOCTYPE html>\n<html lang="en">\n<head>\n    <meta charset="utf-8">\n    @inertiaHead\n</head>\n<body>\n    @inertia\n</body>\n</html>\n' > resources/views/app.blade.php &&
+        sed -i.bak 's/->withMiddleware(function (Middleware $middleware): void {/&\n        $middleware->web(append: [\n            \\App\\Http\\Middleware\\HandleInertiaRequests::class,\n        ]);/' bootstrap/app.php &&
+        rm bootstrap/app.php.bak &&
+        grep -q 'HandleInertiaRequests::class' bootstrap/app.php &&
         php artisan test >/dev/null
     ) || { rm -rf base-inertia; exit 1; }
 fi

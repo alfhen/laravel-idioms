@@ -24,7 +24,7 @@ $tax = intdiv($net * $rate + 50, 100);       // half up, non-negative integer $n
 $tax = (int) round($net * $rate / 100);      // same, PHP rounding
 ```
 - The rounding mode is a decision. PHP `round()` is half away from zero (`round(-2.5)` is `-3`). The `decimal:n` cast rounds HalfUp. Banker's rounding needs `round($x, 0, PHP_ROUND_HALF_EVEN)` or brick's `RoundingMode::HalfEven`.
-- Split a total with the largest remainder, never `round($total / $n)` per part. The parts must sum to the total:
+- Split a total with the largest remainder, never `round($total / $n)` per part. The parts must sum to the total. The snippet is for a non-negative total; split a refund's absolute value and negate the parts:
 ```php
 $base = intdiv($total, $n);
 $parts = array_map(fn (int $i) => $base + ($i < $total % $n ? 1 : 0), range(0, $n - 1));   // 10000 / 3 => [3334, 3333, 3333]
