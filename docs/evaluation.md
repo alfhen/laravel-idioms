@@ -186,7 +186,7 @@ Raw judgements, mappings, per-build stats, hidden-test results, static counts, t
 This round added six areas to the skill: inbound webhooks (`SKILL.md` §3c), a security baseline (sort allow-lists, bound raw SQL, LIKE escaping, scoped `exists`, secret columns), Livewire without Filament (§9b), the server side of Inertia (§9c), errors and logging (§11b), and dates and money. Six new references cover the details: `webhooks`, `security`, `livewire`, `inertia`, `observability` and `dates-and-money`. The webhook rules are provider-neutral, and the eval task uses a made-up provider.
 
 **Method.** As in the races round, with two changes:
-- `prev` doesn't depend on this round's text, so its builds and one `plain` build per new task ran as a pilot before any skill text was written. Every pilot build passed every hidden test. Two Opus reviewers then read the pilot builds and listed the misses they found, and `eval/misses.py` counts those misses by grep. That list was fixed before the draft, and it is the main measure of this round.
+- `prev` doesn't depend on this round's text, so its builds and one `plain` build per new task ran as a pilot before any skill text was written. Every pilot build passed every hidden test, after two inertia-projects checks that rejected correct builds were fixed (an enum compared to a string, and a seed whose newest entry had the lowest id). Two Opus reviewers then read the pilot builds and listed the misses they found, and `eval/misses.py` counts those misses by grep. That list was fixed before the draft, and it is the main measure of this round.
 - Livewire 4 and Inertia 3 got their own base apps (`base-livewire`, `base-inertia`).
 
 There are six target tasks (acme-webhooks, notes-search-api, livewire-notes, inertia-projects, payments-errors, invoice-totals), three holdouts (team-invitations, partner-sync, subscription-renewals) and one probe (team-activity). Target and holdout tasks have three builds per arm, and the probe and the 12 regression tasks two. The regression tasks are sales-report, blog-crud, blade-catalogue, cart-discounts, filament-admin, scheduled-reports, shipment-sync, export-purge-command, carrier-quote, orders-api, stock-csv-import and token-login. Blind Opus judges scored two replicates, with two judges per task. One revision followed the draft, and it was rebuilt on all 22 tasks.
@@ -204,9 +204,11 @@ There are six target tasks (acme-webhooks, notes-search-api, livewire-notes, ine
 | inertia-projects | two or more resource classes for three-field props | 0/1 | 3/3 | 0/3 | 0/3 |
 | **Total** | | | **15/21** | **1/21** | **0/21** |
 
+How to read this table: the misses were found by reading these same `main` builds, so `main`'s count is in-sample and every listed miss is at least 1/3 for `main` by construction; a fresh `main` draw would likely score lower. The draft was written knowing the list, and several lines answer a check almost directly (`when($term)`, `withoutWrapping()`, `dontFlash`, resource classes only when an API shares them). So 0/21 shows the text fixes the listed misses, not that it generalises, and the two holdout rows were known before the draft. Four of the seven misses are absent from the `plain` build and present in `main`: part of the gap is the new text undoing side effects of v0.3.0. Each check is a grep, so a miss written in a form the regex doesn't match counts as fixed.
+
 A seventh check, an exception throttle on every `Throwable` in partner-sync, was listed as "look at" because the brief makes it debatable. It is 3/3 for `main` and this version and 2/3 for the draft.
 
-**Hidden tests** (43 builds per skill arm, 516 tests): every arm is at the ceiling, `plain` included. The one difference is the earlier guest-without-`Accept` check on orders-api and token-login: `main` passes 2 of 6, the draft and this version 6 of 6.
+**Hidden tests** (43 builds per skill arm, 510 tests): every arm is at the ceiling, `plain` included. The one difference is the earlier guest-without-`Accept` check on stock-csv-import and token-login: `main` passes 2 of 6, the draft and this version 6 of 6.
 
 **Judges** (mean overall score, replicates 1 / 2; `main` was judged again in each round, so its numbers move a little):
 
@@ -220,7 +222,7 @@ A seventh check, an exception throttle on every `Throwable` in partner-sync, was
 
 The first `main` column was judged against the draft, and the second against this version. This version ranked first on 34 and 40 of 44 judgements, against 9 and 4 for `main`. It had fewer bugs per build (0.84 and 1.02, against 1.86 and 2.25) and higher correctness on targets and holdouts (8.39 and 8.56, against 7.28 and 6.89).
 
-Two results go the other way:
+Single tasks below `main`: blade-catalogue, cart-discounts, invoice-totals and team-invitations (a holdout) in replicate 1; export-purge-command and invoice-totals in replicate 2. The same `main` builds judged twice moved by up to 2.6 points on one task (team-invitations, 8.60 and 6.00), and their holdout mean moved by 0.5, more than this version's holdout lead in replicate 1, so that lead is within judge noise. Two results go the other way in both replicates:
 - **invoice-totals** (a target) scored lower than `main` in both replicates (7.25 / 7.00 against 8.60 / 7.75). The judges found input-shape bugs: `lines` sent as an object instead of a list, `currency` sent as an array, and an amount regex without the `/D` modifier, so `"1.50\n"` is accepted. Every arm parses amounts with a regex. The skill text has no regex and says nothing about these input shapes, so this round did not revise for them.
 - **Probe simplicity** is below `main` in both replicates (7.50 / 8.50 against 8.00 / 9.00), while the probe's overall score is level or higher.
 
@@ -232,13 +234,15 @@ Two results go the other way:
 
 **Non-regression checks.**
 - **Triggering:** 40 prompts with Haiku over two full rounds (10 new: 6 should trigger and 4 should skip, including an Express webhook, a Vue component, Django time zones and Rails with Inertia). This version loaded the skill on 147 of 150 should-trigger runs, against 141 of 150 for `main`, and on 0 of 90 should-skip runs for both.
-- **Static checks:** no build in any skill arm switches `Date::use`, uses an `encrypted` cast, re-encodes a body before an HMAC, compares a secret with `==`, calls `whereDate(` or `addMonth()`, logs `getMessage()` or holds an Eloquent collection in a Livewire public property. Counts of `#[Locked]`, `throttle`, `report(`, `Log::` and `catch (\Throwable)` per build are within 0.02 of `main` or lower.
-- **Audit traps:** over two runs each, `main` failed trap b twice, the draft once (trap b), and this version once (traps b and d in the same run). The trap b and d rewrites are a known flake from earlier rounds.
+- **Static checks:** no build in any skill arm matched the greps for `Date::use`, an `encrypted` cast, a re-encoded body next to an HMAC, `==` on a secret, `whereDate(`, `addMonth()`, `getMessage()` passed to a log call, or a typed Eloquent collection in a Livewire public property. The greps miss some forms (for example `!==` on a signature, or an untyped `public $notes`), and the `#[Locked]` count did not scan single-file components when it ran. Counts of `#[Locked]`, `throttle`, `report(`, `Log::` and `catch (\Throwable)` per build are within 0.02 of `main` or lower. Some rows go the other way: `(int) ($x * 100)` appears once in this version and twice in the draft (0 for `main`), `DB::` in controllers in 2 builds (0 for `main`), and raw foreign-key arrays in tests at 0.83 per build against 0.72.
+- **Audit traps:** over two runs each, `main` failed trap b twice, the draft once (trap b), and this version once (traps b and d in the same run): two failing traps each for `main` and this version, but trap d failed only for this version. The trap b and d rewrites are a known flake from earlier rounds.
 - **Cost:** builds cost $0.40 against $0.34 and take 107 against 92 seconds. `SKILL.md` grew from 394 to 431 lines; the rest went into references.
 
-**Caveats.** The hidden tests found no difference between versions in the new areas, so the evidence is the pre-registered misses (from one pilot, three builds per arm) and judge scores from two replicates. The misses were listed by reading `main` builds, so they measure what `main` got wrong, not every rule in the round. Per-task judge scores move by up to 1.5 points between replicates. The rubric also reflects the conventions the skill teaches.
+**Caveats.** The hidden tests found no difference between versions in the new areas, so the evidence is the pre-registered misses (from one pilot, three builds per arm) and judge scores from two replicates. The misses were listed by reading `main` builds, so they measure what `main` got wrong, not every rule in the round. Per-task judge scores move by up to 2.6 points between replicates. Replicate N judges build N, so the third build of each task counts only toward the hidden tests and the misses. The rubric also reflects the conventions the skill teaches.
 
-Raw judgements, mappings, per-build stats, hidden-test results, static and miss counts, triggering and audit runs are in [`eval/results/webhooks-security-round/`](../eval/results/webhooks-security-round). CI checks that every table re-derives from them.
+The judged text is commit `dfb80fb`. After the results, review fixes changed five skill files (`SKILL.md` §3c and the money and dates paragraph; `webhooks.md`, `livewire.md`, `observability.md`, `dates-and-money.md`), the checklist greps and a few version notes. Those changes were not rebuilt or judged.
+
+Raw judgements, mappings, per-build stats, hidden-test results, static and miss counts, triggering and audit runs are in [`eval/results/webhooks-security-round/`](../eval/results/webhooks-security-round). CI checks that the judge, build and hidden-test tables re-derive from them. The miss and static counts come from `misses.py` and `static.py` run on the build trees, which are not committed.
 
 ## Audit mode
 

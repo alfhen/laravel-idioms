@@ -134,3 +134,5 @@ One revision after the draft; the second loop was not needed. Against the pass b
 6. Audit traps: one failing run in two, against two for `main`. **Met.**
 
 invoice-totals, a target, scored lower than `main` in both replicates on input-shape bugs (an object for `lines`, an array for `currency`, a regex without `/D`) that no skill text touches. It is reported in `docs/evaluation.md` and not revised.
+
+Caveats added after an independent review: `main`'s miss count is in-sample (the misses were read from its own pilot builds) and the draft was written knowing the list; replicate swings reach 2.6 points on a task, so the replicate-1 holdout lead is within judge noise; the judged text is `dfb80fb`, and the review fixes made after it were not rebuilt.
