@@ -98,7 +98,7 @@ $start->addHours(48);     // 2026-03-30 01:00 +02:00 after the DST change
 A user's "today" is the half-open range `[local midnight, next local midnight)` converted to UTC. Not `whereDate()`, which compiles to `date(col) = ?`, cannot use an index and compares the UTC day.
 ```php
 $day = CarbonImmutable::now($user->timezone)->startOfDay();
-Order::where('placed_at', '>=', $day->utc())->where('placed_at', '<', $day->addDay()->utc());   // addDay() on the local start, not +24 h
+Order::where('placed_at', '>=', $day->utc())->where('placed_at', '<', $day->addDay()->startOfDay()->utc());   // next local midnight, not +24 h
 ```
 - `today()` and `now()->startOfDay()` are app-timezone (UTC) midnight. `today('Pacific/Auckland')` and `now($tz)->startOfDay()` name the zone.
 - `endOfDay()` closes at 23:59:59 and can miss fractions on `timestamp(6)`; prefer `<` next midnight.

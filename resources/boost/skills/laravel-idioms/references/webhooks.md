@@ -93,10 +93,11 @@ Delivery is at-least-once: retries after a timeout or 5xx are normal.
 // bad: last delivery wins
 Order::updateOrCreate(['remote_id' => $id], ['status' => $s, 'remote_updated_at' => $at]);
 // good
-$n = Order::where('remote_id', $id)->where('remote_updated_at', '<', $at)->update(['status' => $s, 'remote_updated_at' => $at]);
+$newer = fn ($q) => $q->whereNull('remote_updated_at')->orWhere('remote_updated_at', '<', $at);
+$n = Order::where('remote_id', $id)->where($newer)->update(['status' => $s, 'remote_updated_at' => $at]);
 if ($n === 0 && ! Order::where('remote_id', $id)->exists() && Order::query()->insertOrIgnore([...]) === 0) {
     // a concurrent delivery inserted first: apply the same guarded update again
-    Order::where('remote_id', $id)->where('remote_updated_at', '<', $at)->update(['status' => $s, 'remote_updated_at' => $at]);
+    Order::where('remote_id', $id)->where($newer)->update(['status' => $s, 'remote_updated_at' => $at]);
 }
 ```
 - Compare on the payload's own timestamp, not arrival time. Use `<=` only if re-applying is harmless.
