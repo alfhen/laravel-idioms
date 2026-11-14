@@ -59,19 +59,20 @@ $expected = hash_hmac('sha256', $t.'.'.$request->getContent(), $secret);
 ## Acknowledge fast, then queue
 
 ```php
-// good: store the verified raw body, dispatch after commit, answer 2xx with no body
+// good: store the verified raw body, dispatch, answer 2xx with no body
 $event = WebhookEvent::query()->createOrFirst(
     ['provider' => 'example', 'event_id' => $request->header('X-Example-Event-Id')],
     ['type' => $request->header('X-Example-Type'), 'payload' => $request->getContent()],
 );
 if ($event->wasRecentlyCreated) {
-    ProcessWebhookEvent::dispatch($event->id)->afterCommit();
+    ProcessWebhookEvent::dispatch($event->id);   // ->afterCommit() only when this runs inside a transaction
 }
 
 return response()->noContent();
 ```
 - Inline API calls, mail or a long transaction run past the provider's timeout; the provider retries while the first run is still going, so you get duplicates and parallel runs.
-- Store `getContent()` verbatim and let the job decode it. The job takes the row id, not the payload.
+- Store `getContent()` verbatim and let the job decode it (an `array` cast on the column does it for you). The job takes the row id, not the payload.
+- Validate only what every delivery carries (delivery id, type) before answering. An unknown type is acknowledged before its payload is checked; a known type's fields are checked where it is processed, and never more strictly than the provider's contract, because a rejected delivery comes back for as long as the provider retries.
 - Answer 202 or 204 with an empty body; the provider reads the status only. Don't return the processing result.
 - A naturally idempotent single write (delete a session row, set a flag) needs no inbox: verify, do it inline, answer 200. The inbox is for slow, multi-step or non-idempotent work.
 
