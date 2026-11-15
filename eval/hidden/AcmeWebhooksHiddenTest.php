@@ -224,6 +224,7 @@ class AcmeWebhooksHiddenTest extends TestCase
         $this->deliver($this->event('evt_1', 'payment.succeeded', '2026-11-14T10:00:00Z'))->assertSuccessful();
 
         $this->assertSame('refunded', DB::table('payments')->where('acme_id', 'pay_1')->value('status'));
+        $this->assertSame([2, 0], $this->ledger());
     }
 
     public function test_an_unknown_event_type_is_acknowledged_and_ignored(): void

@@ -67,7 +67,7 @@ class NotesSearchApiHiddenTest extends TestCase
 
     private function assertRejectedOrCreatedAtOrder(string $query): void
     {
-        $response = $this->get('/api/notes?'.$query);
+        $response = $this->getJson('/api/notes?'.$query);
 
         $this->assertContains($response->status(), [200, 422], "?{$query} answered {$response->status()}");
         if ($response->status() === 200) {

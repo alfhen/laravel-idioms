@@ -235,10 +235,10 @@ class LivewireNotesHiddenTest extends TestCase
         $owner = User::factory()->create();
         $note = $this->note($owner, 'Owner title', 'Owner body');
         $this->actingAs($owner);
-        $component = Livewire::test('notes.edit', ['note' => $note]);
+        $component = $this->fill(Livewire::test('notes.edit', ['note' => $note]), 'Hijacked title', 'Hijacked body');
 
         $this->actingAs(User::factory()->create());
-        $this->tryTo(fn () => $this->fill($component, 'Hijacked title', 'Hijacked body')->call('save'));
+        $this->tryTo(fn () => $component->call('save'));
 
         $this->assertSame('Owner title', $note->fresh()->title);
         $this->assertSame('Owner body', $note->fresh()->body);
