@@ -54,7 +54,7 @@ expect($user->refresh())
     ->email_verified_at->toBeNull()
     ->and($user->notifications)->toHaveCount(1);
 ```
-- `toBe()` is `assertSame` (strict type and identity); `toEqual()` is loose. Decimal casts come back as strings: `expect((float) $order->total)->toBe(100.00)`. Enum casts: `toBe(OrderStatus::Paid)`. Two instances of the same row are never `toBe()`; compare ids.
+- `toBe()` is `assertSame` (strict type and identity); `toEqual()` is loose. Decimal casts come back as strings: `expect($order->total)->toBe('100.00')`; integer minor units compare as ints. Never compare money as floats. Enum casts: `toBe(OrderStatus::Paid)`. Two instances of the same row are never `toBe()`; compare ids.
 - `->refresh()` the model after the action, before asserting.
 - Partial checks: `toMatchArray([...])` (calls `toArray()` on models). Counts: `toHaveCount`. Types: `toBeInstanceOf`, `toContainOnlyInstancesOf`, `toBeCollection()` (Laravel plugin).
 - Over collections: `->each->is_visible->toBeFalse()` and ordered `->sequence(A, B)`, not a `foreach` of expects. `Factory::sequence()` is an unrelated API (varies attributes while creating).

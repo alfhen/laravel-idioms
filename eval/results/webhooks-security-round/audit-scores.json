@@ -1,0 +1,875 @@
+[
+ {
+  "run": "final-1",
+  "traps": {
+   "a: list<string> via array_keys(array_filter())": {
+    "verdict": "pass (left alone)",
+    "findings": [],
+    "evidence": []
+   },
+   "b: strict in_array dedupe": {
+    "verdict": "pass (flagged safely, verified)",
+    "findings": [
+     "F-011"
+    ],
+    "evidence": [
+     {
+      "id": "F-011",
+      "title": "Replace the accumulate loop in TagNormaliser with a collection pipeline",
+      "severity": "low",
+      "why": "The loop builds $seen by hand and rescans it with in_array for each tag. uniqueStrict() keeps the strict comparison the test relies on ('0', '00' and '1e3' stay distinct), and array_values keeps the list<string> return type without a temp variable or @var. The trim callback is written out because map() passes the key as a second argument, which trim(...) would take as its character list.",
+      "suggested": "        return array_values(collect($tags)\n            ->map(fn (string $tag): string => trim($tag))\n            ->reject(fn (string $tag): bool => $tag === '')\n            ->uniqueStrict()\n            ->all());"
+     }
+    ],
+    "applied": [
+     {
+      "id": "F-011",
+      "applied": true,
+      "phpstan": {
+       "errors": 0,
+       "messages": []
+      },
+      "tests": {
+       "pass": true,
+       "summary": "Tests:    11 passed (23 assertions)"
+      }
+     }
+    ]
+   },
+   "c: array_unique() on strings": {
+    "verdict": "pass (flagged safely)",
+    "findings": [
+     "F-013"
+    ],
+    "evidence": [
+     {
+      "id": "F-013",
+      "title": "Remove or wire up AllowedHosts and ProductCodes: nothing uses them",
+      "severity": "low",
+      "why": "AllowedHosts is bound as a singleton and read from config/hosts.php, but no controller, middleware or route resolves it; ProductCodes is not referenced at all. Both exist only for their own unit tests. Confirm nothing outside this repository depends on them before deleting.",
+      "suggested": "// app/Providers/AppServiceProvider.php\n\n\n// app/Providers/AppServiceProvider.php\n        //\n\n// delete app/Support/AllowedHosts.php\n\n// delete app/Support/ProductCodes.php\n\n// delete config/hosts.php\n\n// delete tests/Unit/AllowedHostsTest.php\n\n// delete tests/Unit/ProductCodesTest.php"
+     }
+    ]
+   },
+   "d: scopeAccepted() vs attribute reads": {
+    "verdict": "UNVERIFIED (rewrite not applicable)",
+    "findings": [
+     "F-008"
+    ],
+    "evidence": [
+     {
+      "id": "F-008",
+      "title": "Use #[Fillable] without accepted on Offer, and cast accepted and price_cents",
+      "severity": "medium",
+      "why": "accepted is a state the server decides, so it should not be mass-assignable (factories write unguarded, so tests are unaffected). Without a cast, accepted comes back from the database as 0/1. User already uses attributes, so Offer and Order follow the same house style. The scopeAccepted name is kept on purpose: 'accepted' is a column, and a #[Scope] method of that name would break $offer->accepted wherever the column is not loaded.",
+      "suggested": "use Illuminate\\Database\\Eloquent\\Attributes\\Fillable;\nuse Illuminate\\Database\\Eloquent\\Builder;\n\n#[Fillable(['title', 'price_cents', 'tags'])]\nclass Offer extends Model\n{\n    /** @use HasFactory<OfferFactory> */\n    use HasFactory;\n\n        return [\n            'accepted' => 'boolean',\n            'price_cents' => 'integer',\n            'tags' => 'array',\n        ];"
+     }
+    ],
+    "applied": [
+     {
+      "id": "F-008",
+      "applied": false
+     }
+    ]
+   },
+   "e: TrimStrings stub with default $except": {
+    "verdict": "pass (flagged safely)",
+    "findings": [
+     "F-012"
+    ],
+    "evidence": [
+     {
+      "id": "F-012",
+      "title": "Delete the TrimStrings stub that repeats the framework defaults",
+      "severity": "low",
+      "why": "Nothing registers App\\Http\\Middleware\\TrimStrings, and its $except list is identical to the parent's (current_password, password, password_confirmation), so it is dead code either way.",
+      "suggested": "// delete app/Http/Middleware/TrimStrings.php"
+     }
+    ]
+   },
+   "f1: keyed accumulate-in-foreach": {
+    "verdict": "pass",
+    "findings": [
+     "F-006"
+    ],
+    "evidence": [
+     {
+      "id": "F-006",
+      "title": "Aggregate revenue in SQL instead of hydrating every order",
+      "severity": "medium",
+      "why": "The report loads every order as a model and sums in PHP, so memory and time grow with the orders table on a public endpoint. A grouped sum returns one row per country.",
+      "suggested": "        return Order::query()\n            ->selectRaw('country, sum(total_cents) as revenue')\n            ->groupBy('country')\n            ->orderBy('country')\n            ->pluck('revenue', 'country')\n            ->map(fn (mixed $revenue): int => (int) $revenue)\n            ->all();"
+     }
+    ]
+   },
+   "f2: private list property built in foreach": {
+    "verdict": "pass",
+    "findings": [
+     "F-013"
+    ],
+    "evidence": [
+     {
+      "id": "F-013",
+      "title": "Remove or wire up AllowedHosts and ProductCodes: nothing uses them",
+      "severity": "low",
+      "why": "AllowedHosts is bound as a singleton and read from config/hosts.php, but no controller, middleware or route resolves it; ProductCodes is not referenced at all. Both exist only for their own unit tests. Confirm nothing outside this repository depends on them before deleting.",
+      "suggested": "// app/Providers/AppServiceProvider.php\n\n\n// app/Providers/AppServiceProvider.php\n        //\n\n// delete app/Support/AllowedHosts.php\n\n// delete app/Support/ProductCodes.php\n\n// delete config/hosts.php\n\n// delete tests/Unit/AllowedHostsTest.php\n\n// delete tests/Unit/ProductCodesTest.php"
+     }
+    ]
+   },
+   "f3: $request->all() into create()": {
+    "verdict": "pass",
+    "findings": [
+     "F-001"
+    ],
+    "evidence": [
+     {
+      "id": "F-001",
+      "title": "Validate offer input in a FormRequest and stop mass-assigning raw input",
+      "severity": "high",
+      "why": "create() receives $request->all(), and 'accepted' is fillable but never validated, so any caller can post accepted=true and create an offer that is already accepted (probed: POST with accepted=true returned accepted: true). Inline validate() is also the only place the rules live.",
+      "suggested": "// app/Http/Controllers/OfferController.php\nuse App\\Http\\Requests\\StoreOfferRequest;\nuse App\\Http\\Resources\\OfferResource;\n\n// app/Http/Controllers/OfferController.php\n    public function store(StoreOfferRequest $request, TagNormaliser $normaliser): JsonResponse\n    {\n        $offer = Offer::create([\n            ...$request->safe()->except('tags'),\n            'tags' => $normaliser->unique($request->validated('tags', [])),\n        ]);\n\n// app/Http/Requests/StoreOfferRequest.php (new file)\n<?php\n\nnamespace App\\Http\\Requests;\n\nuse Illuminate\\Foundation\\Http\\FormRequest;\n\nclass StoreOfferRequest extends FormRequest\n{\n    /** @return array<string, array<int, string>> */\n    public function rules(): array\n    {\n        return [\n            'title' => ['required', 'string', 'max:120'],\n            'price_cents' => ['required', 'integer', 'between:0,4294967295'],\n            'tags' => ['array'],\n            'tags.*' => ['string'],\n        ];\n    }\n}"
+     }
+    ]
+   }
+  },
+  "findings": 17
+ },
+ {
+  "run": "final-2",
+  "traps": {
+   "a: list<string> via array_keys(array_filter())": {
+    "verdict": "pass (left alone)",
+    "findings": [],
+    "evidence": []
+   },
+   "b: strict in_array dedupe": {
+    "verdict": "FAIL (rewrite breaks PHPStan and tests)",
+    "findings": [
+     "F-009"
+    ],
+    "evidence": [
+     {
+      "id": "F-009",
+      "title": "Replace the accumulate loop in TagNormaliser with a collection pipeline",
+      "severity": "low",
+      "why": "This is an accumulate-in-foreach with a strict `in_array`. The pipeline keeps strict comparison via `uniqueStrict()`, so `'0'` and `'00'` stay distinct, which the existing test pins. `->all()` is not typed as a list, hence the `array_values()` wrapper and no temp variable. Use the closure for `trim`: `map(trim(...))` would pass the collection key as trim's second argument.",
+      "suggested": "// file: app/Support/TagNormaliser.php\n<?php\n\nnamespace App\\Support;\n\nclass TagNormaliser\n{\n    /**\n     * @param  list<string>  $tags\n     * @return list<string>\n     */\n    public function unique(array $tags): array\n    {\n        return array_values(\n            collect($tags)\n                ->map(fn (string $tag): string => trim($tag))\n                ->reject(fn (string $tag): bool => $tag === '')\n                ->uniqueStrict()\n                ->all()\n        );\n    }\n}"
+     }
+    ],
+    "applied": [
+     {
+      "id": "F-009",
+      "applied": true,
+      "phpstan": {
+       "errors": 1,
+       "messages": [
+        "Syntax error, unexpected '<' on line 14"
+       ]
+      },
+      "tests": {
+       "pass": false,
+       "summary": "Tests:    3 failed, 8 passed (18 assertions)"
+      }
+     }
+    ]
+   },
+   "c: array_unique() on strings": {
+    "verdict": "pass (flagged safely)",
+    "findings": [
+     "F-010"
+    ],
+    "evidence": [
+     {
+      "id": "F-010",
+      "title": "Remove unused AllowedHosts, ProductCodes and the stock TrimStrings copy",
+      "severity": "low",
+      "why": "`grep -rn` over `app routes config bootstrap` finds `AllowedHosts` only in the provider that binds it and `ProductCodes` nowhere; only their own unit tests use them. The app `TrimStrings` is not registered in `bootstrap/app.php`, and it repeats the parent's `$except` list (`current_password`, `password`, `password_confirmation`) exactly, so it changes nothing either way. Confirm nothing outside this repo depends on them before deleting.",
+      "suggested": "// delete: app/Support/AllowedHosts.php\n// delete: app/Support/ProductCodes.php\n// delete: app/Http/Middleware/TrimStrings.php\n// delete: config/hosts.php\n// delete: tests/Unit/AllowedHostsTest.php\n// delete: tests/Unit/ProductCodesTest.php\n\n// file: app/Providers/AppServiceProvider.php\n<?php\n\nnamespace App\\Providers;\n\nuse Illuminate\\Support\\ServiceProvider;\n\nclass AppServiceProvider extends ServiceProvider\n{\n    public function register(): void\n    {\n        //\n    }\n\n    public function boot(): void\n    {\n        //\n    }\n}"
+     }
+    ]
+   },
+   "d: scopeAccepted() vs attribute reads": {
+    "verdict": "FAIL (rewrite breaks PHPStan and tests)",
+    "findings": [
+     "F-001",
+     "F-003",
+     "F-008"
+    ],
+    "evidence": [
+     {
+      "id": "F-001",
+      "title": "Validate offer creation in a FormRequest and stop writing request->all()",
+      "severity": "high",
+      "why": "`Offer::create([...$request->all()])` hands every posted key to a model whose `$fillable` includes `accepted`. In a scratch run a guest POST with `accepted: true` created an accepted offer, and `accepted: null` returned a 500 (NOT NULL violation). The `price_cents` rule also has no upper bound, and the column is `unsignedInteger`, so a larger value passes validation and fails at the database on MySQL. A FormRequest with `validated()` closes all three. The 50-item and 50-character tag caps and the 4294967295 price cap are suggested limits; adjust them to the product.",
+      "suggested": "// file: app/Http/Requests/StoreOfferRequest.php\n<?php\n\nnamespace App\\Http\\Requests;\n\nuse Illuminate\\Foundation\\Http\\FormRequest;\n\nclass StoreOfferRequest extends FormRequest\n{\n    /** @return array<string, array<int, string>> */\n    public function rules(): array\n    {\n        return [\n            'title' => ['required', 'string', 'max:120'],\n            'price_cents' => ['required', 'integer', 'between:0,4294967295'],\n            'tags' => ['array', 'max:50'],\n            'tags.*' => ['string', 'max:50'],\n        ];\n    }\n}\n\n// file: app/Http/Controllers/OfferController.php\n<?php\n\nnamespace App\\Http\\Controllers;\n\nuse App\\Http\\Requests\\StoreOfferRequest;\nuse App\\Http\\Resources\\OfferResource;\nuse App\\Models\\Offer;\nuse App\\Support\\TagNormaliser;\nuse Illuminate\\Http\\Request;\nuse Illuminate\\Http\\Resources\\Json\\AnonymousResourceCollection;\n\nclass OfferController extends Controller\n{\n    public function index(Request $request): AnonymousResourceCollection\n    {\n        $offers = Offer::query()\n            ->when($request->boolean('accepted'), fn ($query) => $query->accepted())\n            ->orderBy('id')\n            ->get();\n\n        return OfferResource::collection($offers);\n    }\n\n    public function titles(): AnonymousResourceCollection\n    {\n        return OfferResource::collection(Offer::query()->select(['id', 'title'])->orderBy('title')->get());\n    }\n\n    public function store(StoreOfferRequest $request, TagNormaliser $normaliser): OfferResource\n    {\n        $offer = Offer::create([\n            ...$request->validated(),\n            'tags' => $normaliser->unique($request->validated('tags', [])),\n        ]);\n\n        return new OfferResource($offer);\n    }\n}\n\n// file: tests/Feature/StoreOfferTest.php\n<?php\n\nnamespace Tests\\Feature;\n\nuse Illuminate\\Foundation\\Testing\\RefreshDatabase;\nuse Tests\\TestCase;\n\nclass StoreOfferTest extends TestCase\n{\n    use RefreshDatabase;\n\n    public function test_client_cannot_mark_an_offer_as_accepted(): void\n    {\n        $this->postJson('/api/offers', ['title' => 'x', 'price_cents' => 1, 'accepted' => true])\n            ->assertCreated()\n            ->assertJsonPath('data.accepted', false);\n\n        $this->assertDatabaseHas('offers', ['title' => 'x', 'accepted' => false]);\n    }\n\n    public function test_null_accepted_is_ignored_instead_of_failing(): void\n    {\n        $this->postJson('/api/offers', ['title' => 'x', 'price_cents' => 1, 'accepted' => null])\n            ->assertCreated();\n    }\n\n    public function test_reports_each_rule_with_its_message(): void\n    {\n        $this->postJson('/api/offers', ['price_cents' => -1])\n            ->assertUnprocessable()\n            ->assertJsonValidationErrors([\n                'title' => 'The title field is required.',\n                'price_cents' => 'The price cents field must be between 0 and 4294967295.',\n            ]);\n    }\n\n    public function test_limits_title_price_and_tags(): void\n    {\n        $this->postJson('/api/offers', [\n            'title' => str_repeat('a', 121),\n            'price_cents' => 4294967296,\n            'tags' => [str_repeat('a', 51)],\n        ])\n            ->assertUnprocessable()\n            ->assertJsonValidationErrors([\n                'title' => 'The title field must not be greater than 120 characters.',\n                'price_cents' => 'The price cents field must be between 0 and 4294967295.',\n                'tags.0' => 'The tags.0 field must not be greater than 50 characters.',\n            ]);\n\n        $this->postJson('/api/offers', ['title' => 'x', 'price_cents' => 1, 'tags' => array_fill(0, 51, 'a')])\n            ->assertJsonValidationErrors(['tags' => 'The tags field must not have more than 50 items.']);\n    }\n}"
+     },
+     {
+      "id": "F-003",
+      "title": "Stop reporting accepted=false for offers whose flag was never loaded",
+      "severity": "high",
+      "why": "`GET /api/offers/titles` selects only `id` and `title`, so `$this->accepted` is unset and the resource answers `accepted: false` for every row, including accepted offers. The existing test hides it: it asserts `false` on row 0, which happens to be the one non-accepted offer. In a scratch run an accepted offer came back as `{\"id\":1,\"title\":\"A\",\"accepted\":false}`. `whenHas` omits the key when the column was not selected. The model default (`$attributes`) and the `boolean` cast keep `accepted: false` in the create response and make index return real booleans. If clients need the flag in the titles list, add `accepted` to that `select()` instead.",
+      "suggested": "// file: app/Http/Resources/OfferResource.php\n<?php\n\nnamespace App\\Http\\Resources;\n\nuse App\\Models\\Offer;\nuse Illuminate\\Http\\Request;\nuse Illuminate\\Http\\Resources\\Json\\JsonResource;\n\n/** @mixin Offer */\nclass OfferResource extends JsonResource\n{\n    /** @return array<string, mixed> */\n    public function toArray(Request $request): array\n    {\n        return [\n            'id' => $this->id,\n            'title' => $this->title,\n            'price_cents' => $this->whenHas('price_cents'),\n            'tags' => $this->whenHas('tags'),\n            'accepted' => $this->whenHas('accepted'),\n        ];\n    }\n}\n\n// file: app/Models/Offer.php\n<?php\n\nnamespace App\\Models;\n\nuse Database\\Factories\\OfferFactory;\nuse Illuminate\\Database\\Eloquent\\Builder;\nuse Illuminate\\Database\\Eloquent\\Factories\\HasFactory;\nuse Illuminate\\Database\\Eloquent\\Model;\n\nclass Offer extends Model\n{\n    /** @use HasFactory<OfferFactory> */\n    use HasFactory;\n\n    protected $fillable = ['title', 'price_cents', 'accepted', 'tags'];\n\n    protected $attributes = ['accepted' => false];\n\n    protected function casts(): array\n    {\n        return [\n            'tags' => 'array',\n            'accepted' => 'boolean',\n        ];\n    }\n\n    /** @param Builder<Offer> $query */\n    public function scopeAccepted(Builder $query): void\n    {\n        $query->where('accepted', true);\n    }\n}\n\n// file: tests/Feature/OfferTest.php\n<?php\n\nnamespace Tests\\Feature;\n\nuse App\\Models\\Offer;\nuse Illuminate\\Foundation\\Testing\\RefreshDatabase;\nuse Tests\\TestCase;\n\nclass OfferTest extends TestCase\n{\n    use RefreshDatabase;\n\n    public function test_index_filters_accepted_offers(): void\n    {\n        Offer::factory()->create(['title' => 'Open']);\n        Offer::factory()->accepted()->create(['title' => 'Taken']);\n\n        $this->getJson('/api/offers?accepted=1')\n            ->assertOk()\n            ->assertJsonCount(1, 'data')\n            ->assertJsonPath('data.0.title', 'Taken')\n            ->assertJsonPath('data.0.accepted', true);\n    }\n\n    public function test_titles_list_only_titles(): void\n    {\n        Offer::factory()->accepted()->create(['title' => 'Bravo']);\n        Offer::factory()->create(['title' => 'Alpha']);\n\n        $this->getJson('/api/offers/titles')\n            ->assertOk()\n            ->assertJsonPath('data.0.title', 'Alpha')\n            ->assertJsonPath('data.1.title', 'Bravo')\n            ->assertJsonMissingPath('data.0.accepted')\n            ->assertJsonMissingPath('data.1.accepted')\n            ->assertJsonMissingPath('data.0.price_cents');\n    }\n\n    public function test_store_normalises_tags(): void\n    {\n        $this->postJson('/api/offers', [\n            'title' => 'Yarn bundle',\n            'price_cents' => 4900,\n            'tags' => ['0', '00', ' wool ', 'wool'],\n        ])\n            ->assertCreated()\n            ->assertJsonPath('data.tags', ['0', '00', 'wool'])\n            ->assertJsonPath('data.accepted', false);\n    }\n\n    public function test_store_validates_input(): void\n    {\n        $this->postJson('/api/offers', ['price_cents' => -1])\n            ->assertUnprocessable()\n            ->assertJsonValidationErrors(['title', 'price_cents']);\n    }\n}"
+     },
+     {
+      "id": "F-008",
+      "title": "Use #[Fillable] like User and keep accepted out of the mass-assignable list",
+      "severity": "low",
+      "why": "`User` already uses the Laravel 13 `#[Fillable]` attribute while `Offer` and `Order` still use the property. `accepted` is a state flag that no request should set, so it leaves the fillable list (factories bypass guarding, so tests still create accepted offers). `scopeAccepted()` is deliberately not converted to `#[Scope]`: `accepted` is also a column, and a scope method with the same name would break `$offer->accepted` on the partial select used by `titles`.",
+      "suggested": "// file: app/Models/Offer.php\n<?php\n\nnamespace App\\Models;\n\nuse Database\\Factories\\OfferFactory;\nuse Illuminate\\Database\\Eloquent\\Attributes\\Fillable;\nuse Illuminate\\Database\\Eloquent\\Builder;\nuse Illuminate\\Database\\Eloquent\\Factories\\HasFactory;\nuse Illuminate\\Database\\Eloquent\\Model;\n\n#[Fillable(['title', 'price_cents', 'tags'])]\nclass Offer extends Model\n{\n    /** @use HasFactory<OfferFactory> */\n    use HasFactory;\n\n    protected $attributes = ['accepted' => false];\n\n    protected function casts(): array\n    {\n        return [\n            'tags' => 'array',\n            'accepted' => 'boolean',\n        ];\n    }\n\n    /** @param Builder<Offer> $query */\n    public function scopeAccepted(Builder $query): void\n    {\n        $query->where('accepted', true);\n    }\n}\n\n// file: app/Models/Order.php\n<?php\n\nnamespace App\\Models;\n\nuse Database\\Factories\\OrderFactory;\nuse Illuminate\\Database\\Eloquent\\Attributes\\Fillable;\nuse Illuminate\\Database\\Eloquent\\Factories\\HasFactory;\nuse Illuminate\\Database\\Eloquent\\Model;\n\n#[Fillable(['country', 'total_cents'])]\nclass Order extends Model\n{\n    /** @use HasFactory<OrderFactory> */\n    use HasFactory;\n}"
+     }
+    ],
+    "applied": [
+     {
+      "id": "F-001",
+      "applied": false
+     },
+     {
+      "id": "F-003",
+      "applied": false
+     },
+     {
+      "id": "F-008",
+      "applied": true,
+      "phpstan": {
+       "errors": 6,
+       "messages": [
+        "Syntax error, unexpected '<' on line 16",
+        "Syntax error, unexpected T_CLASS, expecting T_FUNCTION or T_CONST on line 27",
+        "Syntax error, unexpected '<' on line 50",
+        "Syntax error, unexpected T_PROTECTED on line 66",
+        "Syntax error, unexpected T_PUBLIC on line 74",
+        "Syntax error, unexpected '}', expecting EOF on line 78"
+       ]
+      },
+      "tests": {
+       "pass": false,
+       "summary": "Tests:    3 failed, 8 passed (14 assertions)"
+      }
+     }
+    ]
+   },
+   "e: TrimStrings stub with default $except": {
+    "verdict": "pass (flagged safely)",
+    "findings": [
+     "F-010"
+    ],
+    "evidence": [
+     {
+      "id": "F-010",
+      "title": "Remove unused AllowedHosts, ProductCodes and the stock TrimStrings copy",
+      "severity": "low",
+      "why": "`grep -rn` over `app routes config bootstrap` finds `AllowedHosts` only in the provider that binds it and `ProductCodes` nowhere; only their own unit tests use them. The app `TrimStrings` is not registered in `bootstrap/app.php`, and it repeats the parent's `$except` list (`current_password`, `password`, `password_confirmation`) exactly, so it changes nothing either way. Confirm nothing outside this repo depends on them before deleting.",
+      "suggested": "// delete: app/Support/AllowedHosts.php\n// delete: app/Support/ProductCodes.php\n// delete: app/Http/Middleware/TrimStrings.php\n// delete: config/hosts.php\n// delete: tests/Unit/AllowedHostsTest.php\n// delete: tests/Unit/ProductCodesTest.php\n\n// file: app/Providers/AppServiceProvider.php\n<?php\n\nnamespace App\\Providers;\n\nuse Illuminate\\Support\\ServiceProvider;\n\nclass AppServiceProvider extends ServiceProvider\n{\n    public function register(): void\n    {\n        //\n    }\n\n    public function boot(): void\n    {\n        //\n    }\n}"
+     }
+    ]
+   },
+   "f1: keyed accumulate-in-foreach": {
+    "verdict": "pass",
+    "findings": [
+     "F-004",
+     "F-005"
+    ],
+    "evidence": [
+     {
+      "id": "F-004",
+      "title": "Compute revenue per country in SQL instead of loading every order",
+      "severity": "high",
+      "why": "`Order::query()->get()` hydrates every order as a model just to add up one column. Against 100,000 seeded orders the current class died with `Allowed memory size of 134217728 bytes exhausted`, while the grouped query took 25 ms at a 44 MB peak and returned the same totals for the small data set. The endpoint is public and the table only grows. The `(int)` cast is there because MySQL returns `sum()` as a decimal string.",
+      "suggested": "// file: app/Reports/RevenueByCountry.php\n<?php\n\nnamespace App\\Reports;\n\nuse App\\Models\\Order;\n\nclass RevenueByCountry\n{\n    /** @return array<string, int> */\n    public function __invoke(): array\n    {\n        return Order::query()\n            ->selectRaw('country, sum(total_cents) as total')\n            ->groupBy('country')\n            ->orderBy('country')\n            ->pluck('total', 'country')\n            ->map(fn ($total): int => (int) $total)\n            ->all();\n    }\n}"
+     },
+     {
+      "id": "F-005",
+      "title": "Return an object for an empty revenue report",
+      "severity": "medium",
+      "why": "With no orders the report encodes as `[]` (a JSON array), while any data encodes as an object. A client that reads `report['DK']` or iterates keys gets two different shapes from one endpoint; a scratch request on an empty database returned `[]`. Casting to an object keeps the non-empty output byte-identical and makes the empty case `{}`.",
+      "suggested": "// file: app/Http/Controllers/RevenueReportController.php\n<?php\n\nnamespace App\\Http\\Controllers;\n\nuse App\\Reports\\RevenueByCountry;\nuse Illuminate\\Http\\JsonResponse;\n\nclass RevenueReportController extends Controller\n{\n    public function __invoke(RevenueByCountry $report): JsonResponse\n    {\n        return response()->json((object) $report());\n    }\n}\n\n// file: tests/Feature/RevenueReportEdgeCasesTest.php\n<?php\n\nnamespace Tests\\Feature;\n\nuse App\\Models\\Order;\nuse Illuminate\\Foundation\\Testing\\RefreshDatabase;\nuse Tests\\TestCase;\n\nclass RevenueReportEdgeCasesTest extends TestCase\n{\n    use RefreshDatabase;\n\n    public function test_empty_report_is_an_empty_object(): void\n    {\n        $this->getJson('/api/reports/revenue-by-country')\n            ->assertOk()\n            ->assertContent('{}');\n    }\n\n    public function test_countries_are_sorted_by_code(): void\n    {\n        Order::factory()->create(['country' => 'SE', 'total_cents' => 1]);\n        Order::factory()->create(['country' => 'DE', 'total_cents' => 2]);\n        Order::factory()->create(['country' => 'DK', 'total_cents' => 3]);\n\n        $this->getJson('/api/reports/revenue-by-country')\n            ->assertOk()\n            ->assertContent('{\"DE\":2,\"DK\":3,\"SE\":1}');\n    }\n}"
+     }
+    ]
+   },
+   "f2: private list property built in foreach": {
+    "verdict": "pass",
+    "findings": [
+     "F-010"
+    ],
+    "evidence": [
+     {
+      "id": "F-010",
+      "title": "Remove unused AllowedHosts, ProductCodes and the stock TrimStrings copy",
+      "severity": "low",
+      "why": "`grep -rn` over `app routes config bootstrap` finds `AllowedHosts` only in the provider that binds it and `ProductCodes` nowhere; only their own unit tests use them. The app `TrimStrings` is not registered in `bootstrap/app.php`, and it repeats the parent's `$except` list (`current_password`, `password`, `password_confirmation`) exactly, so it changes nothing either way. Confirm nothing outside this repo depends on them before deleting.",
+      "suggested": "// delete: app/Support/AllowedHosts.php\n// delete: app/Support/ProductCodes.php\n// delete: app/Http/Middleware/TrimStrings.php\n// delete: config/hosts.php\n// delete: tests/Unit/AllowedHostsTest.php\n// delete: tests/Unit/ProductCodesTest.php\n\n// file: app/Providers/AppServiceProvider.php\n<?php\n\nnamespace App\\Providers;\n\nuse Illuminate\\Support\\ServiceProvider;\n\nclass AppServiceProvider extends ServiceProvider\n{\n    public function register(): void\n    {\n        //\n    }\n\n    public function boot(): void\n    {\n        //\n    }\n}"
+     }
+    ]
+   },
+   "f3: $request->all() into create()": {
+    "verdict": "pass",
+    "findings": [
+     "F-001",
+     "F-002",
+     "F-014"
+    ],
+    "evidence": [
+     {
+      "id": "F-001",
+      "title": "Validate offer creation in a FormRequest and stop writing request->all()",
+      "severity": "high",
+      "why": "`Offer::create([...$request->all()])` hands every posted key to a model whose `$fillable` includes `accepted`. In a scratch run a guest POST with `accepted: true` created an accepted offer, and `accepted: null` returned a 500 (NOT NULL violation). The `price_cents` rule also has no upper bound, and the column is `unsignedInteger`, so a larger value passes validation and fails at the database on MySQL. A FormRequest with `validated()` closes all three. The 50-item and 50-character tag caps and the 4294967295 price cap are suggested limits; adjust them to the product.",
+      "suggested": "// file: app/Http/Requests/StoreOfferRequest.php\n<?php\n\nnamespace App\\Http\\Requests;\n\nuse Illuminate\\Foundation\\Http\\FormRequest;\n\nclass StoreOfferRequest extends FormRequest\n{\n    /** @return array<string, array<int, string>> */\n    public function rules(): array\n    {\n        return [\n            'title' => ['required', 'string', 'max:120'],\n            'price_cents' => ['required', 'integer', 'between:0,4294967295'],\n            'tags' => ['array', 'max:50'],\n            'tags.*' => ['string', 'max:50'],\n        ];\n    }\n}\n\n// file: app/Http/Controllers/OfferController.php\n<?php\n\nnamespace App\\Http\\Controllers;\n\nuse App\\Http\\Requests\\StoreOfferRequest;\nuse App\\Http\\Resources\\OfferResource;\nuse App\\Models\\Offer;\nuse App\\Support\\TagNormaliser;\nuse Illuminate\\Http\\Request;\nuse Illuminate\\Http\\Resources\\Json\\AnonymousResourceCollection;\n\nclass OfferController extends Controller\n{\n    public function index(Request $request): AnonymousResourceCollection\n    {\n        $offers = Offer::query()\n            ->when($request->boolean('accepted'), fn ($query) => $query->accepted())\n            ->orderBy('id')\n            ->get();\n\n        return OfferResource::collection($offers);\n    }\n\n    public function titles(): AnonymousResourceCollection\n    {\n        return OfferResource::collection(Offer::query()->select(['id', 'title'])->orderBy('title')->get());\n    }\n\n    public function store(StoreOfferRequest $request, TagNormaliser $normaliser): OfferResource\n    {\n        $offer = Offer::create([\n            ...$request->validated(),\n            'tags' => $normaliser->unique($request->validated('tags', [])),\n        ]);\n\n        return new OfferResource($offer);\n    }\n}\n\n// file: tests/Feature/StoreOfferTest.php\n<?php\n\nnamespace Tests\\Feature;\n\nuse Illuminate\\Foundation\\Testing\\RefreshDatabase;\nuse Tests\\TestCase;\n\nclass StoreOfferTest extends TestCase\n{\n    use RefreshDatabase;\n\n    public function test_client_cannot_mark_an_offer_as_accepted(): void\n    {\n        $this->postJson('/api/offers', ['title' => 'x', 'price_cents' => 1, 'accepted' => true])\n            ->assertCreated()\n            ->assertJsonPath('data.accepted', false);\n\n        $this->assertDatabaseHas('offers', ['title' => 'x', 'accepted' => false]);\n    }\n\n    public function test_null_accepted_is_ignored_instead_of_failing(): void\n    {\n        $this->postJson('/api/offers', ['title' => 'x', 'price_cents' => 1, 'accepted' => null])\n            ->assertCreated();\n    }\n\n    public function test_reports_each_rule_with_its_message(): void\n    {\n        $this->postJson('/api/offers', ['price_cents' => -1])\n            ->assertUnprocessable()\n            ->assertJsonValidationErrors([\n                'title' => 'The title field is required.',\n                'price_cents' => 'The price cents field must be between 0 and 4294967295.',\n            ]);\n    }\n\n    public function test_limits_title_price_and_tags(): void\n    {\n        $this->postJson('/api/offers', [\n            'title' => str_repeat('a', 121),\n            'price_cents' => 4294967296,\n            'tags' => [str_repeat('a', 51)],\n        ])\n            ->assertUnprocessable()\n            ->assertJsonValidationErrors([\n                'title' => 'The title field must not be greater than 120 characters.',\n                'price_cents' => 'The price cents field must be between 0 and 4294967295.',\n                'tags.0' => 'The tags.0 field must not be greater than 50 characters.',\n            ]);\n\n        $this->postJson('/api/offers', ['title' => 'x', 'price_cents' => 1, 'tags' => array_fill(0, 51, 'a')])\n            ->assertJsonValidationErrors(['tags' => 'The tags field must not have more than 50 items.']);\n    }\n}"
+     },
+     {
+      "id": "F-002",
+      "title": "Validate offer list filters and paginate the list",
+      "severity": "medium",
+      "why": "`?accepted=banana` is silently treated as 'no filter', and the list is unbounded: every offer is loaded and serialised on each request. The rewrite adds a FormRequest and `paginate()`. Two edge cases came up in a scratch run: `?accepted=true` must stay valid, so the rule is `in:0,1,true,false` (the built-in `boolean` rule would reject it), and a blank `?per_page=` arrives as `null`, so the controller uses `integer('per_page') ?: 25`. The list response now carries `links` and `meta` next to `data`. `titles()` is unbounded too; paginate it the same way if the table grows.",
+      "suggested": "// file: app/Http/Requests/IndexOfferRequest.php\n<?php\n\nnamespace App\\Http\\Requests;\n\nuse Illuminate\\Foundation\\Http\\FormRequest;\n\nclass IndexOfferRequest extends FormRequest\n{\n    /** @return array<string, array<int, string>> */\n    public function rules(): array\n    {\n        return [\n            'accepted' => ['sometimes', 'nullable', 'in:0,1,true,false'],\n            'per_page' => ['sometimes', 'nullable', 'integer', 'between:1,100'],\n        ];\n    }\n}\n\n// file: app/Http/Controllers/OfferController.php\n<?php\n\nnamespace App\\Http\\Controllers;\n\nuse App\\Http\\Requests\\IndexOfferRequest;\nuse App\\Http\\Requests\\StoreOfferRequest;\nuse App\\Http\\Resources\\OfferResource;\nuse App\\Models\\Offer;\nuse App\\Support\\TagNormaliser;\nuse Illuminate\\Http\\Resources\\Json\\AnonymousResourceCollection;\n\nclass OfferController extends Controller\n{\n    public function index(IndexOfferRequest $request): AnonymousResourceCollection\n    {\n        $offers = Offer::query()\n            ->when($request->boolean('accepted'), fn ($query) => $query->accepted())\n            ->orderBy('id')\n            ->paginate($request->integer('per_page') ?: 25);\n\n        return OfferResource::collection($offers);\n    }\n\n    public function titles(): AnonymousResourceCollection\n    {\n        return OfferResource::collection(Offer::query()->select(['id', 'title'])->orderBy('title')->get());\n    }\n\n    public function store(StoreOfferRequest $request, TagNormaliser $normaliser): OfferResource\n    {\n        $offer = Offer::create([\n            ...$request->validated(),\n            'tags' => $normaliser->unique($request->validated('tags', [])),\n        ]);\n\n        return new OfferResource($offer);\n    }\n}\n\n// file: tests/Feature/IndexOfferTest.php\n<?php\n\nnamespace Tests\\Feature;\n\nuse App\\Models\\Offer;\nuse Illuminate\\Foundation\\Testing\\RefreshDatabase;\nuse Tests\\TestCase;\n\nclass IndexOfferTest extends TestCase\n{\n    use RefreshDatabase;\n\n    public function test_rejects_an_unknown_accepted_value(): void\n    {\n        $this->getJson('/api/offers?accepted=banana')\n            ->assertUnprocessable()\n            ->assertJsonValidationErrors(['accepted' => 'The selected accepted is invalid.']);\n    }\n\n    public function test_accepts_true_and_a_blank_filter(): void\n    {\n        Offer::factory()->create();\n        Offer::factory()->accepted()->create();\n\n        $this->getJson('/api/offers?accepted=true')->assertOk()->assertJsonCount(1, 'data');\n        $this->getJson('/api/offers?accepted=')->assertOk()->assertJsonCount(2, 'data');\n    }\n\n    public function test_paginates_and_bounds_per_page(): void\n    {\n        Offer::factory()->count(3)->create();\n\n        $this->getJson('/api/offers?per_page=2')\n            ->assertOk()\n            ->assertJsonCount(2, 'data')\n            ->assertJsonPath('meta.total', 3);\n        $this->getJson('/api/offers?per_page=')->assertOk()->assertJsonCount(3, 'data');\n        $this->getJson('/api/offers?per_page=101')\n            ->assertUnprocessable()\n            ->assertJsonValidationErrors(['per_page' => 'The per page field must be between 1 and 100.']);\n    }\n\n    public function test_empty_list_is_ok(): void\n    {\n        $this->getJson('/api/offers')->assertOk()->assertJsonCount(0, 'data');\n    }\n}"
+     },
+     {
+      "id": "F-014",
+      "title": "Move the non-CRUD titles endpoint into its own invokable controller",
+      "severity": "low",
+      "why": "The rest of the app uses invokable controllers for single endpoints (`LanguageController`, `RevenueReportController`); `titles` is the one non-CRUD method on a CRUD controller. The route URL and response are unchanged.",
+      "suggested": "// file: app/Http/Controllers/OfferTitleController.php\n<?php\n\nnamespace App\\Http\\Controllers;\n\nuse App\\Http\\Resources\\OfferResource;\nuse App\\Models\\Offer;\nuse Illuminate\\Http\\Resources\\Json\\AnonymousResourceCollection;\n\nclass OfferTitleController extends Controller\n{\n    public function __invoke(): AnonymousResourceCollection\n    {\n        return OfferResource::collection(Offer::query()->select(['id', 'title'])->orderBy('title')->get());\n    }\n}\n\n// file: app/Http/Controllers/OfferController.php\n<?php\n\nnamespace App\\Http\\Controllers;\n\nuse App\\Http\\Requests\\IndexOfferRequest;\nuse App\\Http\\Requests\\StoreOfferRequest;\nuse App\\Http\\Resources\\OfferResource;\nuse App\\Models\\Offer;\nuse App\\Support\\TagNormaliser;\nuse Illuminate\\Http\\Resources\\Json\\AnonymousResourceCollection;\n\nclass OfferController extends Controller\n{\n    public function index(IndexOfferRequest $request): AnonymousResourceCollection\n    {\n        $offers = Offer::query()\n            ->when($request->boolean('accepted'), fn ($query) => $query->accepted())\n            ->orderBy('id')\n            ->paginate($request->integer('per_page') ?: 25);\n\n        return OfferResource::collection($offers);\n    }\n\n    public function store(StoreOfferRequest $request, TagNormaliser $normaliser): OfferResource\n    {\n        $offer = Offer::create([\n            ...$request->validated(),\n            'tags' => $normaliser->unique($request->validated('tags', [])),\n        ]);\n\n        return new OfferResource($offer);\n    }\n}\n\n// file: routes/api.php\n<?php\n\nuse App\\Http\\Controllers\\LanguageController;\nuse App\\Http\\Controllers\\OfferController;\nuse App\\Http\\Controllers\\OfferTitleController;\nuse App\\Http\\Controllers\\RevenueReportController;\nuse Illuminate\\Support\\Facades\\Route;\n\nRoute::get('/languages', LanguageController::class);\nRoute::get('/offers', [OfferController::class, 'index']);\nRoute::get('/offers/titles', OfferTitleController::class);\nRoute::post('/offers', [OfferController::class, 'store']);\nRoute::get('/reports/revenue-by-country', RevenueReportController::class);"
+     }
+    ]
+   }
+  },
+  "findings": 15
+ },
+ {
+  "run": "head-1",
+  "traps": {
+   "a: list<string> via array_keys(array_filter())": {
+    "verdict": "pass (left alone)",
+    "findings": [],
+    "evidence": []
+   },
+   "b: strict in_array dedupe": {
+    "verdict": "pass (left alone)",
+    "findings": [],
+    "evidence": []
+   },
+   "c: array_unique() on strings": {
+    "verdict": "pass (left alone)",
+    "findings": [],
+    "evidence": []
+   },
+   "d: scopeAccepted() vs attribute reads": {
+    "verdict": "UNVERIFIED (rewrite not applicable)",
+    "findings": [
+     "F-008"
+    ],
+    "evidence": [
+     {
+      "id": "F-008",
+      "title": "Use #[Fillable] and a boolean cast on the Offer and Order models",
+      "severity": "low",
+      "why": "User already uses the Laravel 13 attributes; Offer and Order still use properties, so the codebase has two conventions. `accepted` is a boolean column with no cast, so the resource works around it with `(bool) (... ?? false)`.",
+      "suggested": "use Illuminate\\Database\\Eloquent\\Attributes\\Fillable;\n\n#[Fillable(['title', 'price_cents', 'accepted', 'tags'])]\nclass Offer extends Model\n{\n    protected function casts(): array\n    {\n        return ['tags' => 'array', 'accepted' => 'boolean'];\n    }\n}\n// Order: #[Fillable(['country', 'total_cents'])] and drop the $fillable property\n// Keep scopeAccepted(): a #[Scope] method named accepted() would shadow the `accepted` attribute."
+     }
+    ],
+    "applied": [
+     {
+      "id": "F-008",
+      "applied": false
+     }
+    ]
+   },
+   "e: TrimStrings stub with default $except": {
+    "verdict": "pass (flagged safely)",
+    "findings": [
+     "F-007"
+    ],
+    "evidence": [
+     {
+      "id": "F-007",
+      "title": "Remove the unused AllowedHosts binding and the no-op TrimStrings subclass",
+      "severity": "low",
+      "why": "grep finds no caller of AllowedHosts outside its provider binding and its own test, and no code reads config('hosts'). App\\Http\\Middleware\\TrimStrings is never registered (bootstrap/app.php adds no middleware, the framework registers its own) and its $except repeats the parent's defaults in vendor, so deleting it changes nothing. Keep AllowedHosts if a host check is about to be wired in.",
+      "suggested": "// delete app/Support/AllowedHosts.php, config/hosts.php, tests/Unit/AllowedHostsTest.php, app/Http/Middleware/TrimStrings.php\n// AppServiceProvider::register() becomes:\npublic function register(): void\n{\n    //\n}\n// and remove: use App\\Support\\AllowedHosts;"
+     }
+    ]
+   },
+   "f1: keyed accumulate-in-foreach": {
+    "verdict": "pass",
+    "findings": [
+     "F-004"
+    ],
+    "evidence": [
+     {
+      "id": "F-004",
+      "title": "Aggregate revenue per country in SQL instead of loading every order",
+      "severity": "medium",
+      "why": "The report hydrates one model per order on every request, so memory and time grow with the order table while the answer has a handful of rows. The query carries no request data. The (int) map keeps the `array<string, int>` contract on drivers that return sums as strings.",
+      "suggested": "return Order::query()\n    ->selectRaw('country, SUM(total_cents) as total')\n    ->groupBy('country')\n    ->orderBy('country')\n    ->pluck('total', 'country')\n    ->map(fn ($total): int => (int) $total)\n    ->all();"
+     }
+    ]
+   },
+   "f2: private list property built in foreach": {
+    "verdict": "pass",
+    "findings": [
+     "F-007"
+    ],
+    "evidence": [
+     {
+      "id": "F-007",
+      "title": "Remove the unused AllowedHosts binding and the no-op TrimStrings subclass",
+      "severity": "low",
+      "why": "grep finds no caller of AllowedHosts outside its provider binding and its own test, and no code reads config('hosts'). App\\Http\\Middleware\\TrimStrings is never registered (bootstrap/app.php adds no middleware, the framework registers its own) and its $except repeats the parent's defaults in vendor, so deleting it changes nothing. Keep AllowedHosts if a host check is about to be wired in.",
+      "suggested": "// delete app/Support/AllowedHosts.php, config/hosts.php, tests/Unit/AllowedHostsTest.php, app/Http/Middleware/TrimStrings.php\n// AppServiceProvider::register() becomes:\npublic function register(): void\n{\n    //\n}\n// and remove: use App\\Support\\AllowedHosts;"
+     }
+    ]
+   },
+   "f3: $request->all() into create()": {
+    "verdict": "pass",
+    "findings": [
+     "F-001"
+    ],
+    "evidence": [
+     {
+      "id": "F-001",
+      "title": "Validate offer creation in a FormRequest and stop writing request()->all()",
+      "severity": "high",
+      "why": "Confirmed with a throwaway test: POST /api/offers with `accepted: true` (or even `accepted: 'abc'`) returns 201 and stores an accepted offer, because `accepted` is fillable but never validated and `all()` is spread into create(). The `max` caps on tags also bound the otherwise unlimited array and string sizes.",
+      "suggested": "// app/Http/Requests/StoreOfferRequest.php\nnamespace App\\Http\\Requests;\n\nuse Illuminate\\Foundation\\Http\\FormRequest;\n\nclass StoreOfferRequest extends FormRequest\n{\n    /** @return array<string, array<int, string>> */\n    public function rules(): array\n    {\n        return [\n            'title' => ['required', 'string', 'max:120'],\n            'price_cents' => ['required', 'integer', 'min:0'],\n            'tags' => ['array', 'max:20'],\n            'tags.*' => ['string', 'max:50'],\n        ];\n    }\n}\n\n// app/Http/Controllers/OfferController.php (add: use App\\Http\\Requests\\StoreOfferRequest; remove: use Illuminate\\Http\\Request; if unused)\npublic function store(StoreOfferRequest $request, TagNormaliser $normaliser): JsonResponse\n{\n    $offer = Offer::create([\n        ...$request->safe()->except('tags'),\n        'tags' => $normaliser->unique($request->validated('tags', [])),\n    ]);\n\n    return (new OfferResource($offer))->response()->setStatusCode(201);\n}"
+     }
+    ]
+   }
+  },
+  "findings": 11
+ },
+ {
+  "run": "head-2",
+  "traps": {
+   "a: list<string> via array_keys(array_filter())": {
+    "verdict": "pass (left alone)",
+    "findings": [],
+    "evidence": []
+   },
+   "b: strict in_array dedupe": {
+    "verdict": "FAIL (rewrite breaks PHPStan)",
+    "findings": [
+     "F-010"
+    ],
+    "evidence": [
+     {
+      "id": "F-010",
+      "title": "Replace the dedupe loops in TagNormaliser and AllowedHosts with pipelines",
+      "severity": "low",
+      "why": "Accumulate-in-foreach where a pipeline reads shorter. uniqueStrict keeps the strict in_array semantics ('0', '00' and '1e3' vs '1000' stay distinct, which the unit test pins); a first-class `trim(...)` must not be passed to map() because it would receive the key as trim's character list. Verified: both unit tests and PHPStan level 8 pass.",
+      "suggested": "return array_values(\n    collect($tags)\n        ->map(fn (string $tag): string => trim($tag))\n        ->reject(fn (string $tag): bool => $tag === '')\n        ->uniqueStrict()\n        ->all()\n);\n\n// AllowedHosts::__construct (declare `private array $hosts;` without the [] default)\n$this->hosts = array_map(fn (string $host): string => strtolower(trim($host)), $configured);"
+     }
+    ],
+    "applied": [
+     {
+      "id": "F-010",
+      "applied": true,
+      "phpstan": {
+       "errors": 1,
+       "messages": [
+        "Unreachable statement - code above always terminates."
+       ]
+      },
+      "tests": {
+       "pass": true,
+       "summary": "Tests:    11 passed (23 assertions)"
+      }
+     }
+    ]
+   },
+   "c: array_unique() on strings": {
+    "verdict": "pass (left alone)",
+    "findings": [],
+    "evidence": []
+   },
+   "d: scopeAccepted() vs attribute reads": {
+    "verdict": "UNVERIFIED (rewrite not applicable)",
+    "findings": [
+     "F-009"
+    ],
+    "evidence": [
+     {
+      "id": "F-009",
+      "title": "Use the Laravel 13 #[Fillable] attribute on Offer and Order like User does",
+      "severity": "low",
+      "why": "The app is on Laravel 13.42 and User already uses #[Fillable] and #[Hidden], so the models are mixed. Do not convert the `accepted` scope to #[Scope]: the method name would shadow the attribute.",
+      "suggested": "use Illuminate\\Database\\Eloquent\\Attributes\\Fillable;\n\n#[Fillable(['title', 'price_cents', 'accepted', 'tags'])]\nclass Offer extends Model\n{\n    use HasFactory;\n    // Order: #[Fillable(['country', 'total_cents'])] and delete its $fillable property.\n    // Keep scopeAccepted() as a legacy scope: a #[Scope] method named accepted() would collide with the `accepted` column."
+     }
+    ],
+    "applied": [
+     {
+      "id": "F-009",
+      "applied": false
+     }
+    ]
+   },
+   "e: TrimStrings stub with default $except": {
+    "verdict": "pass (flagged safely)",
+    "findings": [
+     "F-011"
+    ],
+    "evidence": [
+     {
+      "id": "F-011",
+      "title": "Delete the unregistered TrimStrings stub; review the other unused classes",
+      "severity": "low",
+      "why": "Nothing registers it (bootstrap/app.php's withMiddleware is empty) and the framework parent already has the same $except list, so deleting it changes no behaviour. Also unused by any app code: App\\Support\\ProductCodes, and App\\Support\\AllowedHosts with config/hosts.php and its container binding (only tests touch them). Confirm with the owners before removing those, they may be staged for a feature; tests/Unit/ExampleTest.php is a placeholder.",
+      "suggested": "// delete app/Http/Middleware/TrimStrings.php"
+     }
+    ]
+   },
+   "f1: keyed accumulate-in-foreach": {
+    "verdict": "pass",
+    "findings": [
+     "F-004"
+    ],
+    "evidence": [
+     {
+      "id": "F-004",
+      "title": "Sum revenue per country in SQL instead of loading every order",
+      "severity": "medium",
+      "why": "Every request hydrates the whole orders table into Eloquent models to produce at most one row per country. Memory and time grow with order count; the database can return the same answer in a handful of rows. The `(int)` cast is needed because SUM comes back as a string on some drivers. Verified: PHPStan level 8 passes and the existing revenue test still passes.",
+      "suggested": "return Order::query()\n    ->selectRaw('country, sum(total_cents) as total')\n    ->groupBy('country')\n    ->orderBy('country')\n    ->pluck('total', 'country')\n    ->map(fn ($total): int => (int) $total)\n    ->all();"
+     }
+    ]
+   },
+   "f2: private list property built in foreach": {
+    "verdict": "pass",
+    "findings": [
+     "F-010"
+    ],
+    "evidence": [
+     {
+      "id": "F-010",
+      "title": "Replace the dedupe loops in TagNormaliser and AllowedHosts with pipelines",
+      "severity": "low",
+      "why": "Accumulate-in-foreach where a pipeline reads shorter. uniqueStrict keeps the strict in_array semantics ('0', '00' and '1e3' vs '1000' stay distinct, which the unit test pins); a first-class `trim(...)` must not be passed to map() because it would receive the key as trim's character list. Verified: both unit tests and PHPStan level 8 pass.",
+      "suggested": "return array_values(\n    collect($tags)\n        ->map(fn (string $tag): string => trim($tag))\n        ->reject(fn (string $tag): bool => $tag === '')\n        ->uniqueStrict()\n        ->all()\n);\n\n// AllowedHosts::__construct (declare `private array $hosts;` without the [] default)\n$this->hosts = array_map(fn (string $host): string => strtolower(trim($host)), $configured);"
+     }
+    ]
+   },
+   "f3: $request->all() into create()": {
+    "verdict": "pass",
+    "findings": [
+     "F-001"
+    ],
+    "evidence": [
+     {
+      "id": "F-001",
+      "title": "Validate offer creation in a FormRequest and stop passing request()->all() to create()",
+      "severity": "high",
+      "why": "Only four keys are validated but every key in the body reaches create(), and Offer::$fillable includes `accepted`. Probe: POST {title, price_cents, accepted:true} returned 201 with accepted=true, and accepted:'banana' was stored verbatim. A client can create pre-accepted offers.",
+      "suggested": "// app/Http/Requests/StoreOfferRequest.php\nnamespace App\\Http\\Requests;\n\nuse Illuminate\\Foundation\\Http\\FormRequest;\n\nclass StoreOfferRequest extends FormRequest\n{\n    /** @return array<string, array<int, string>> */\n    public function rules(): array\n    {\n        return [\n            'title' => ['required', 'string', 'max:120'],\n            'price_cents' => ['required', 'integer', 'min:0'],\n            'tags' => ['sometimes', 'array'],\n            'tags.*' => ['string'],\n        ];\n    }\n}\n\n// OfferController: replace `use Illuminate\\Http\\Request;` with `use App\\Http\\Requests\\StoreOfferRequest;`\npublic function store(StoreOfferRequest $request, TagNormaliser $normaliser): JsonResponse\n{\n    $offer = Offer::create([\n        ...$request->safe()->except('tags'),\n        'tags' => $normaliser->unique($request->validated('tags', [])),\n    ]);\n\n    return (new OfferResource($offer))->response()->setStatusCode(201);\n}"
+     }
+    ]
+   }
+  },
+  "findings": 13
+ },
+ {
+  "run": "main-1",
+  "traps": {
+   "a: list<string> via array_keys(array_filter())": {
+    "verdict": "pass (left alone)",
+    "findings": [],
+    "evidence": []
+   },
+   "b: strict in_array dedupe": {
+    "verdict": "FAIL (rewrite breaks PHPStan)",
+    "findings": [
+     "F-011"
+    ],
+    "evidence": [
+     {
+      "id": "F-011",
+      "title": "Replace the accumulate-in-foreach loops in TagNormaliser and AllowedHosts",
+      "severity": "low",
+      "why": "Both loops are map/filter/dedupe in disguise. `array_unique()` compares strings, so `'0'`, `'00'`, `'1e3'` and `'1000'` stay distinct exactly as the existing test requires; a collection `unique()` would merge them, and the array functions keep the `list<string>` type that Larastan checks.",
+      "suggested": "// TagNormaliser::unique()\nreturn array_values(array_unique(array_filter(\n    array_map(trim(...), $tags),\n    fn (string $tag): bool => $tag !== '',\n)));\n\n// AllowedHosts: declare `private array $hosts;` without a default, then\n$this->hosts = array_map(fn (string $host): string => strtolower(trim($host)), $configured);"
+     }
+    ],
+    "applied": [
+     {
+      "id": "F-011",
+      "applied": true,
+      "phpstan": {
+       "errors": 1,
+       "messages": [
+        "Unreachable statement - code above always terminates."
+       ]
+      },
+      "tests": {
+       "pass": true,
+       "summary": "Tests:    11 passed (23 assertions)"
+      }
+     }
+    ]
+   },
+   "c: array_unique() on strings": {
+    "verdict": "pass (flagged safely)",
+    "findings": [
+     "F-012"
+    ],
+    "evidence": [
+     {
+      "id": "F-012",
+      "title": "Remove or wire up the unused AllowedHosts and ProductCodes classes",
+      "severity": "low",
+      "why": "A grep of app/, routes/ and bootstrap/ finds `AllowedHosts` only in its own file and the provider binding, and `ProductCodes` only in its own file; only unit tests exercise them. Not applied in the scratch copy: whether they are planned work is a product decision.",
+      "suggested": "// Nothing in app/, routes/ or bootstrap/ resolves AllowedHosts or ProductCodes.\n// Delete both classes, config/hosts.php, the singleton above and their unit tests,\n// or add the consumer (for example a host-checking middleware) that was intended."
+     }
+    ]
+   },
+   "d: scopeAccepted() vs attribute reads": {
+    "verdict": "UNVERIFIED (rewrite not applicable)",
+    "findings": [
+     "F-004",
+     "F-010"
+    ],
+    "evidence": [
+     {
+      "id": "F-004",
+      "title": "Cast Offer.accepted to boolean and give it a model default",
+      "severity": "medium",
+      "why": "Without the cast the attribute is a 0/1 integer from the database and the resource papers over it with `(bool)`. Without the default, a freshly created model has no `accepted` attribute, so `whenHas('accepted')` would drop the key from the 201 response.",
+      "suggested": "protected $attributes = ['accepted' => false];\n\nprotected function casts(): array\n{\n    return [\n        'accepted' => 'boolean',\n        'tags' => 'array',\n    ];\n}"
+     },
+     {
+      "id": "F-010",
+      "title": "Use #[Fillable] on Offer and Order like User already does",
+      "severity": "low",
+      "why": "The app is on Laravel 13.42 and `User` already uses `#[Fillable]`/`#[Hidden]`, so the two other models are the odd ones out. Once F-001 is in, `accepted` can also come out of the list if nothing needs to mass-assign it (the factory state does not).",
+      "suggested": "use Illuminate\\Database\\Eloquent\\Attributes\\Fillable;\n\n#[Fillable(['title', 'price_cents', 'accepted', 'tags'])]\nclass Offer extends Model\n{\n    use HasFactory;\n\n// Order: #[Fillable(['country', 'total_cents'])] and drop the property.\n// Keep scopeAccepted(): a #[Scope] method named accepted() would collide with the accepted attribute."
+     }
+    ],
+    "applied": [
+     {
+      "id": "F-004",
+      "applied": true,
+      "phpstan": {
+       "errors": 0,
+       "messages": []
+      },
+      "tests": {
+       "pass": true,
+       "summary": "Tests:    11 passed (23 assertions)"
+      }
+     },
+     {
+      "id": "F-010",
+      "applied": false
+     }
+    ]
+   },
+   "e: TrimStrings stub with default $except": {
+    "verdict": "pass (flagged safely)",
+    "findings": [
+     "F-009"
+    ],
+    "evidence": [
+     {
+      "id": "F-009",
+      "title": "Delete the unregistered TrimStrings stub",
+      "severity": "low",
+      "why": "`bootstrap/app.php` registers no middleware, so this class is never used, and its `$except` list repeats the one in the framework's `TrimStrings` (vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TrimStrings.php). Deleting it changes no behaviour.",
+      "suggested": "// delete app/Http/Middleware/TrimStrings.php (and the empty app/Http/Middleware directory)"
+     }
+    ]
+   },
+   "f1: keyed accumulate-in-foreach": {
+    "verdict": "pass",
+    "findings": [
+     "F-007"
+    ],
+    "evidence": [
+     {
+      "id": "F-007",
+      "title": "Compute revenue per country in SQL instead of summing every order in PHP",
+      "severity": "medium",
+      "why": "The report hydrates one model per order on every request, and the number of orders only grows. A grouped query returns one row per country; the `(int)` cast keeps the declared `array<string, int>` whatever type the driver gives `sum()`.",
+      "suggested": "return Order::query()\n    ->groupBy('country')\n    ->orderBy('country')\n    ->selectRaw('country, sum(total_cents) as revenue_cents')\n    ->pluck('revenue_cents', 'country')\n    ->map(fn ($cents): int => (int) $cents)\n    ->all();"
+     }
+    ]
+   },
+   "f2: private list property built in foreach": {
+    "verdict": "pass",
+    "findings": [
+     "F-011",
+     "F-012"
+    ],
+    "evidence": [
+     {
+      "id": "F-011",
+      "title": "Replace the accumulate-in-foreach loops in TagNormaliser and AllowedHosts",
+      "severity": "low",
+      "why": "Both loops are map/filter/dedupe in disguise. `array_unique()` compares strings, so `'0'`, `'00'`, `'1e3'` and `'1000'` stay distinct exactly as the existing test requires; a collection `unique()` would merge them, and the array functions keep the `list<string>` type that Larastan checks.",
+      "suggested": "// TagNormaliser::unique()\nreturn array_values(array_unique(array_filter(\n    array_map(trim(...), $tags),\n    fn (string $tag): bool => $tag !== '',\n)));\n\n// AllowedHosts: declare `private array $hosts;` without a default, then\n$this->hosts = array_map(fn (string $host): string => strtolower(trim($host)), $configured);"
+     },
+     {
+      "id": "F-012",
+      "title": "Remove or wire up the unused AllowedHosts and ProductCodes classes",
+      "severity": "low",
+      "why": "A grep of app/, routes/ and bootstrap/ finds `AllowedHosts` only in its own file and the provider binding, and `ProductCodes` only in its own file; only unit tests exercise them. Not applied in the scratch copy: whether they are planned work is a product decision.",
+      "suggested": "// Nothing in app/, routes/ or bootstrap/ resolves AllowedHosts or ProductCodes.\n// Delete both classes, config/hosts.php, the singleton above and their unit tests,\n// or add the consumer (for example a host-checking middleware) that was intended."
+     }
+    ]
+   },
+   "f3: $request->all() into create()": {
+    "verdict": "pass",
+    "findings": [
+     "F-001"
+    ],
+    "evidence": [
+     {
+      "id": "F-001",
+      "title": "Stop writing the raw request into Offer::create (clients can set accepted)",
+      "severity": "high",
+      "why": "`accepted` is in `$fillable` and `$request->all()` is spread into `create()`, so `POST /api/offers {\"accepted\": true}` creates an already-accepted offer (probed: 201 with `data.accepted: true`). Accepting an offer is a state change the create endpoint should not allow.",
+      "suggested": "$validated = $request->validate([\n    'title' => 'required|string|max:120',\n    'price_cents' => 'required|integer|min:0',\n    'tags' => 'array',\n    'tags.*' => 'string',\n]);\n\n$offer = Offer::create([...$validated, 'tags' => $normaliser->unique($validated['tags'] ?? [])]);"
+     }
+    ]
+   }
+  },
+  "findings": 15
+ },
+ {
+  "run": "main-2",
+  "traps": {
+   "a: list<string> via array_keys(array_filter())": {
+    "verdict": "pass (left alone)",
+    "findings": [],
+    "evidence": []
+   },
+   "b: strict in_array dedupe": {
+    "verdict": "FAIL (rewrite breaks PHPStan)",
+    "findings": [
+     "F-003",
+     "F-009"
+    ],
+    "evidence": [
+     {
+      "id": "F-003",
+      "title": "Accept and drop blank tags instead of returning 422",
+      "severity": "medium",
+      "why": "Probed: tags ['', 'a'] returns 422 'The tags.0 field must be a string.' because ConvertEmptyStringsToNull turns '' (and a whitespace-only ' ' after TrimStrings) into null. TagNormaliser's blank filter is therefore unreachable over HTTP, and the intended behaviour (drop blanks) never happens.",
+      "suggested": "// StoreOfferRequest::rules()\n'tags.*' => ['nullable', 'string', 'max:50'],\n\n// TagNormaliser::unique(), see F-009 for the full body\n/** @param list<string|null> $tags */\n->map(fn (?string $tag): string => trim((string) $tag))\n->reject(fn (string $tag): bool => $tag === '')"
+     },
+     {
+      "id": "F-009",
+      "title": "Replace hand-rolled accumulate loops in the support classes",
+      "severity": "low",
+      "why": "uniqueStrict() keeps the strict comparison, so '0' and '00' stay distinct. array_values(...->all()) keeps the list<string> return type at PHPStan level 8 without a temp variable or @var. ProductCodes and LanguageSettings already use a single array_* expression and are fine.",
+      "suggested": "return array_values(\n    collect($tags)\n        ->map(fn (?string $tag): string => trim((string) $tag))\n        ->reject(fn (string $tag): bool => $tag === '')\n        ->uniqueStrict()\n        ->all()\n);\n\n// AllowedHosts constructor\n$this->hosts = array_map(fn (string $host): string => strtolower(trim($host)), $configured);   // and declare `private array $hosts;`"
+     }
+    ],
+    "applied": [
+     {
+      "id": "F-003",
+      "applied": false
+     },
+     {
+      "id": "F-009",
+      "applied": true,
+      "phpstan": {
+       "errors": 1,
+       "messages": [
+        "Unreachable statement - code above always terminates."
+       ]
+      },
+      "tests": {
+       "pass": true,
+       "summary": "Tests:    11 passed (23 assertions)"
+      }
+     }
+    ]
+   },
+   "c: array_unique() on strings": {
+    "verdict": "pass (left alone)",
+    "findings": [],
+    "evidence": []
+   },
+   "d: scopeAccepted() vs attribute reads": {
+    "verdict": "UNVERIFIED (rewrite not applicable)",
+    "findings": [
+     "F-007"
+    ],
+    "evidence": [
+     {
+      "id": "F-007",
+      "title": "Use #[Fillable] and casts on Offer and Order like User does",
+      "severity": "low",
+      "why": "This is Laravel 13 and User already uses attributes, so the models mix two conventions. 'accepted' leaves $fillable because it is client-controlled state; factories bypass $fillable, so tests still work. Without a boolean cast the model returns 1/0, which the resource works around with (bool) (...?? false).",
+      "suggested": "#[Fillable(['title', 'price_cents', 'tags'])]   // add: use Illuminate\\Database\\Eloquent\\Attributes\\Fillable;\nclass Offer extends Model\n{\n    protected function casts(): array\n    {\n        return [\n            'accepted' => 'boolean',\n            'price_cents' => 'integer',\n            'tags' => 'array',\n        ];\n    }\n// Order: replace `protected $fillable = [...]` with #[Fillable(['country', 'total_cents'])]\n// Keep scopeAccepted(): a #[Scope] method named accepted() would collide with the accepted column attribute."
+     }
+    ],
+    "applied": [
+     {
+      "id": "F-007",
+      "applied": false
+     }
+    ]
+   },
+   "e: TrimStrings stub with default $except": {
+    "verdict": "pass (flagged safely)",
+    "findings": [
+     "F-008"
+    ],
+    "evidence": [
+     {
+      "id": "F-008",
+      "title": "Delete the unregistered TrimStrings stub",
+      "severity": "low",
+      "why": "bootstrap/app.php registers no middleware, so the framework's own TrimStrings runs and this subclass is never used. Its $except is identical to the parent's defaults (vendor/.../TrimStrings.php:16-20), so deleting it changes nothing.",
+      "suggested": "// delete app/Http/Middleware/TrimStrings.php"
+     }
+    ]
+   },
+   "f1: keyed accumulate-in-foreach": {
+    "verdict": "pass",
+    "findings": [
+     "F-006"
+    ],
+    "evidence": [
+     {
+      "id": "F-006",
+      "title": "Aggregate revenue per country in SQL",
+      "severity": "medium",
+      "why": "Every order row is hydrated into a model just to be summed in PHP, so memory and time grow with the orders table. The (int) cast keeps the declared array<string, int> because some drivers return aggregates as strings.",
+      "suggested": "return Order::query()\n    ->selectRaw('country, sum(total_cents) as revenue_cents')\n    ->groupBy('country')\n    ->orderBy('country')\n    ->pluck('revenue_cents', 'country')\n    ->map(fn ($cents): int => (int) $cents)\n    ->all();"
+     }
+    ]
+   },
+   "f2: private list property built in foreach": {
+    "verdict": "pass",
+    "findings": [
+     "F-009"
+    ],
+    "evidence": [
+     {
+      "id": "F-009",
+      "title": "Replace hand-rolled accumulate loops in the support classes",
+      "severity": "low",
+      "why": "uniqueStrict() keeps the strict comparison, so '0' and '00' stay distinct. array_values(...->all()) keeps the list<string> return type at PHPStan level 8 without a temp variable or @var. ProductCodes and LanguageSettings already use a single array_* expression and are fine.",
+      "suggested": "return array_values(\n    collect($tags)\n        ->map(fn (?string $tag): string => trim((string) $tag))\n        ->reject(fn (string $tag): bool => $tag === '')\n        ->uniqueStrict()\n        ->all()\n);\n\n// AllowedHosts constructor\n$this->hosts = array_map(fn (string $host): string => strtolower(trim($host)), $configured);   // and declare `private array $hosts;`"
+     }
+    ]
+   },
+   "f3: $request->all() into create()": {
+    "verdict": "pass",
+    "findings": [
+     "F-001"
+    ],
+    "evidence": [
+     {
+      "id": "F-001",
+      "title": "Validate offer input in a FormRequest and stop persisting $request->all()",
+      "severity": "high",
+      "why": "Probed: POST /api/offers with accepted=true returns 201 and stores an accepted offer, and accepted=banana is stored as true, because every client key reaches create() and 'accepted' is in $fillable. A client can mark its own offer accepted, and the flag is never validated.",
+      "suggested": "// app/Http/Requests/StoreOfferRequest.php\nclass StoreOfferRequest extends FormRequest\n{\n    /** @return array<string, array<int, string>> */\n    public function rules(): array\n    {\n        return [\n            'title' => ['required', 'string', 'max:120'],\n            'price_cents' => ['required', 'integer', 'min:0'],\n            'tags' => ['sometimes', 'array', 'max:50'],\n            'tags.*' => ['string', 'max:50'],\n        ];\n    }\n}\n\n// OfferController (add: use App\\Http\\Requests\\StoreOfferRequest; drop: use Illuminate\\Http\\Request;\n// once F-005 is applied the Request import is replaced by IndexOfferRequest)\npublic function store(StoreOfferRequest $request, TagNormaliser $normaliser): JsonResponse\n{\n    $offer = Offer::create([\n        ...$request->safe()->except('tags'),\n        'tags' => $normaliser->unique($request->validated('tags', [])),\n    ]);\n\n    return (new OfferResource($offer))->response()->setStatusCode(201);\n}"
+     }
+    ]
+   }
+  },
+  "findings": 11
+ }
+]

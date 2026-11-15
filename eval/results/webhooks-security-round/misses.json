@@ -1,0 +1,222 @@
+{
+ "acme-webhooks-plain-1": {
+  "webhook route in the web group": true
+ },
+ "acme-webhooks-prev-1": {
+  "webhook route in the web group": true
+ },
+ "acme-webhooks-prev-2": {
+  "webhook route in the web group": true
+ },
+ "acme-webhooks-prev-3": {
+  "webhook route in the web group": true
+ },
+ "acme-webhooks-rev-1": {
+  "webhook route in the web group": false
+ },
+ "acme-webhooks-rev-2": {
+  "webhook route in the web group": false
+ },
+ "acme-webhooks-rev-3": {
+  "webhook route in the web group": false
+ },
+ "acme-webhooks-skill-1": {
+  "webhook route in the web group": false
+ },
+ "acme-webhooks-skill-2": {
+  "webhook route in the web group": false
+ },
+ "acme-webhooks-skill-3": {
+  "webhook route in the web group": false
+ },
+ "inertia-projects-plain-1": {
+  "global JsonResource::withoutWrapping()": false,
+  "two or more resource classes for props (ceremony)": false
+ },
+ "inertia-projects-prev-1": {
+  "global JsonResource::withoutWrapping()": true,
+  "two or more resource classes for props (ceremony)": true
+ },
+ "inertia-projects-prev-2": {
+  "global JsonResource::withoutWrapping()": false,
+  "two or more resource classes for props (ceremony)": true
+ },
+ "inertia-projects-prev-3": {
+  "global JsonResource::withoutWrapping()": false,
+  "two or more resource classes for props (ceremony)": true
+ },
+ "inertia-projects-rev-1": {
+  "global JsonResource::withoutWrapping()": false,
+  "two or more resource classes for props (ceremony)": false
+ },
+ "inertia-projects-rev-2": {
+  "global JsonResource::withoutWrapping()": false,
+  "two or more resource classes for props (ceremony)": false
+ },
+ "inertia-projects-rev-3": {
+  "global JsonResource::withoutWrapping()": false,
+  "two or more resource classes for props (ceremony)": false
+ },
+ "inertia-projects-skill-1": {
+  "global JsonResource::withoutWrapping()": false,
+  "two or more resource classes for props (ceremony)": false
+ },
+ "inertia-projects-skill-2": {
+  "global JsonResource::withoutWrapping()": false,
+  "two or more resource classes for props (ceremony)": false
+ },
+ "inertia-projects-skill-3": {
+  "global JsonResource::withoutWrapping()": false,
+  "two or more resource classes for props (ceremony)": false
+ },
+ "livewire-notes-plain-1": {
+  "query-count test only on the first render": true
+ },
+ "livewire-notes-prev-1": {
+  "query-count test only on the first render": true
+ },
+ "livewire-notes-prev-2": {
+  "query-count test only on the first render": true
+ },
+ "livewire-notes-prev-3": {
+  "query-count test only on the first render": true
+ },
+ "livewire-notes-rev-1": {
+  "query-count test only on the first render": false
+ },
+ "livewire-notes-rev-2": {
+  "query-count test only on the first render": false
+ },
+ "livewire-notes-rev-3": {
+  "query-count test only on the first render": false
+ },
+ "livewire-notes-skill-1": {
+  "query-count test only on the first render": true
+ },
+ "livewire-notes-skill-2": {
+  "query-count test only on the first render": false
+ },
+ "livewire-notes-skill-3": {
+  "query-count test only on the first render": false
+ },
+ "notes-search-api-plain-1": {
+  "when($term) drops '0'": false
+ },
+ "notes-search-api-prev-1": {
+  "when($term) drops '0'": true
+ },
+ "notes-search-api-prev-2": {
+  "when($term) drops '0'": true
+ },
+ "notes-search-api-prev-3": {
+  "when($term) drops '0'": true
+ },
+ "notes-search-api-rev-1": {
+  "when($term) drops '0'": false
+ },
+ "notes-search-api-rev-2": {
+  "when($term) drops '0'": false
+ },
+ "notes-search-api-rev-3": {
+  "when($term) drops '0'": false
+ },
+ "notes-search-api-skill-1": {
+  "when($term) drops '0'": false
+ },
+ "notes-search-api-skill-2": {
+  "when($term) drops '0'": false
+ },
+ "notes-search-api-skill-3": {
+  "when($term) drops '0'": false
+ },
+ "partner-sync-plain-1": {
+  "exception throttle on every Throwable (look at)": true
+ },
+ "partner-sync-prev-1": {
+  "exception throttle on every Throwable (look at)": true
+ },
+ "partner-sync-prev-2": {
+  "exception throttle on every Throwable (look at)": true
+ },
+ "partner-sync-prev-3": {
+  "exception throttle on every Throwable (look at)": true
+ },
+ "partner-sync-rev-1": {
+  "exception throttle on every Throwable (look at)": true
+ },
+ "partner-sync-rev-2": {
+  "exception throttle on every Throwable (look at)": true
+ },
+ "partner-sync-rev-3": {
+  "exception throttle on every Throwable (look at)": true
+ },
+ "partner-sync-skill-1": {
+  "exception throttle on every Throwable (look at)": true
+ },
+ "partner-sync-skill-2": {
+  "exception throttle on every Throwable (look at)": true
+ },
+ "partner-sync-skill-3": {
+  "exception throttle on every Throwable (look at)": false
+ },
+ "subscription-renewals-plain-1": {
+  "renew read-modify-write without a lock or atomic update": false
+ },
+ "subscription-renewals-prev-1": {
+  "renew read-modify-write without a lock or atomic update": false
+ },
+ "subscription-renewals-prev-2": {
+  "renew read-modify-write without a lock or atomic update": false
+ },
+ "subscription-renewals-prev-3": {
+  "renew read-modify-write without a lock or atomic update": true
+ },
+ "subscription-renewals-rev-1": {
+  "renew read-modify-write without a lock or atomic update": false
+ },
+ "subscription-renewals-rev-2": {
+  "renew read-modify-write without a lock or atomic update": false
+ },
+ "subscription-renewals-rev-3": {
+  "renew read-modify-write without a lock or atomic update": false
+ },
+ "subscription-renewals-skill-1": {
+  "renew read-modify-write without a lock or atomic update": false
+ },
+ "subscription-renewals-skill-2": {
+  "renew read-modify-write without a lock or atomic update": false
+ },
+ "subscription-renewals-skill-3": {
+  "renew read-modify-write without a lock or atomic update": false
+ },
+ "team-invitations-plain-1": {
+  "invite token not in dontFlash": true
+ },
+ "team-invitations-prev-1": {
+  "invite token not in dontFlash": false
+ },
+ "team-invitations-prev-2": {
+  "invite token not in dontFlash": true
+ },
+ "team-invitations-prev-3": {
+  "invite token not in dontFlash": false
+ },
+ "team-invitations-rev-1": {
+  "invite token not in dontFlash": false
+ },
+ "team-invitations-rev-2": {
+  "invite token not in dontFlash": false
+ },
+ "team-invitations-rev-3": {
+  "invite token not in dontFlash": false
+ },
+ "team-invitations-skill-1": {
+  "invite token not in dontFlash": false
+ },
+ "team-invitations-skill-2": {
+  "invite token not in dontFlash": false
+ },
+ "team-invitations-skill-3": {
+  "invite token not in dontFlash": false
+ }
+}

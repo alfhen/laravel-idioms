@@ -178,5 +178,65 @@
     "expect": "skip",
     "fixture": "laravel",
     "prompt": "What is the difference between curl's --max-time and --connect-timeout options?"
+  },
+  {
+    "id": "webhook",
+    "expect": "trigger",
+    "fixture": "laravel",
+    "prompt": "Our helpdesk vendor will POST signed JSON events to us when a customer replies by email. Add an endpoint that receives them and turns each one into a ticket reply."
+  },
+  {
+    "id": "search-sort",
+    "expect": "trigger",
+    "fixture": "laravel",
+    "prompt": "Let agents search tickets by subject and sort the list by any column they click. Add it to the tickets API."
+  },
+  {
+    "id": "livewire",
+    "expect": "trigger",
+    "fixture": "laravel",
+    "prompt": "Build a Livewire component where an agent can edit a ticket's subject and priority without a page reload."
+  },
+  {
+    "id": "inertia-props",
+    "expect": "trigger",
+    "fixture": "laravel",
+    "prompt": "We are moving the ticket pages to Inertia with React. What should the ticket controller pass to the page, and what goes in the shared props?"
+  },
+  {
+    "id": "error-logging",
+    "expect": "trigger",
+    "fixture": "laravel",
+    "prompt": "When the SLA service fails we just see 'Error: timeout' in the logs with no stack trace, and the error tracker is flooded during outages. Clean up how ticket creation reports failures."
+  },
+  {
+    "id": "money-dates",
+    "expect": "trigger",
+    "fixture": "laravel",
+    "prompt": "Add a monthly invoice for each customer: a price per ticket in euros with 25% VAT, billed on the day of the month they signed up."
+  },
+  {
+    "id": "neg-express-webhook",
+    "expect": "skip",
+    "fixture": "typescript",
+    "prompt": "Add an Express route to this project that receives signed webhooks from our payment provider and verifies the HMAC signature."
+  },
+  {
+    "id": "neg-vue",
+    "expect": "skip",
+    "fixture": "typescript",
+    "prompt": "Write a Vue 3 component with a form that edits a ticket's subject and shows validation errors."
+  },
+  {
+    "id": "neg-django-tz",
+    "expect": "skip",
+    "fixture": "laravel",
+    "prompt": "In Django, how should I store datetimes so users in different time zones see their local time?"
+  },
+  {
+    "id": "neg-rails-inertia",
+    "expect": "skip",
+    "fixture": "laravel",
+    "prompt": "In a Rails app using inertia_rails, how do I share the current user with every page?"
   }
 ]

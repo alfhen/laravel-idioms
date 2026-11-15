@@ -1,0 +1,100 @@
+{
+ "acme-webhooks": {
+  "impl-1": "prev",
+  "impl-2": "rev",
+  "impl-3": "plain"
+ },
+ "notes-search-api": {
+  "impl-1": "rev",
+  "impl-2": "plain",
+  "impl-3": "prev"
+ },
+ "livewire-notes": {
+  "impl-1": "rev",
+  "impl-2": "prev",
+  "impl-3": "plain"
+ },
+ "inertia-projects": {
+  "impl-1": "plain",
+  "impl-2": "prev",
+  "impl-3": "rev"
+ },
+ "payments-errors": {
+  "impl-1": "plain",
+  "impl-2": "rev",
+  "impl-3": "prev"
+ },
+ "invoice-totals": {
+  "impl-1": "prev",
+  "impl-2": "plain",
+  "impl-3": "rev"
+ },
+ "team-invitations": {
+  "impl-1": "prev",
+  "impl-2": "rev",
+  "impl-3": "plain"
+ },
+ "partner-sync": {
+  "impl-1": "rev",
+  "impl-2": "plain",
+  "impl-3": "prev"
+ },
+ "subscription-renewals": {
+  "impl-1": "rev",
+  "impl-2": "prev",
+  "impl-3": "plain"
+ },
+ "team-activity": {
+  "impl-1": "plain",
+  "impl-2": "prev",
+  "impl-3": "rev"
+ },
+ "sales-report": {
+  "impl-1": "rev",
+  "impl-2": "prev"
+ },
+ "blog-crud": {
+  "impl-1": "prev",
+  "impl-2": "rev"
+ },
+ "blade-catalogue": {
+  "impl-1": "rev",
+  "impl-2": "prev"
+ },
+ "cart-discounts": {
+  "impl-1": "prev",
+  "impl-2": "rev"
+ },
+ "filament-admin": {
+  "impl-1": "rev",
+  "impl-2": "prev"
+ },
+ "scheduled-reports": {
+  "impl-1": "prev",
+  "impl-2": "rev"
+ },
+ "shipment-sync": {
+  "impl-1": "rev",
+  "impl-2": "prev"
+ },
+ "export-purge-command": {
+  "impl-1": "prev",
+  "impl-2": "rev"
+ },
+ "carrier-quote": {
+  "impl-1": "rev",
+  "impl-2": "prev"
+ },
+ "orders-api": {
+  "impl-1": "prev",
+  "impl-2": "rev"
+ },
+ "stock-csv-import": {
+  "impl-1": "rev",
+  "impl-2": "prev"
+ },
+ "token-login": {
+  "impl-1": "prev",
+  "impl-2": "rev"
+ }
+}

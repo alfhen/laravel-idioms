@@ -42,7 +42,7 @@ Cache::remember('jwks', 3600, fn () => Http::timeout(5)->get($uri)->throw()->jso
 - `throw()` does nothing on a 3xx (`toException()` returns `null` unless the response `failed()`). An API that answers 200 with an error payload (GraphQL `errors`, JSON-RPC `error`) needs an explicit check of the body.
 - Use `throwIf`, `throwUnless` or `throw(fn ($response, $e) => ...)` only when you must act before the exception leaves. Don't write `if ($response->failed()) { return []; }` where a caller needs to know.
 - `ConnectionException`: no response (timeout, DNS, TLS, refused), so there is no `->response`. `RequestException`: from `throw()` or exhausted retries, has `->response`. Both extend `HttpClientException`.
-- Catch the narrow type, and only where you have a fallback or a mapping (404 to 422, a cached rate). Call `report($e)` only for what a person must act on (a rejected key, a changed contract), not for transient failures a fallback already covers; give expected domain exceptions `ShouldntReport`. In a queued job let both propagate. Never wrap a call in `catch (Throwable)`: it also swallows `StrayRequestException` and `TypeError`, so a test that should fail goes green.
+- Catch the narrow type, and only where you have a fallback or a mapping (404 to 422, a cached rate). Call `report($e)` only for what a person must act on (a rejected key, a changed contract), not for transient failures a fallback already covers; give expected domain exceptions `ShouldntReport`. In a queued job let both propagate. Never wrap a call in a `catch (Throwable)` that swallows: it also catches `StrayRequestException` and `TypeError`, so a test that should fail goes green.
 
 ## Timeouts
 

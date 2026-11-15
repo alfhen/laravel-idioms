@@ -51,7 +51,7 @@ public function handle(PaymentGateway $gateway): void
 ## Failures: throw, don't log-and-return
 
 ```php
-// bad: the job "succeeds": no retry, no failed_jobs row, no failed(), no alert
+// bad: the job "succeeds": no retry, no failed_jobs row, no failed(), no alert, and getMessage() drops the trace
 try { $client->createShipment($this->order); } catch (RequestException $e) { Log::error($e->getMessage()); return; }
 // good: already done → return; broken → throw → backoff → retry → failed()
 if ($this->order->shipment()->exists()) { return; }
