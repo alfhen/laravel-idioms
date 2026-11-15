@@ -83,7 +83,7 @@ return response()->noContent();
 ## Idempotency
 
 Delivery is at-least-once: retries after a timeout or 5xx are normal.
-- Table `webhook_events` with `unique(['provider', 'event_id'])`. Use the provider's delivery id, stable across redeliveries, and only one the signature covers (an `id` in the signed body, or a header the provider includes in the signed string). An unsigned id header lets anyone replay a captured delivery under a new id.
+- Table `webhook_events` with `unique(['provider', 'event_id'])`, and a case-sensitive `event_id` on MySQL (`->collation('utf8mb4_bin')`): the default collation treats ids that differ only in case as duplicates. Use the provider's delivery id, stable across redeliveries, and only one the signature covers (an `id` in the signed body, or a header the provider includes in the signed string). An unsigned id header lets anyone replay a captured delivery under a new id.
 - Claim with `createOrFirst()` + `wasRecentlyCreated`, and let any error other than the duplicate fail. Not `insertOrIgnore()`: on MySQL it is `INSERT IGNORE`, which also turns truncation and bad data into warnings, so a too-long id can be cut short, collide with another delivery, and be acknowledged without ever being stored.
 - A duplicate answers the same 2xx, never 409 or 422: the provider must stop retrying.
 - Never `Cache::has()` then `put()` (races, marks before the work succeeded). `Cache::add()` is atomic but not durable: a cache flush means duplicates. Use the table for orders, stock, money, deletions. A cache key is fine only for loss-tolerant notifications.
