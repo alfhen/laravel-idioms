@@ -241,6 +241,47 @@ class InvoiceTotalsHiddenTest extends TestCase
         }
     }
 
+    public function test_the_discount_follows_the_line_subtotals_exactly(): void
+    {
+        $invoice = $this->create([
+            'currency' => 'EUR',
+            'vat_rate' => 25,
+            'discount' => '1.00',
+            'lines' => [$this->line('1.00', 1, 'A'), $this->line('9.00', 1, 'B')],
+        ]);
+
+        $this->assertSame([10, 90], array_column($invoice['lines'], 'discount_minor'));
+    }
+
+    public function test_a_discount_larger_than_the_lines_is_rejected(): void
+    {
+        $response = $this->postJson('/api/invoices', [
+            'currency' => 'EUR',
+            'vat_rate' => 25,
+            'discount' => '10.01',
+            'lines' => [$this->line('10.00')],
+        ]);
+
+        $this->assertSame(422, $response->status());
+        $this->assertSame(0, DB::table('invoices')->count());
+    }
+
+    public function test_malformed_input_shapes_are_rejected_not_crashed(): void
+    {
+        $payloads = [
+            'price with a trailing newline' => ['currency' => 'EUR', 'vat_rate' => 25, 'lines' => [$this->line("1.50\n")]],
+            'currency as an array' => ['currency' => ['EUR'], 'vat_rate' => 25, 'lines' => [$this->line('1.50')]],
+        ];
+
+        foreach ($payloads as $case => $payload) {
+            $this->assertSame(422, $this->postJson('/api/invoices', $payload)->status(), $case);
+        }
+        $this->assertSame(0, DB::table('invoices')->count());
+
+        $status = $this->postJson('/api/invoices', ['currency' => 'EUR', 'vat_rate' => 25, 'lines' => ['x' => $this->line('1.50')]])->status();
+        $this->assertContains($status, [201, 422], "lines as an object answered {$status}");
+    }
+
     public function test_every_money_value_in_responses_is_an_integer(): void
     {
         $created = $this->create([

@@ -2,7 +2,8 @@
 
 usage: python3 eval/misses.py [--arms prev,skill] [--json out.json]
 The misses were listed from the `prev` and `plain` pilot builds (which all passed every hidden test) before
-any skill text for the round was written. Each check reports 1 (missed) or 0 per build; the table shows
+any skill text for the round was written. The published round-7 counts came from this script at commit 8cc3cc3;
+the detectors were tightened afterwards (token named in dontFlash, renewal-scoped guards, more search forms). Each check reports 1 (missed) or 0 per build; the table shows
 misses / builds per task and arm.
 """
 import argparse
@@ -38,19 +39,22 @@ def webhook_route_in_web(b):
 
 
 def search_term_truthy(b):
-    return has(b, r'when\(\s*\$(term|q|search|request->(validated|input|string|query)\([\'"]q[\'"]\))\s*[,)]', 'app')
+    term = r'\$(term|q|search|query)\b|\$request->(q|search)\b|\$request->(validated|input|string|query|get)\(\s*[\'"](q|search)[\'"]\s*\)|\$\w+\[[\'"](q|search)[\'"]\](\s*\?\?\s*null)?'
+    return has(b, r'->when\(\s*(' + term + r')\s*[,)]', 'app')
 
 
 def token_flashed(b):
-    return not has(b, r'dontFlash', 'bootstrap', 'app')
+    return not has(b, r'dontFlash\(\s*\[[^\]]*token', 'bootstrap', 'app')
 
 
 def renew_without_lock(b):
-    return not has(b, r'lockForUpdate|->increment\(|->where\([^;]*\)->update\(', 'app')
+    guard = re.compile(r'lockForUpdate|->increment\(|->where\([^;]*\)->update\(|DB::raw\(')
+    renewal = [text for p, text in php(b, 'app') if re.search(r'renew', p.name + text, re.I)]
+    return not any(guard.search(text) for text in renewal)
 
 
 def livewire_queries_only_first_render(b):
-    fn = re.compile(r'(function\s+\w+\s*\([^)]*\)[^{]*\{|(?:it|test)\s*\()')
+    fn = re.compile(r'(function\s+\w+\s*\([^)]*\)[^{]*\{|\b(?:it|test)\s*\()')
     for _, text in php(b, 'tests'):
         chunks = fn.split(text)
         for chunk in chunks:
