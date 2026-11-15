@@ -48,7 +48,7 @@ def token_flashed(b):
 
 
 def renew_without_lock(b):
-    guard = re.compile(r'lockForUpdate|->increment\(|->where\([^;]*\)->update\(|DB::raw\(')
+    guard = re.compile(r'lockForUpdate|->increment\(|->where\([^;]*\)->update\(|DB::raw\(\s*[\'"]\s*\w+\s*[+-]')
     renewal = [text for p, text in php(b, 'app') if re.search(r'renew', p.name + text, re.I)]
     return not any(guard.search(text) for text in renewal)
 

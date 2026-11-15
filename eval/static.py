@@ -66,7 +66,7 @@ CHECKS = [
     ("like with input, no ESCAPE", 'app', r"(?i)'like',\s*['\"]%\{?\$|like \?(?![^;]*escape)"),
     ('bare exists: rule', 'app', r"'exists:\w+,\w+'"),
     ('re-encoded body near HMAC', 'app', r'hash_hmac\([^;]*json_encode\(|(?s:\$(\w+)\s*=\s*json_encode\([^;]*;.{0,400}?)hash_hmac\([^;]*\$\1\b'),
-    ('== on a secret or signature', 'app', r'(signature|token|secret|hmac)\w*\s*[!=]==?\s*\$|[!=]==?\s*\$\w*(signature|token|secret|hmac)|hash_hmac\([^;]*\)\s*[!=]==?|[!=]==?\s*hash_hmac\('),
+    ('== on a secret or signature', 'app', r'(signature|token|secret|hmac)\w*\s*[!=]==?\s*\$|[!=]==?\s*\$\w*(signature|token|secret|hmac)|hash_hmac\((?:[^()]|\([^()]*\))*\)\s*[!=]==?|[!=]==?\s*hash_hmac\('),
     ('float money (int)(x * 100)', 'app', r'\(int\)\s*\(?\s*\$[^;]*\*\s*100\b'),
     ('addMonth() (overflows)', 'app', r'->addMonths?\('),
     ('whereDate(', 'app', r'whereDate\('),
