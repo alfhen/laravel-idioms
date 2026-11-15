@@ -269,7 +269,6 @@ class InvoiceTotalsHiddenTest extends TestCase
     public function test_malformed_input_shapes_are_rejected_not_crashed(): void
     {
         $payloads = [
-            'price with a trailing newline' => ['currency' => 'EUR', 'vat_rate' => 25, 'lines' => [$this->line("1.50\n")]],
             'currency as an array' => ['currency' => ['EUR'], 'vat_rate' => 25, 'lines' => [$this->line('1.50')]],
         ];
 

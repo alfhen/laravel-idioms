@@ -240,6 +240,15 @@ Single tasks below `main`: blade-catalogue, cart-discounts, invoice-totals and t
 
 **Caveats.** The hidden tests found no difference between versions in the new areas, so the evidence is the pre-registered misses (from one pilot, three builds per arm) and judge scores from two replicates. The misses were listed by reading `main` builds, so they measure what `main` got wrong, not every rule in the round. Per-task judge scores move by up to 2.6 points between replicates. Replicate N judges build N, so the third build of each task counts only toward the hidden tests and the misses. The rubric also reflects the conventions the skill teaches.
 
+**Out-of-sample replicate.** After the merge, a third set of builds (three per arm) ran on the eight tasks behind the misses, with the tightened `misses.py` and the updated hidden tests:
+
+| | `main` (v0.3.0) | This version with the review fixes |
+|---|---|---|
+| Pre-registered misses | 7/21 | **0/21** |
+| Hidden tests | 360/360 | 358/360 |
+
+`main`'s count fell from 15/21 in-sample to 7/21 on fresh builds, as expected for misses that were read from its own builds. The gap holds: the dontFlash token miss is 2/3 against 0/3, the first-render query test 3/3 against 0/3, and resource-class ceremony 2/3 against 0/3. The new invoice check found the same input-shape bug the judges had flagged: 2 of 3 builds of this version, and none of `main`'s, answer a `currency` sent as an array with a 500, because `rules()` cast the raw input to a string. `SKILL.md` now says to check the type there. The exception throttle on every `Throwable` (a "look at" item) is still 3/3 in both. Data: [`eval/results/webhooks-security-round/replicate3/`](../eval/results/webhooks-security-round/replicate3).
+
 The judged text is commit `dfb80fb`. After the results, review fixes changed five skill files (`SKILL.md` §3c and the money and dates paragraph; `webhooks.md`, `livewire.md`, `observability.md`, `dates-and-money.md`), the checklist greps and a few version notes. Those changes were not rebuilt or judged.
 
 Raw judgements, mappings, per-build stats, hidden-test results, static and miss counts, triggering and audit runs are in [`eval/results/webhooks-security-round/`](../eval/results/webhooks-security-round). CI checks that the judge, build and hidden-test tables re-derive from them. The miss and static counts come from `misses.py` and `static.py` run on the build trees, which are not committed.

@@ -1,0 +1,546 @@
+[
+ {
+  "build": "acme-webhooks-prev-1",
+  "task": "acme-webhooks",
+  "arm": "prev",
+  "seconds": 112,
+  "cost_usd": 0.39,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "acme-webhooks-prev-2",
+  "task": "acme-webhooks",
+  "arm": "prev",
+  "seconds": 102,
+  "cost_usd": 0.37,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "acme-webhooks-prev-3",
+  "task": "acme-webhooks",
+  "arm": "prev",
+  "seconds": 96,
+  "cost_usd": 0.36,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "acme-webhooks-skill-1",
+  "task": "acme-webhooks",
+  "arm": "skill",
+  "seconds": 157,
+  "cost_usd": 0.56,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "acme-webhooks-skill-2",
+  "task": "acme-webhooks",
+  "arm": "skill",
+  "seconds": 184,
+  "cost_usd": 0.6,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "acme-webhooks-skill-3",
+  "task": "acme-webhooks",
+  "arm": "skill",
+  "seconds": 147,
+  "cost_usd": 0.55,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/webhooks.md"
+  ]
+ },
+ {
+  "build": "inertia-projects-prev-1",
+  "task": "inertia-projects",
+  "arm": "prev",
+  "seconds": 83,
+  "cost_usd": 0.36,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "inertia-projects-prev-2",
+  "task": "inertia-projects",
+  "arm": "prev",
+  "seconds": 71,
+  "cost_usd": 0.32,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "inertia-projects-prev-3",
+  "task": "inertia-projects",
+  "arm": "prev",
+  "seconds": 69,
+  "cost_usd": 0.31,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "inertia-projects-skill-1",
+  "task": "inertia-projects",
+  "arm": "skill",
+  "seconds": 53,
+  "cost_usd": 0.3,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/inertia.md"
+  ]
+ },
+ {
+  "build": "inertia-projects-skill-2",
+  "task": "inertia-projects",
+  "arm": "skill",
+  "seconds": 72,
+  "cost_usd": 0.35,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "inertia-projects-skill-3",
+  "task": "inertia-projects",
+  "arm": "skill",
+  "seconds": 71,
+  "cost_usd": 0.35,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "invoice-totals-prev-1",
+  "task": "invoice-totals",
+  "arm": "prev",
+  "seconds": 188,
+  "cost_usd": 0.59,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "invoice-totals-prev-2",
+  "task": "invoice-totals",
+  "arm": "prev",
+  "seconds": 164,
+  "cost_usd": 0.51,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "invoice-totals-prev-3",
+  "task": "invoice-totals",
+  "arm": "prev",
+  "seconds": 232,
+  "cost_usd": 0.7,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "invoice-totals-skill-1",
+  "task": "invoice-totals",
+  "arm": "skill",
+  "seconds": 198,
+  "cost_usd": 0.66,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/dates-and-money.md"
+  ]
+ },
+ {
+  "build": "invoice-totals-skill-2",
+  "task": "invoice-totals",
+  "arm": "skill",
+  "seconds": 153,
+  "cost_usd": 0.53,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/dates-and-money.md"
+  ]
+ },
+ {
+  "build": "invoice-totals-skill-3",
+  "task": "invoice-totals",
+  "arm": "skill",
+  "seconds": 152,
+  "cost_usd": 0.53,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/dates-and-money.md"
+  ]
+ },
+ {
+  "build": "livewire-notes-prev-1",
+  "task": "livewire-notes",
+  "arm": "prev",
+  "seconds": 110,
+  "cost_usd": 0.4,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "livewire-notes-prev-2",
+  "task": "livewire-notes",
+  "arm": "prev",
+  "seconds": 123,
+  "cost_usd": 0.45,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "livewire-notes-prev-3",
+  "task": "livewire-notes",
+  "arm": "prev",
+  "seconds": 109,
+  "cost_usd": 0.4,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "livewire-notes-skill-1",
+  "task": "livewire-notes",
+  "arm": "skill",
+  "seconds": 138,
+  "cost_usd": 0.58,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/livewire.md"
+  ]
+ },
+ {
+  "build": "livewire-notes-skill-2",
+  "task": "livewire-notes",
+  "arm": "skill",
+  "seconds": 244,
+  "cost_usd": 0.51,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "livewire-notes-skill-3",
+  "task": "livewire-notes",
+  "arm": "skill",
+  "seconds": 128,
+  "cost_usd": 0.46,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "notes-search-api-prev-1",
+  "task": "notes-search-api",
+  "arm": "prev",
+  "seconds": 108,
+  "cost_usd": 0.4,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "notes-search-api-prev-2",
+  "task": "notes-search-api",
+  "arm": "prev",
+  "seconds": 102,
+  "cost_usd": 0.37,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "notes-search-api-prev-3",
+  "task": "notes-search-api",
+  "arm": "prev",
+  "seconds": 94,
+  "cost_usd": 0.36,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "notes-search-api-skill-1",
+  "task": "notes-search-api",
+  "arm": "skill",
+  "seconds": 134,
+  "cost_usd": 0.51,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "notes-search-api-skill-2",
+  "task": "notes-search-api",
+  "arm": "skill",
+  "seconds": 116,
+  "cost_usd": 0.47,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "notes-search-api-skill-3",
+  "task": "notes-search-api",
+  "arm": "skill",
+  "seconds": 113,
+  "cost_usd": 0.43,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "partner-sync-prev-1",
+  "task": "partner-sync",
+  "arm": "prev",
+  "seconds": 79,
+  "cost_usd": 0.35,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "partner-sync-prev-2",
+  "task": "partner-sync",
+  "arm": "prev",
+  "seconds": 77,
+  "cost_usd": 0.3,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "partner-sync-prev-3",
+  "task": "partner-sync",
+  "arm": "prev",
+  "seconds": 87,
+  "cost_usd": 0.34,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "partner-sync-skill-1",
+  "task": "partner-sync",
+  "arm": "skill",
+  "seconds": 62,
+  "cost_usd": 0.31,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "partner-sync-skill-2",
+  "task": "partner-sync",
+  "arm": "skill",
+  "seconds": 77,
+  "cost_usd": 0.35,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "partner-sync-skill-3",
+  "task": "partner-sync",
+  "arm": "skill",
+  "seconds": 91,
+  "cost_usd": 0.4,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "subscription-renewals-prev-1",
+  "task": "subscription-renewals",
+  "arm": "prev",
+  "seconds": 102,
+  "cost_usd": 0.5,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "subscription-renewals-prev-2",
+  "task": "subscription-renewals",
+  "arm": "prev",
+  "seconds": 97,
+  "cost_usd": 0.36,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "subscription-renewals-prev-3",
+  "task": "subscription-renewals",
+  "arm": "prev",
+  "seconds": 112,
+  "cost_usd": 0.4,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "subscription-renewals-skill-1",
+  "task": "subscription-renewals",
+  "arm": "skill",
+  "seconds": 100,
+  "cost_usd": 0.42,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/dates-and-money.md"
+  ]
+ },
+ {
+  "build": "subscription-renewals-skill-2",
+  "task": "subscription-renewals",
+  "arm": "skill",
+  "seconds": 96,
+  "cost_usd": 0.39,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "subscription-renewals-skill-3",
+  "task": "subscription-renewals",
+  "arm": "skill",
+  "seconds": 103,
+  "cost_usd": 0.39,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "team-invitations-prev-1",
+  "task": "team-invitations",
+  "arm": "prev",
+  "seconds": 93,
+  "cost_usd": 0.38,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "team-invitations-prev-2",
+  "task": "team-invitations",
+  "arm": "prev",
+  "seconds": 99,
+  "cost_usd": 0.37,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "team-invitations-prev-3",
+  "task": "team-invitations",
+  "arm": "prev",
+  "seconds": 104,
+  "cost_usd": 0.36,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "team-invitations-skill-1",
+  "task": "team-invitations",
+  "arm": "skill",
+  "seconds": 98,
+  "cost_usd": 0.37,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/security.md"
+  ]
+ },
+ {
+  "build": "team-invitations-skill-2",
+  "task": "team-invitations",
+  "arm": "skill",
+  "seconds": 97,
+  "cost_usd": 0.37,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "team-invitations-skill-3",
+  "task": "team-invitations",
+  "arm": "skill",
+  "seconds": 118,
+  "cost_usd": 0.41,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ }
+]
