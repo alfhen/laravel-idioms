@@ -1,6 +1,6 @@
 # laravel-idioms
 
-An agent skill that makes AI coding agents write Laravel the way the framework, its docs and well-maintained packages do. It covers thin controllers, Form Requests for every input, policies, API authentication and JSON errors, collections instead of accumulator loops, Eloquent `casts()`/scopes/attributes, N+1 prevention, migrations, race conditions and locking, queued jobs and workers, the scheduler, Artisan commands, file uploads and CSV imports, outbound HTTP calls, events, notifications and mail, caching, Blade components, Filament 5, Pest 5, and the current Laravel 11–13 app structure. It ends every change with a mandatory self-check list.
+An agent skill that makes AI coding agents write Laravel the way the framework, its docs and well-maintained packages do. It covers thin controllers, Form Requests for every input, policies, API authentication and JSON errors, collections instead of accumulator loops, Eloquent `casts()`/scopes/attributes, N+1 prevention, migrations, race conditions and locking, queued jobs and workers, the scheduler, Artisan commands, file uploads and CSV imports, outbound HTTP calls, inbound webhooks, a security baseline (sort allow-lists, raw SQL bindings, LIKE escaping), events, notifications and mail, caching, Blade components, Livewire, the server side of Inertia, Filament 5, error reporting and logging, dates and money, Pest 5, and the current Laravel 11–13 app structure. It ends every change with a mandatory self-check list.
 
 It also has an **audit mode**. Ask the agent to "audit this Laravel codebase" and it maps the app and hunts for real bugs as well as idiom problems. It verifies its suggested fixes by applying them to a scratch copy and running the test suite, and then writes a self-contained HTML refactor report.
 
@@ -106,8 +106,9 @@ resources/boost/
     │   ├── collections-and-helpers.md  architecture-and-testing.md
     │   ├── queues-and-workers.md  scheduling.md  console-commands.md
     │   ├── files-and-uploads.md  http-client.md  events-and-notifications.md
-    │   ├── caching.md  blade.md  filament.md  pest.md  modern-laravel.md
-    │   ├── style.md
+    │   ├── webhooks.md  security.md  observability.md  dates-and-money.md
+    │   ├── caching.md  blade.md  livewire.md  inertia.md  filament.md
+    │   ├── pest.md  modern-laravel.md  style.md
     │   └── audit-mode.md
     └── assets/audit-report-template.html
 ```
@@ -132,7 +133,7 @@ Later rounds compare each change with the skill on `main` just before it (for th
 |---|---|---|
 | Queues, scheduler, Artisan commands | 119/120 vs 116/120 | 7.78 / 7.79 vs 7.27 / 6.95 |
 | Races, API auth, uploads, migrations, HTTP, events | API guest gets a JSON 401: 23/23 vs 3/23 | 7.92 / 7.96 vs 7.64 / 7.65 |
-| Webhooks, security, Livewire, Inertia, errors and logging, dates and money | Misses found in `main`'s own builds: 0/21 vs 15/21 (in-sample for `main`) | 8.30 / 8.28 vs 7.51 / 7.25 |
+| Webhooks, security, Livewire, Inertia, errors and logging, dates and money | Pre-registered misses on fresh builds: 0/21 vs 7/21 (15/21 on the builds they were read from; the new text was written knowing the list) | 8.30 / 8.28 vs 7.51 / 7.25 |
 
 In every round the tasks held back from revising the skill improved too, and the mean score on the earlier tasks held or rose. Single tasks move by up to about 2.6 points between replicates, so a task can still score lower in one replicate. In the latest round one target task, invoice-totals, scored lower in both. The rubric also reflects the conventions the skill teaches. See [docs/evaluation.md](docs/evaluation.md) for the method, all rounds and the caveats. The harness and raw results are in [`eval/`](eval), so you can rerun it against your own tasks.
 
