@@ -3,6 +3,7 @@
 #   bases:  base (PHPUnit), base-pest, base-filament, base-queue-bugfix (base-pest + fixtures/queue-bugfix),
 #           base-api (base-pest + Sanctum), base-api-phpunit (base + Sanctum), base-orders-schema (+ fixtures/orders-schema),
 #           base-livewire (base-pest + Livewire 4), base-inertia (base-pest + inertia-laravel 3, server side only),
+#           base-spatie (base-api + spatie permission, query-builder, data, model-states, medialibrary),
 #           base-inertia-projects (+ fixtures/inertia-projects)
 #   arms:   plain, skill, boost, both, augment  ×  each base
 # ARMS and BASES (space-separated) limit what is built. The arm "prev" holds the skill as it was at the git ref
@@ -13,7 +14,7 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="${WORK:-$REPO/eval/.work}"
 LARAVEL="${LARAVEL:-laravel/laravel:^13.0}"
 SKILL="$REPO/resources/boost/skills/laravel-idioms"
-read -r -a BASES <<< "${BASES:-base base-pest base-filament base-queue-bugfix base-api base-api-phpunit base-orders-schema base-livewire base-inertia base-inertia-projects}"
+read -r -a BASES <<< "${BASES:-base base-pest base-filament base-queue-bugfix base-api base-api-phpunit base-orders-schema base-livewire base-inertia base-inertia-projects base-spatie}"
 read -r -a ARMS <<< "${ARMS:-plain skill boost both augment}"
 
 wants() { [[ " ${ARMS[*]} " == *" $1 "* ]]; }
@@ -115,6 +116,23 @@ if wants_base base-inertia-projects && [ ! -d base-inertia-projects ]; then
     cp -R base-inertia base-inertia-projects
     rsync -a "$REPO/eval/fixtures/inertia-projects/" base-inertia-projects/
     (cd base-inertia-projects && composer dump-autoload -q && php artisan test >/dev/null) || { rm -rf base-inertia-projects; exit 1; }
+fi
+
+# base-api + the five Spatie packages that change the idiom, with their config and migrations published
+# (no traits added to models), so package tasks start equal in every arm.
+if wants_base base-spatie && [ ! -d base-spatie ]; then
+    cp -R base-api base-spatie
+    (
+        cd base-spatie &&
+        composer require spatie/laravel-permission:^8.5 spatie/laravel-query-builder:^7.3 spatie/laravel-data:^4.23 \
+            spatie/laravel-model-states:^2.14 spatie/laravel-medialibrary:^11.23 --no-interaction -W -q &&
+        php artisan vendor:publish --provider='Spatie\Permission\PermissionServiceProvider' --no-interaction >/dev/null &&
+        php artisan vendor:publish --provider='Spatie\MediaLibrary\MediaLibraryServiceProvider' --tag=medialibrary-migrations --no-interaction >/dev/null &&
+        php artisan vendor:publish --provider='Spatie\MediaLibrary\MediaLibraryServiceProvider' --tag=medialibrary-config --no-interaction >/dev/null &&
+        mv database/migrations/*_create_permission_tables.php database/migrations/2026_01_01_000000_create_permission_tables.php &&
+        mv database/migrations/*_create_media_table.php database/migrations/2026_01_01_000001_create_media_table.php &&
+        php artisan test >/dev/null
+    ) || { rm -rf base-spatie; exit 1; }
 fi
 
 install_boost() {
