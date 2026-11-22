@@ -1,7 +1,7 @@
 {
   "name": "laravel-idioms",
-  "version": "0.4.0",
-  "description": "Idiomatic modern Laravel (11-13) for coding agents: thin controllers, FormRequests, API auth, Eloquent, migrations, races, queues, scheduler, commands, uploads, HTTP client, events, inbound webhooks, security, caching, Blade, Livewire, Inertia, Filament 5, error reporting and logging, dates and money, Pest 5, plus a codebase audit mode with an HTML refactor report.",
+  "version": "0.5.0",
+  "description": "Idiomatic modern Laravel (11-13) for coding agents: thin controllers, FormRequests, API auth, Eloquent, migrations, races, queues, scheduler, commands, uploads, HTTP client, events, inbound webhooks, security, caching, Blade, Livewire, Inertia, Filament 5, error reporting and logging, dates and money, Spatie packages (permission, query-builder, data, model-states, medialibrary), Pest 5, plus a codebase audit mode with an HTML refactor report.",
   "author": {
     "name": "Alf Henderson"
   },
