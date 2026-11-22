@@ -71,7 +71,7 @@ Route::get('/reports/{report}/download', DownloadReport::class)->name('reports.d
 ```
 - `signedRoute()` without an expiry never expires: use `temporarySignedRoute()`. A signature is a bearer token. Add `auth` and a policy check unless anyone holding the link may fetch the file.
 - A signature covers the path and query string only. Read signed values with `$request->query('plan')`, never `input()`, `all()` or a dynamic property, because a JSON body on a GET overrides the query in merged input.
-- An absolute signature includes scheme and host. Behind a proxy that changes either, configure trusted proxies for that proxy only, or sign with `absolute: false` and use `signed:relative`. A link mailed to someone takes its host from `APP_URL`, not the request (`security.md`, Host header and absolute links).
+- An absolute signature includes scheme and host. Behind a proxy that changes either, configure trusted proxies for that proxy only, or sign with `absolute: false` and use `signed:relative`. A link built during a request takes the request's scheme and host unless the root is forced, so a mailed link carries whatever `Host` the request sent. Pin it as `security.md` shows (Host header and absolute links).
 - `Storage::temporaryUrl($path, now()->addMinutes(5))` works on S3 and S3-compatible disks, and on a local disk with `serve => true` (a signed `storage.local` route). Other drivers (ftp, sftp) and a local disk without `serve` throw `RuntimeException` unless `buildTemporaryUrlsUsing()` is registered. Guard with `Storage::providesTemporaryUrls()` or register the callback. Don't branch on `app()->isLocal()` to fall back to an unsigned `url()`.
 
 ## spatie/laravel-medialibrary

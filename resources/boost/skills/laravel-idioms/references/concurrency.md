@@ -104,8 +104,9 @@ DB::transaction(function () use ($loan) {
     abort_unless($loan->state->canTransitionTo(Approved::class), 409);
     $loan->state->transitionTo(Approved::class);
 });
-Mail::to($loan->borrower)->send(new LoanApproved($loan));   // after the commit; not reached on rollback
+Mail::to($loan->borrower)->queue(new LoanApproved($loan));   // after the commit; not reached on rollback
 ```
+- Queue the mail rather than `send()` it, on a worker connection. A synchronous send that fails after the commit returns a 500 for an approval that already happened, and a retry now gets a 409 and no mail. Inside an outer transaction, queue it with `->afterCommit()` instead so it waits for the outer commit.
 - Change state only through `transitionTo()`. Assigning (`$loan->state = Approved::class`, `update(['state' => ...])`, a fillable `state` filled from request data) skips the transition rules: the cast only rejects unknown state names. Keep the state column out of `$fillable` and out of validated data.
 - A disallowed transition throws `TransitionNotFound` or `TransitionNotAllowed`. Both extend a plain `Exception`, so they render as 500. Check `canTransitionTo()` first, or map `CouldNotPerformTransition` to 409 in `withExceptions`. The repeat request then gets a 409 or the stored result, never a second run.
 - `StateChanged` is dispatched synchronously inside the transition, so inside your transaction. Listeners that mail, call out or dispatch implement `ShouldQueueAfterCommit` or run after the closure returns. A custom transition's `handle()` holds database writes only, like any transaction closure.
