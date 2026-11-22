@@ -74,7 +74,7 @@ class PaymentStatesHiddenTest extends TestCase
 
     private function as(User $user, string $method, string $uri, array $data = []): TestResponse
     {
-        Sanctum::actingAs($user, ['*']);
+        Sanctum::actingAs($user->fresh(), ['*']);
         $response = $this->json($method, $uri, $data);
         $this->app['auth']->forgetGuards();
 
