@@ -80,6 +80,7 @@ DB::transaction(function () use ($id, $amount) {
     $account->decrement('balance', $amount);
 });
 ```
+- For a route-bound model, `$account->refreshForUpdate()` (13.27+) re-reads and locks the same instance inside the closure, so code after the transaction sees the locked values too. It skips global scopes like `refresh()`. Before 13.27, re-query with `Account::whereKey($account->id)->lockForUpdate()->firstOrFail()` and return the instance from the closure: a variable reassigned inside it stays stale outside.
 - A cap on a parent that also inserts a child row (seats and bookings, a coupon and its redemptions): `lockForUpdate()` the parent first, then check, insert and increment, inside `DB::transaction($fn, 3)`. Inserting the child first takes a shared foreign-key lock on the parent on InnoDB, so two requests that then `UPDATE` the parent deadlock.
 - Use locks for invariants one conditional `UPDATE` cannot express (transfers, "last admin", allocation across rows). Lock several rows in a stable order (`orderBy('id')`) to avoid deadlocks.
 - On MySQL `REPEATABLE READ`, do not mix an earlier plain read of a row with a later `FOR UPDATE` read in the same transaction.
@@ -88,6 +89,28 @@ DB::transaction(function () use ($id, $amount) {
 DB::table('counters')->insertOrIgnore(['org_id' => $id, 'last_sequence' => 0]);   // org_id is the primary key
 $c = DB::table('counters')->where('org_id', $id)->lockForUpdate()->first();
 ```
+
+## State machines (spatie/laravel-model-states)
+
+Applies when `composer.lock` lists `spatie/laravel-model-states` and a transition has side effects or money attached, or two actors can trigger it (a double click, a retried webhook, an admin and the owner). `transitionTo()` checks the allowed transitions against the state already loaded on the model, then the default transition assigns and calls a plain `save()`. Two requests holding the same old state both pass and both run the transition and its side effects.
+```php
+// bad: decides from the route-bound model; two requests both approve and both mail
+$loan->state->transitionTo(Approved::class);
+Mail::to($loan->borrower)->send(new LoanApproved($loan));
+
+// good: lock, re-read, decide, commit; side effects after the commit
+DB::transaction(function () use ($loan) {
+    $loan->refreshForUpdate();   // 13.27+; before: whereKey()->lockForUpdate()->firstOrFail(), returned from the closure
+    abort_unless($loan->state->canTransitionTo(Approved::class), 409);
+    $loan->state->transitionTo(Approved::class);
+});
+Mail::to($loan->borrower)->send(new LoanApproved($loan));   // after the commit; not reached on rollback
+```
+- Change state only through `transitionTo()`. Assigning (`$loan->state = Approved::class`, `update(['state' => ...])`, a fillable `state` filled from request data) skips the transition rules: the cast only rejects unknown state names. Keep the state column out of `$fillable` and out of validated data.
+- A disallowed transition throws `TransitionNotFound` or `TransitionNotAllowed`. Both extend a plain `Exception`, so they render as 500. Check `canTransitionTo()` first, or map `CouldNotPerformTransition` to 409 in `withExceptions`. The repeat request then gets a 409 or the stored result, never a second run.
+- `StateChanged` is dispatched synchronously inside the transition, so inside your transaction. Listeners that mail, call out or dispatch implement `ShouldQueueAfterCommit` or run after the closure returns. A custom transition's `handle()` holds database writes only, like any transaction closure.
+- A state name from the request is validated with `ValidStateRule::make(LoanState::class)`. It checks the name, not whether the transition is allowed.
+- Test: load two instances of the same row, transition the first, then the second. The second must fail or be a no-op, with one side effect in total. The re-read makes this pass on SQLite. Only the lock makes it hold under real concurrency (see Testing races).
 
 ## Transactions
 
@@ -178,4 +201,4 @@ it('does not oversell when a competing order lands between read and write', func
 - A test of code whose correctness is the lock itself runs on a real MySQL or Postgres service in CI. Never report "lock tested" from SQLite.
 - A file SQLite database in production on PHP 8.4+: set `transaction_mode` to `IMMEDIATE` and a `busy_timeout`, or a read-then-write transaction can fail with "database is locked".
 
-Evidence: `Illuminate/Database/Eloquent/Builder.php` (`firstOrCreate`, `createOrFirst`, `updateOrCreate`, `incrementOrCreate`, `update`, `withSavepointIfNeeded`), `Eloquent/Model.php` (`incrementOrDecrement`), `Eloquent/Concerns/HasEvents.php`, `Eloquent/Relations/HasOneOrMany.php`, `Database/Concerns/ManagesTransactions.php`, `Database/{ConcurrencyErrorDetector,DeadlockException,UniqueConstraintViolationException,SQLiteConnection}.php`, `Database/Query/Builder.php` (`insertOrIgnore`, `upsert`, `lockForUpdate`, `sharedLock`), `Database/Schema/{IndexDefinition,Grammars/PostgresGrammar}.php`, `Cache/{Repository,Lock,DatabaseLock,RateLimiter}.php`; `laravel/docs/{database,queries,cache,eloquent,testing,database-testing}.md`.
+Evidence: `Illuminate/Database/Eloquent/Builder.php` (`firstOrCreate`, `createOrFirst`, `updateOrCreate`, `incrementOrCreate`, `update`, `withSavepointIfNeeded`), `Eloquent/Model.php` (`incrementOrDecrement`), `Eloquent/Concerns/HasEvents.php`, `Eloquent/Relations/HasOneOrMany.php`, `Database/Concerns/ManagesTransactions.php`, `Database/{ConcurrencyErrorDetector,DeadlockException,UniqueConstraintViolationException,SQLiteConnection}.php`, `Database/Query/Builder.php` (`insertOrIgnore`, `upsert`, `lockForUpdate`, `sharedLock`), `Database/Schema/{IndexDefinition,Grammars/PostgresGrammar}.php`, `Cache/{Repository,Lock,DatabaseLock,RateLimiter}.php`, `Eloquent/Model.php` (`refreshForUpdate`, 13.27, laravel/framework#61247); spatie/laravel-model-states 2.14 `src/{State,DefaultTransition,StateCaster}.php`, `src/Validation/ValidStateRule.php`, `src/Exceptions/{CouldNotPerformTransition,TransitionNotFound}.php`; `laravel/docs/{database,queries,cache,eloquent,testing,database-testing}.md`.

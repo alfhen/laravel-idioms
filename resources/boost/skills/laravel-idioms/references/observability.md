@@ -105,6 +105,27 @@ Event::listen(DiagnosingHealth::class, function (): void {
 - `health:` registers one route. For liveness add `Route::get('/live', fn () => response()->noContent())` with no dependencies, and use `/up` as readiness. A liveness probe on a DB check restarts every pod during a DB blip.
 - Keep a working `/health-check` if the load balancer uses it: `health:` takes any path.
 
+## Slow queries
+
+```php
+// bad: one log line per query, on every request
+DB::listen(fn (QueryExecuted $query) => Log::debug($query->sql, $query->bindings));
+
+// good, AppServiceProvider::boot(): a budget for the whole request or job
+DB::whenQueryingForLongerThan(CarbonInterval::seconds(2), function (Connection $connection, QueryExecuted $event): void {
+    Log::warning('Query time budget exceeded', ['connection' => $connection->getName(), 'route' => request()->route()?->getName()]);
+});
+// good: single slow queries only
+DB::listen(function (QueryExecuted $query): void {
+    if ($query->time > 1000) {
+        Log::warning('Slow query', ['sql' => $query->sql, 'ms' => $query->time, 'connection' => $query->connectionName]);
+    }
+});
+```
+- `whenQueryingForLongerThan` adds up the time of every query on one connection (the default one through `DB::`; `DB::connection('x')` for others) and fires once when the total passes the threshold. An int threshold is milliseconds. Queue workers reset the total before each job, so it works per job too. It catches N+1 loops that no single slow query shows.
+- Log `$query->sql`, never `toRawSql()` or bindings: bindings carry emails, tokens and other request data.
+- Only where nothing else records queries. Pulse's slow-queries card and Nightwatch already do.
+
 ## Pulse and Nightwatch
 
 Only when already in `composer.json`. Don't add either to an app with another tracker.
@@ -126,4 +147,4 @@ Only when already in `composer.json`. Don't add either to an app with another tr
 - Don't use `Log::spy()` when code calls `Log::channel()`: the chain breaks.
 - Health: swap the default connection for a missing SQLite file and assert `/up` is a 5xx and `/live` is 200.
 
-Evidence: `Illuminate/Foundation/Exceptions/Handler.php`, `Configuration/Exceptions.php`, `Foundation/Http/HealthCheck.php`, `Foundation/helpers.php`, `Log/{LogManager,Logger}.php`, `Log/Context/ContextLogProcessor.php`, `Support/Testing/Fakes/ExceptionHandlerFake.php`, `Contracts/Debug/ShouldntReport.php`; `laravel/docs/{errors,logging,context,pulse}.md`; `laravel/pulse/src/...`; `laravel/nightwatch/src/...`.
+Evidence: `Illuminate/Database/Connection.php` (`whenQueryingForLongerThan`, `logQuery`), `Illuminate/Queue/QueueServiceProvider.php` (`resetTotalQueryDuration` before each job), `laravel/docs/database.md` (Monitoring Cumulative Query Time); laravelio/laravel.io `app/Providers/AppServiceProvider.php`; `Illuminate/Foundation/Exceptions/Handler.php`, `Configuration/Exceptions.php`, `Foundation/Http/HealthCheck.php`, `Foundation/helpers.php`, `Log/{LogManager,Logger}.php`, `Log/Context/ContextLogProcessor.php`, `Support/Testing/Fakes/ExceptionHandlerFake.php`, `Contracts/Debug/ShouldntReport.php`; `laravel/docs/{errors,logging,context,pulse}.md`; `laravel/pulse/src/...`; `laravel/nightwatch/src/...`.

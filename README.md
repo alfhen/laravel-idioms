@@ -1,6 +1,6 @@
 # laravel-idioms
 
-An agent skill that makes AI coding agents write Laravel the way the framework, its docs and well-maintained packages do. It covers thin controllers, Form Requests for every input, policies, API authentication and JSON errors, collections instead of accumulator loops, Eloquent `casts()`/scopes/attributes, N+1 prevention, migrations, race conditions and locking, queued jobs and workers, the scheduler, Artisan commands, file uploads and CSV imports, outbound HTTP calls, inbound webhooks, a security baseline (sort allow-lists, raw SQL bindings, LIKE escaping), events, notifications and mail, caching, Blade components, Livewire, the server side of Inertia, Filament 5, error reporting and logging, dates and money, Pest 5, and the current Laravel 11–13 app structure. It ends every change with a mandatory self-check list.
+An agent skill that makes AI coding agents write Laravel the way the framework, its docs and well-maintained packages do. It covers thin controllers, Form Requests for every input, policies, API authentication and JSON errors, collections instead of accumulator loops, Eloquent `casts()`/scopes/attributes, N+1 prevention, migrations, race conditions and locking, queued jobs and workers, the scheduler, Artisan commands, file uploads and CSV imports, outbound HTTP calls, inbound webhooks, a security baseline (sort allow-lists, raw SQL bindings, LIKE escaping, typed `exists` rules, pinned hosts for mailed links, safe Markdown), events, notifications and mail, caching, Blade components, Livewire, the server side of Inertia, Filament 5, error reporting and logging, dates and money, the Spatie packages that change the idiom (permission, query-builder, data, model-states, medialibrary), Pest 5, and the current Laravel 11–13 app structure. It ends every change with a mandatory self-check list.
 
 It also has an **audit mode**. Ask the agent to "audit this Laravel codebase" and it maps the app and hunts for real bugs as well as idiom problems. It verifies its suggested fixes by applying them to a scratch copy and running the test suite, and then writes a self-contained HTML refactor report.
 
@@ -108,12 +108,12 @@ resources/boost/
     │   ├── files-and-uploads.md  http-client.md  events-and-notifications.md
     │   ├── webhooks.md  security.md  observability.md  dates-and-money.md
     │   ├── caching.md  blade.md  livewire.md  inertia.md  filament.md
-    │   ├── pest.md  modern-laravel.md  style.md
+    │   ├── pest.md  modern-laravel.md  style.md  packages.md
     │   └── audit-mode.md
     └── assets/audit-report-template.html
 ```
 
-The skill targets **Laravel 11–13, Pest 5 and Filament 5**. It checks the installed versions in `composer.lock` and follows the project's existing conventions before applying its own defaults.
+The skill targets **Laravel 11–13, Pest 4–5 and Filament 5**. It recommends upgrading Laravel 11, which no longer gets security fixes. It checks the installed versions in `composer.lock` and follows the project's existing conventions before applying its own defaults.
 
 ## Does it help?
 
@@ -134,8 +134,9 @@ Later rounds compare each change with the skill on `main` just before it (for th
 | Queues, scheduler, Artisan commands | 119/120 vs 116/120 | 7.78 / 7.79 vs 7.27 / 6.95 |
 | Races, API auth, uploads, migrations, HTTP, events | API guest gets a JSON 401: 23/23 vs 3/23 | 7.92 / 7.96 vs 7.64 / 7.65 |
 | Webhooks, security, Livewire, Inertia, errors and logging, dates and money | Pre-registered misses on fresh builds: 0/21 vs 7/21 (15/21 on the builds they were read from; the new text was written knowing the list) | 8.30 / 8.28 vs 7.51 / 7.25 |
+| Spatie packages, trust boundaries (typed `exists`, validated uploads, tiebreakers, pinned hosts, Markdown) | Pre-registered misses on target tasks: 4/21 vs 11/21 (the draft, written before the list: 7/21); two holdouts worse by one build each | 8.08 / 7.95 vs 7.91 / 7.47 |
 
-In every round the tasks held back from revising the skill improved too, and the mean score on the earlier tasks held or rose. Single tasks move by up to about 2.6 points between replicates, so a task can still score lower in one replicate. In the latest round one target task, invoice-totals, scored lower in both. The rubric also reflects the conventions the skill teaches. See [docs/evaluation.md](docs/evaluation.md) for the method, all rounds and the caveats. The harness and raw results are in [`eval/`](eval), so you can rerun it against your own tasks.
+In every round the tasks held back from revising the skill improved too, and the mean score on the earlier tasks held or rose. Single tasks move by up to about 3.5 points between replicates, so a task can still score lower in one replicate. In the latest round the probe and four regression tasks (blog-crud, orders-api, shipment-sync, stock-csv-import) scored lower in both, while the regression mean held level. The rubric also reflects the conventions the skill teaches. See [docs/evaluation.md](docs/evaluation.md) for the method, all rounds and the caveats. The harness and raw results are in [`eval/`](eval), so you can rerun it against your own tasks.
 
 ## Credits
 

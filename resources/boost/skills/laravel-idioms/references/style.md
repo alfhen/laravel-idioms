@@ -2,6 +2,13 @@
 
 Match the project's Pint/PHP-CS-Fixer config when there is one. These rules fill the gaps.
 
+## Running Pint
+
+Format only what you changed:
+- `vendor/bin/pint --dirty` formats uncommitted and untracked PHP files. It skips files you already committed during the task: then use `vendor/bin/pint --diff=main` (the base branch).
+- Outside a Git repository `--dirty` fails ("only available when using Git", exit 1; Pint before 1.30.4 printed PASS and checked nothing). Pass the changed files instead: `vendor/bin/pint app/Models/Article.php app/Http/Controllers/ArticleController.php`.
+- Never run a bare `vendor/bin/pint` over a repository that isn't already Pint-clean: it rewrites unrelated files.
+
 ## Control flow
 
 Unhappy path first, one guard per reason, happy path last and unindented. Avoid `else`.
@@ -167,10 +174,10 @@ Blank line before each `return`, between guard blocks, and between unrelated sta
 
 ## Tests
 
-Pest: `it('can filter models by partial property', function () { ... })`, shared setup in `beforeEach`, helpers in `tests/Pest.php`, `expect($models)->toHaveCount(1)`. Not PHPUnit classes with `/** @test */ testFoo()` when the project uses Pest. More in `pest.md`.
+Pest: `it('can filter models by partial property', function () { ... })`, shared setup in `beforeEach`, helpers in `tests/Pest.php`, `expect($models)->toHaveCount(1)`. Not PHPUnit classes when the project uses Pest. More in `pest.md`. In a PHPUnit suite, `test_` methods or `#[Test]`, never `/** @test */` (`architecture-and-testing.md`, Testing).
 
 ## Packages
 
 Service providers extend `Spatie\LaravelPackageTools\PackageServiceProvider` and declare assets in `configurePackage(Package $package)` (`->hasConfigFile()`, `->hasMigration()`, `->hasCommands([...])`).
 
-Evidence: `spatie/guidelines.spatie.be/content/code-style/laravel-php.md`, `spatie/laravel-query-builder/src/AllowedFilter.php`, `spatie/laravel-medialibrary/src/MediaCollections/FileAdder.php`, `spatie/laravel-activitylog/src/Commands/CleanActivitylogCommand.php`.
+Evidence: laravel/pint `app/Repositories/GitPathsRepository.php` (`dirty()`, `diff()`), laravel/pint#475 (v1.30.4), `pint --help` (1.32.3); `spatie/guidelines.spatie.be/content/code-style/laravel-php.md`, `spatie/laravel-query-builder/src/AllowedFilter.php`, `spatie/laravel-medialibrary/src/MediaCollections/FileAdder.php`, `spatie/laravel-activitylog/src/Commands/CleanActivitylogCommand.php`.

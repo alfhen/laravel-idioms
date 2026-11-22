@@ -29,14 +29,16 @@ An upload is hostile input: its name, extension, MIME type, size and contents al
 $request->file('document')->storeAs('docs', $request->file('document')->getClientOriginalName());
 Storage::putFileAs('uploads', $file, "{$uuid}.{$file->getClientOriginalExtension()}");
 
-// good: random name, extension from the content, original name kept for display only
-$path = $request->file('document')->store('documents', 'local');   // name the private disk; throw=false, so it can return false
+// good: the file the FormRequest checked, a random name, the original name kept for display only
+$file = $request->safe()->file('document');   // 13.3+; before 13.3: $request->validated('document')
+$path = $file->store('documents', 'local');   // name the private disk; throw=false, so it can return false
 abort_if($path === false, 503);
 $request->user()->documents()->create([
     'path' => $path,
-    'original_name' => $request->file('document')->getClientOriginalName(),
+    'original_name' => $file->getClientOriginalName(),
 ]);
 ```
+- Store the file you validated: read it from `$request->safe()->file()` (13.3+, null unless the value is an `UploadedFile`) or `$request->validated()`, never `$request->file()` or `hasFile()` after a FormRequest. On 13.0 to 13.42 a text field with the same name as the file made validation check the text while `$request->file()` returned the unchecked file (GHSA-hxc4-wvjf-r59p, fixed in 13.43.0). An optional upload that is null in the validated data was not uploaded: don't fall back to `$request->file()`.
 - `store()` and `putFile()` use `hashName()`: 40 random characters plus the extension guessed from content. Never build a stored name or directory from `getClientOriginalName()`, `getClientOriginalExtension()` or a request field. `extension()` can return null, so a hand-built `"{$uuid}.{$ext}"` needs a fallback.
 - Keep the client's name in a column for display and for the download name (see Serving).
 - Private disk by default. The skeleton's `local` disk is `storage/app/private`. Use `public` only for files every anonymous visitor may read (avatars, product images), and then store only the path.
@@ -64,13 +66,21 @@ public function __invoke(Document $document): StreamedResponse
 - Build the download name from a slug or a fixed pattern. A `/` or `\` in the name makes Symfony throw, and an emoji-only title slugs to an empty string, hence `?: 'document'`. Never hand-build a `Content-Disposition` header.
 - Expiring links:
 ```php
-$url = URL::temporarySignedRoute('invoices.download', now()->addMinutes(15), ['invoice' => $invoice]);
-Route::get('/invoices/{invoice}/download', DownloadInvoice::class)->name('invoices.download')->middleware('signed');
+$url = URL::temporarySignedRoute('reports.download', now()->addMinutes(15), ['report' => $report]);
+Route::get('/reports/{report}/download', DownloadReport::class)->name('reports.download')->middleware('signed');
 ```
 - `signedRoute()` without an expiry never expires: use `temporarySignedRoute()`. A signature is a bearer token. Add `auth` and a policy check unless anyone holding the link may fetch the file.
 - A signature covers the path and query string only. Read signed values with `$request->query('plan')`, never `input()`, `all()` or a dynamic property, because a JSON body on a GET overrides the query in merged input.
-- An absolute signature includes scheme and host. Behind a proxy that changes either, configure trusted proxies, or sign with `absolute: false` and use `signed:relative`.
+- An absolute signature includes scheme and host. Behind a proxy that changes either, configure trusted proxies for that proxy only, or sign with `absolute: false` and use `signed:relative`. A link mailed to someone takes its host from `APP_URL`, not the request (`security.md`, Host header and absolute links).
 - `Storage::temporaryUrl($path, now()->addMinutes(5))` works on S3 and S3-compatible disks, and on a local disk with `serve => true` (a signed `storage.local` route). Other drivers (ftp, sftp) and a local disk without `serve` throw `RuntimeException` unless `buildTemporaryUrlsUsing()` is registered. Guard with `Storage::providesTemporaryUrls()` or register the callback. Don't branch on `app()->isLocal()` to fall back to an unsigned `url()`.
+
+## spatie/laravel-medialibrary
+
+Only when `composer.lock` lists `spatie/laravel-medialibrary`. The package idioms are in `packages.md`. Its defaults break the rules above:
+- `disk_name` is `env('MEDIA_DISK', 'public')` and the path is `{media id}/{original file name}`. A private collection on the default disk sits at a guessable public URL. Put it on a private disk in `registerMediaCollections()`: `$this->addMediaCollection('contracts')->useDisk('local')->singleFile();`.
+- The stored name is the client's name (sanitized). Pass your own: `$model->addMedia($file)->usingFileName($file->hashName())->toMediaCollection('contracts')`, with `$file` from validated data as above, not `addMediaFromRequest()`.
+- Validate type and size in the FormRequest. The collection's `acceptsMimeTypes()` and `max_file_size` throw `FileUnacceptableForCollection` and `FileIsTooBig`, which render as 500, not 422.
+- Serve through an authorized route as in Serving. Returning the `Media` model streams it as an attachment named `file_name`; `getTemporaryUrl()` needs a disk that supports temporary URLs.
 
 ## CSV import
 
@@ -117,7 +127,7 @@ public function rows(string $disk, string $path): LazyCollection
 ```php
 // config/filesystems.php: 'imports_disk' => env('IMPORTS_DISK', 'local'), a private shared disk (S3) when workers run on other hosts
 $disk = config('filesystems.imports_disk', 'local');
-$path = $request->file('import')->store('imports', $disk);
+$path = $request->safe()->file('import')->store('imports', $disk);   // the validated file (13.3+; else validated('import'))
 abort_if($path === false, 503, 'Upload could not be stored.');   // a disk with throw=false returns false instead of throwing
 $import = Import::create(['disk' => $disk, 'path' => $path, 'user_id' => $request->user()->id]);
 ImportStock::dispatch($import->id);   // never the UploadedFile: PHP deletes its temp file when the request ends
@@ -186,6 +196,7 @@ it('stores the document under a hashed name on the private disk', function () {
 - Assert the path the code persisted (`Storage::disk('x')->assertExists($model->path)`), not the client's name, and that the stored name is not the client's.
 - `UploadedFile::fake()` derives the MIME type from the file **name** (`MimeType::from($name)`). A fake `a.csv` always passes `mimes:csv` and a fake `evil.php` is rejected by its name. Fakes prove name, extension and size rules only (`create('x.pdf', $kb)` for size, `image('a.jpg', 100, 100)` with ext-gd for dimensions).
 - To test content sniffing (a PNG named `a.csv`, a real semicolon CSV) use a real file: `new Illuminate\Http\UploadedFile($tmpPath, 'a.csv', null, null, true)` (test mode). For CSV rows use `UploadedFile::fake()->createWithContent('stock.csv', $content)` with a BOM, CRLF, ragged rows, a blank line and a last line of `0`.
+- With medialibrary, fake the disk the collection uses (`Storage::fake('local')` for `useDisk('local')`, else `config('media-library.disk_name')`) and assert the stored name is not the client's.
 - Read a streamed export with `$response->streamedContent()`. Test the 404 for a missing blob, the 403 for a non-owner, and the 403 for an expired or tampered signature.
 
-Evidence: `Illuminate/Validation/Rules/{File,ImageFile,Dimensions}.php`, `Validation/Concerns/ValidatesAttributes.php` (`validateMimes`, `validateExtensions`, `validateImage`, `validateDimensions`, `shouldBlockPhpUpload`), `Http/{FileHelpers,UploadedFile}.php`, `Http/Testing/{File,FileFactory}.php`, `Filesystem/{FilesystemAdapter,LocalFilesystemAdapter,ServeFile}.php`, `Support/Facades/Storage.php`, `Routing/{ResponseFactory,UrlGenerator}.php`, `Routing/Middleware/ValidateSignature.php`, `Database/Concerns/BuildsQueries.php` (`lazyById`), `Testing/TestResponse.php` (`streamedContent`); `laravel/docs/validation.md`, `filesystem.md`, `urls.md`, `http-tests.md`, `queues.md`; laravel/laravel `config/filesystems.php`.
+Evidence: `Illuminate/Validation/Rules/{File,ImageFile,Dimensions}.php`, `Validation/Concerns/ValidatesAttributes.php` (`validateMimes`, `validateExtensions`, `validateImage`, `validateDimensions`, `shouldBlockPhpUpload`), `Http/{FileHelpers,UploadedFile}.php`, `Support/ValidatedInput.php` (`file`, added in 13.3.0), GHSA-hxc4-wvjf-r59p (fixed in 13.43.0), `Http/Testing/{File,FileFactory}.php`, `Filesystem/{FilesystemAdapter,LocalFilesystemAdapter,ServeFile}.php`, `Support/Facades/Storage.php`, `Routing/{ResponseFactory,UrlGenerator}.php`, `Routing/Middleware/ValidateSignature.php`, `Database/Concerns/BuildsQueries.php` (`lazyById`), `Testing/TestResponse.php` (`streamedContent`); `laravel/docs/validation.md`, `filesystem.md`, `urls.md`, `http-tests.md`, `queues.md`; laravel/laravel `config/filesystems.php`; spatie/laravel-medialibrary 11.x `config/media-library.php` (`disk_name`), `src/MediaCollections/FileAdder.php` (`usingFileName`, `getClientOriginalName`, `FileIsTooBig`, `FileUnacceptableForCollection`), `src/MediaCollections/MediaCollection.php` (`useDisk`, `singleFile`, `acceptsMimeTypes`), `src/MediaCollections/Models/Media.php` (`toResponse`, `getDownloadFilename`, `getTemporaryUrl`), `src/Support/PathGenerator/DefaultPathGenerator.php`.

@@ -75,6 +75,24 @@ public function filters(): array
 }
 ```
 
+Sort and filter names are an allow-list (`security.md`, Column names): `Rule::in` in the FormRequest, and the order ends with a unique column (`->orderBy('id')`, see `eloquent.md`). When `composer.lock` lists `spatie/laravel-query-builder`, its `allowedSorts()` and `allowedFilters()` are the allow-list instead. Don't repeat them as `Rule::in`, and don't hand-roll `orderBy($request->...)` next to it.
+```php
+// bad: a bare string is a partial LOWER(col) LIKE '%v%' filter, so filter[category_id]=1 also matches 10 and 21
+QueryBuilder::for(Post::class)->allowedFilters('category_id', 'status', 'title')->allowedSorts('created_at');
+
+// good: exact filters for ids, enums and booleans; partial only for free text
+QueryBuilder::for($request->user()->posts())
+    ->allowedFilters(AllowedFilter::exact('category_id'), AllowedFilter::exact('status'), AllowedFilter::exact('is_pinned'), 'title')
+    ->allowedSorts('title', 'created_at')
+    ->defaultSort('-created_at')
+    ->orderBy('id')
+    ->paginate($request->validated('per_page', 15));
+```
+- An unknown filter, sort, include or field name throws `InvalidFilterQuery`/`InvalidSortQuery` (an `HttpException`, 400), not a `ValidationException`. Test it with `assertBadRequest()`, not `assertUnprocessable()`.
+- Values are not validated. Keep the FormRequest for value types and bounds (`filter.category_id` integer, `per_page` max), or a malformed id reaches the database.
+- Start from the owner's relation or a scoped query when ownership isn't a global scope. `QueryBuilder::for(Post::class)` starts unscoped.
+- Package details (includes, delimiters, renames): `packages.md`.
+
 ```php
 // bad
 public function update(Request $request, Post $post)
@@ -253,4 +271,4 @@ return Article::published()->paginate()->toResourceCollection();
 ```
 Never touch `$this->author` / `$this->tags` directly in a resource (N+1 on collections). For JSON:API, extend `Illuminate\Http\Resources\JsonApi\JsonApiResource` (Laravel 13).
 
-Evidence: `Illuminate/Foundation/Http/FormRequest.php`, `Illuminate/Routing/Controllers/HasMiddleware.php`, `Illuminate/Routing/Attributes/Controllers/`, `Illuminate/Validation/Rule.php`, laravel.io `app/Http/Controllers/Forum/ThreadsController.php`, `app/Policies/ThreadPolicy.php`, `app/Http/Resources/ArticleResource.php`, `Illuminate/Auth/Middleware/Authenticate.php`, `Illuminate/Foundation/Configuration/Middleware.php`, `Illuminate/Foundation/Configuration/ApplicationBuilder.php`, `Illuminate/Foundation/Exceptions/Handler.php`, `Illuminate/Foundation/Http/Kernel.php`, `Illuminate/Routing/Middleware/ThrottleRequests.php`, `Illuminate/Contracts/Auth/Middleware/AuthenticatesRequests.php`, `Illuminate/Auth/Access/Response.php`, `laravel/sanctum` (`src/Sanctum.php`, `src/Guard.php`, `src/TransientToken.php`, `src/Http/Middleware/CheckAbilities.php`, `src/Http/Middleware/EnsureFrontendRequestsAreStateful.php`), laravel/docs `sanctum.md`, `errors.md`, `routing.md`.
+Evidence: `Illuminate/Foundation/Http/FormRequest.php`, `Illuminate/Routing/Controllers/HasMiddleware.php`, `Illuminate/Routing/Attributes/Controllers/`, `Illuminate/Validation/Rule.php`, laravel.io `app/Http/Controllers/Forum/ThreadsController.php`, `app/Policies/ThreadPolicy.php`, `app/Http/Resources/ArticleResource.php`, `Illuminate/Auth/Middleware/Authenticate.php`, `Illuminate/Foundation/Configuration/Middleware.php`, `Illuminate/Foundation/Configuration/ApplicationBuilder.php`, `Illuminate/Foundation/Exceptions/Handler.php`, `Illuminate/Foundation/Http/Kernel.php`, `Illuminate/Routing/Middleware/ThrottleRequests.php`, `Illuminate/Contracts/Auth/Middleware/AuthenticatesRequests.php`, `Illuminate/Auth/Access/Response.php`, `laravel/sanctum` (`src/Sanctum.php`, `src/Guard.php`, `src/TransientToken.php`, `src/Http/Middleware/CheckAbilities.php`, `src/Http/Middleware/EnsureFrontendRequestsAreStateful.php`), laravel/docs `sanctum.md`, `errors.md`, `routing.md`; spatie/laravel-query-builder 7.3 `src/Concerns/{FiltersQuery,SortsQuery}.php`, `src/Filters/{FiltersPartial,FiltersExact}.php`, `src/Exceptions/{InvalidQuery,InvalidFilterQuery,InvalidSortQuery}.php`, `src/QueryBuilder.php` (`for`, `__call`).

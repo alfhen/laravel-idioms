@@ -1,0 +1,705 @@
+{
+ "activity-feed-draft-1": {
+  "activity_morph_map_missing": false,
+  "activity_morph_map_not_enforced": true,
+  "comment_post_id_unconstrained": false,
+  "models_fully_unguarded": false,
+  "invoice_amount_cents_32bit": false
+ },
+ "activity-feed-draft-2": {
+  "activity_morph_map_missing": true,
+  "activity_morph_map_not_enforced": true,
+  "comment_post_id_unconstrained": false,
+  "models_fully_unguarded": false,
+  "invoice_amount_cents_32bit": false
+ },
+ "activity-feed-draft-3": {
+  "activity_morph_map_missing": false,
+  "activity_morph_map_not_enforced": true,
+  "comment_post_id_unconstrained": false,
+  "models_fully_unguarded": false,
+  "invoice_amount_cents_32bit": false
+ },
+ "activity-feed-plain-1": {
+  "activity_morph_map_missing": true,
+  "activity_morph_map_not_enforced": true,
+  "comment_post_id_unconstrained": true,
+  "models_fully_unguarded": true,
+  "invoice_amount_cents_32bit": true
+ },
+ "activity-feed-prev-1": {
+  "activity_morph_map_missing": false,
+  "activity_morph_map_not_enforced": true,
+  "comment_post_id_unconstrained": false,
+  "models_fully_unguarded": false,
+  "invoice_amount_cents_32bit": false
+ },
+ "activity-feed-prev-2": {
+  "activity_morph_map_missing": false,
+  "activity_morph_map_not_enforced": true,
+  "comment_post_id_unconstrained": false,
+  "models_fully_unguarded": false,
+  "invoice_amount_cents_32bit": false
+ },
+ "activity-feed-prev-3": {
+  "activity_morph_map_missing": false,
+  "activity_morph_map_not_enforced": true,
+  "comment_post_id_unconstrained": false,
+  "models_fully_unguarded": false,
+  "invoice_amount_cents_32bit": false
+ },
+ "activity-feed-skill-1": {
+  "activity_morph_map_missing": false,
+  "activity_morph_map_not_enforced": true,
+  "comment_post_id_unconstrained": false,
+  "models_fully_unguarded": false,
+  "invoice_amount_cents_32bit": false
+ },
+ "activity-feed-skill-2": {
+  "activity_morph_map_missing": false,
+  "activity_morph_map_not_enforced": true,
+  "comment_post_id_unconstrained": false,
+  "models_fully_unguarded": false,
+  "invoice_amount_cents_32bit": false
+ },
+ "activity-feed-skill-3": {
+  "activity_morph_map_missing": true,
+  "activity_morph_map_not_enforced": true,
+  "comment_post_id_unconstrained": true,
+  "models_fully_unguarded": false,
+  "invoice_amount_cents_32bit": false
+ },
+ "block-user-draft-1": {
+  "reset_link_host_unpinned": false,
+  "login_unthrottled": false,
+  "forgot_password_reveals_account": false,
+  "middleware_priority_replaced": false,
+  "reset_keeps_other_sessions_and_tokens": true,
+  "state_filter_not_in_user_provider": true
+ },
+ "block-user-draft-2": {
+  "reset_link_host_unpinned": false,
+  "login_unthrottled": false,
+  "forgot_password_reveals_account": false,
+  "middleware_priority_replaced": false,
+  "reset_keeps_other_sessions_and_tokens": true,
+  "state_filter_not_in_user_provider": true
+ },
+ "block-user-draft-3": {
+  "reset_link_host_unpinned": false,
+  "login_unthrottled": false,
+  "forgot_password_reveals_account": false,
+  "middleware_priority_replaced": false,
+  "reset_keeps_other_sessions_and_tokens": true,
+  "state_filter_not_in_user_provider": true
+ },
+ "block-user-plain-1": {
+  "reset_link_host_unpinned": false,
+  "login_unthrottled": true,
+  "forgot_password_reveals_account": false,
+  "middleware_priority_replaced": false,
+  "reset_keeps_other_sessions_and_tokens": true,
+  "state_filter_not_in_user_provider": true
+ },
+ "block-user-prev-1": {
+  "reset_link_host_unpinned": false,
+  "login_unthrottled": false,
+  "forgot_password_reveals_account": true,
+  "middleware_priority_replaced": false,
+  "reset_keeps_other_sessions_and_tokens": true,
+  "state_filter_not_in_user_provider": true
+ },
+ "block-user-prev-2": {
+  "reset_link_host_unpinned": true,
+  "login_unthrottled": false,
+  "forgot_password_reveals_account": false,
+  "middleware_priority_replaced": false,
+  "reset_keeps_other_sessions_and_tokens": true,
+  "state_filter_not_in_user_provider": true
+ },
+ "block-user-prev-3": {
+  "reset_link_host_unpinned": false,
+  "login_unthrottled": false,
+  "forgot_password_reveals_account": true,
+  "middleware_priority_replaced": true,
+  "reset_keeps_other_sessions_and_tokens": true,
+  "state_filter_not_in_user_provider": true
+ },
+ "block-user-skill-1": {
+  "reset_link_host_unpinned": false,
+  "login_unthrottled": false,
+  "forgot_password_reveals_account": false,
+  "middleware_priority_replaced": false,
+  "reset_keeps_other_sessions_and_tokens": true,
+  "state_filter_not_in_user_provider": true
+ },
+ "block-user-skill-2": {
+  "reset_link_host_unpinned": false,
+  "login_unthrottled": false,
+  "forgot_password_reveals_account": false,
+  "middleware_priority_replaced": false,
+  "reset_keeps_other_sessions_and_tokens": true,
+  "state_filter_not_in_user_provider": false
+ },
+ "block-user-skill-3": {
+  "reset_link_host_unpinned": false,
+  "login_unthrottled": false,
+  "forgot_password_reveals_account": false,
+  "middleware_priority_replaced": false,
+  "reset_keeps_other_sessions_and_tokens": true,
+  "state_filter_not_in_user_provider": true
+ },
+ "invoice-uploads-draft-1": {
+  "upload_read_unvalidated": false,
+  "collision_not_tested": true,
+  "download_url_host_unpinned": true,
+  "media_no_morph_map": true,
+  "order_fully_unguarded": false,
+  "collection_guard_500": false
+ },
+ "invoice-uploads-draft-2": {
+  "upload_read_unvalidated": false,
+  "collision_not_tested": true,
+  "download_url_host_unpinned": true,
+  "media_no_morph_map": true,
+  "order_fully_unguarded": false,
+  "collection_guard_500": false
+ },
+ "invoice-uploads-draft-3": {
+  "upload_read_unvalidated": false,
+  "collision_not_tested": true,
+  "download_url_host_unpinned": true,
+  "media_no_morph_map": true,
+  "order_fully_unguarded": false,
+  "collection_guard_500": false
+ },
+ "invoice-uploads-plain-1": {
+  "upload_read_unvalidated": true,
+  "collision_not_tested": true,
+  "download_url_host_unpinned": true,
+  "media_no_morph_map": true,
+  "order_fully_unguarded": true,
+  "collection_guard_500": false
+ },
+ "invoice-uploads-prev-1": {
+  "upload_read_unvalidated": true,
+  "collision_not_tested": true,
+  "download_url_host_unpinned": true,
+  "media_no_morph_map": true,
+  "order_fully_unguarded": false,
+  "collection_guard_500": true
+ },
+ "invoice-uploads-prev-2": {
+  "upload_read_unvalidated": true,
+  "collision_not_tested": true,
+  "download_url_host_unpinned": true,
+  "media_no_morph_map": true,
+  "order_fully_unguarded": false,
+  "collection_guard_500": false
+ },
+ "invoice-uploads-prev-3": {
+  "upload_read_unvalidated": true,
+  "collision_not_tested": true,
+  "download_url_host_unpinned": true,
+  "media_no_morph_map": true,
+  "order_fully_unguarded": false,
+  "collection_guard_500": false
+ },
+ "invoice-uploads-skill-1": {
+  "upload_read_unvalidated": false,
+  "collision_not_tested": true,
+  "download_url_host_unpinned": true,
+  "media_no_morph_map": true,
+  "order_fully_unguarded": false,
+  "collection_guard_500": false
+ },
+ "invoice-uploads-skill-2": {
+  "upload_read_unvalidated": false,
+  "collision_not_tested": true,
+  "download_url_host_unpinned": true,
+  "media_no_morph_map": true,
+  "order_fully_unguarded": false,
+  "collection_guard_500": false
+ },
+ "invoice-uploads-skill-3": {
+  "upload_read_unvalidated": false,
+  "collision_not_tested": true,
+  "download_url_host_unpinned": true,
+  "media_no_morph_map": true,
+  "order_fully_unguarded": false,
+  "collection_guard_500": false
+ },
+ "markdown-comments-draft-1": {
+  "markdown_html_input_strip": false,
+  "markdown_images_any_host": true,
+  "public_json_in_web_group": true
+ },
+ "markdown-comments-draft-2": {
+  "markdown_html_input_strip": false,
+  "markdown_images_any_host": true,
+  "public_json_in_web_group": true
+ },
+ "markdown-comments-draft-3": {
+  "markdown_html_input_strip": false,
+  "markdown_images_any_host": true,
+  "public_json_in_web_group": true
+ },
+ "markdown-comments-plain-1": {
+  "markdown_html_input_strip": false,
+  "markdown_images_any_host": true,
+  "public_json_in_web_group": true
+ },
+ "markdown-comments-prev-1": {
+  "markdown_html_input_strip": false,
+  "markdown_images_any_host": true,
+  "public_json_in_web_group": true
+ },
+ "markdown-comments-prev-2": {
+  "markdown_html_input_strip": false,
+  "markdown_images_any_host": true,
+  "public_json_in_web_group": true
+ },
+ "markdown-comments-prev-3": {
+  "markdown_html_input_strip": true,
+  "markdown_images_any_host": true,
+  "public_json_in_web_group": false
+ },
+ "markdown-comments-skill-1": {
+  "markdown_html_input_strip": false,
+  "markdown_images_any_host": true,
+  "public_json_in_web_group": true
+ },
+ "markdown-comments-skill-2": {
+  "markdown_html_input_strip": false,
+  "markdown_images_any_host": true,
+  "public_json_in_web_group": true
+ },
+ "markdown-comments-skill-3": {
+  "markdown_html_input_strip": false,
+  "markdown_images_any_host": true,
+  "public_json_in_web_group": true
+ },
+ "notes-search-api-draft-1": {
+  "when($term) drops '0'": false
+ },
+ "notes-search-api-draft-2": {
+  "when($term) drops '0'": false
+ },
+ "notes-search-api-prev-1": {
+  "when($term) drops '0'": false
+ },
+ "notes-search-api-prev-2": {
+  "when($term) drops '0'": false
+ },
+ "notes-search-api-skill-1": {
+  "when($term) drops '0'": false
+ },
+ "notes-search-api-skill-2": {
+  "when($term) drops '0'": false
+ },
+ "password-reset-links-draft-1": {
+  "env_outside_config": false,
+  "reset_token_flashed": true,
+  "invitation_reusable": true,
+  "no_trusted_proxies": false,
+  "reset_mail_sent_inline": true,
+  "reset_keeps_other_sessions": true
+ },
+ "password-reset-links-draft-2": {
+  "env_outside_config": false,
+  "reset_token_flashed": true,
+  "invitation_reusable": true,
+  "no_trusted_proxies": false,
+  "reset_mail_sent_inline": true,
+  "reset_keeps_other_sessions": true
+ },
+ "password-reset-links-draft-3": {
+  "env_outside_config": false,
+  "reset_token_flashed": true,
+  "invitation_reusable": true,
+  "no_trusted_proxies": false,
+  "reset_mail_sent_inline": true,
+  "reset_keeps_other_sessions": true
+ },
+ "password-reset-links-plain-1": {
+  "env_outside_config": false,
+  "reset_token_flashed": true,
+  "invitation_reusable": true,
+  "no_trusted_proxies": true,
+  "reset_mail_sent_inline": true,
+  "reset_keeps_other_sessions": true
+ },
+ "password-reset-links-prev-1": {
+  "env_outside_config": false,
+  "reset_token_flashed": true,
+  "invitation_reusable": false,
+  "no_trusted_proxies": false,
+  "reset_mail_sent_inline": true,
+  "reset_keeps_other_sessions": true
+ },
+ "password-reset-links-prev-2": {
+  "env_outside_config": true,
+  "reset_token_flashed": true,
+  "invitation_reusable": true,
+  "no_trusted_proxies": false,
+  "reset_mail_sent_inline": true,
+  "reset_keeps_other_sessions": true
+ },
+ "password-reset-links-prev-3": {
+  "env_outside_config": false,
+  "reset_token_flashed": true,
+  "invitation_reusable": true,
+  "no_trusted_proxies": false,
+  "reset_mail_sent_inline": true,
+  "reset_keeps_other_sessions": true
+ },
+ "password-reset-links-skill-1": {
+  "env_outside_config": true,
+  "reset_token_flashed": true,
+  "invitation_reusable": true,
+  "no_trusted_proxies": false,
+  "reset_mail_sent_inline": true,
+  "reset_keeps_other_sessions": true
+ },
+ "password-reset-links-skill-2": {
+  "env_outside_config": false,
+  "reset_token_flashed": true,
+  "invitation_reusable": false,
+  "no_trusted_proxies": false,
+  "reset_mail_sent_inline": false,
+  "reset_keeps_other_sessions": true
+ },
+ "password-reset-links-skill-3": {
+  "env_outside_config": true,
+  "reset_token_flashed": true,
+  "invitation_reusable": true,
+  "no_trusted_proxies": false,
+  "reset_mail_sent_inline": true,
+  "reset_keeps_other_sessions": true
+ },
+ "payment-states-draft-1": {
+  "receipt_sent_inside_transaction": false,
+  "ledger_no_unique_backstop": true,
+  "state_mass_assignable": false,
+  "receipt_amount_assumes_two_decimals": false,
+  "no_stale_copy_pay_test": true
+ },
+ "payment-states-draft-2": {
+  "receipt_sent_inside_transaction": true,
+  "ledger_no_unique_backstop": false,
+  "state_mass_assignable": false,
+  "receipt_amount_assumes_two_decimals": false,
+  "no_stale_copy_pay_test": false
+ },
+ "payment-states-draft-3": {
+  "receipt_sent_inside_transaction": true,
+  "ledger_no_unique_backstop": true,
+  "state_mass_assignable": false,
+  "receipt_amount_assumes_two_decimals": false,
+  "no_stale_copy_pay_test": false
+ },
+ "payment-states-plain-1": {
+  "receipt_sent_inside_transaction": true,
+  "ledger_no_unique_backstop": true,
+  "state_mass_assignable": true,
+  "receipt_amount_assumes_two_decimals": true,
+  "no_stale_copy_pay_test": true
+ },
+ "payment-states-prev-1": {
+  "receipt_sent_inside_transaction": true,
+  "ledger_no_unique_backstop": true,
+  "state_mass_assignable": false,
+  "receipt_amount_assumes_two_decimals": false,
+  "no_stale_copy_pay_test": false
+ },
+ "payment-states-prev-2": {
+  "receipt_sent_inside_transaction": true,
+  "ledger_no_unique_backstop": true,
+  "state_mass_assignable": false,
+  "receipt_amount_assumes_two_decimals": false,
+  "no_stale_copy_pay_test": false
+ },
+ "payment-states-prev-3": {
+  "receipt_sent_inside_transaction": true,
+  "ledger_no_unique_backstop": false,
+  "state_mass_assignable": false,
+  "receipt_amount_assumes_two_decimals": false,
+  "no_stale_copy_pay_test": false
+ },
+ "payment-states-skill-1": {
+  "receipt_sent_inside_transaction": false,
+  "ledger_no_unique_backstop": false,
+  "state_mass_assignable": false,
+  "receipt_amount_assumes_two_decimals": false,
+  "no_stale_copy_pay_test": false
+ },
+ "payment-states-skill-2": {
+  "receipt_sent_inside_transaction": false,
+  "ledger_no_unique_backstop": false,
+  "state_mass_assignable": false,
+  "receipt_amount_assumes_two_decimals": false,
+  "no_stale_copy_pay_test": false
+ },
+ "payment-states-skill-3": {
+  "receipt_sent_inside_transaction": false,
+  "ledger_no_unique_backstop": true,
+  "state_mass_assignable": false,
+  "receipt_amount_assumes_two_decimals": false,
+  "no_stale_copy_pay_test": false
+ },
+ "profile-patch-draft-1": {
+  "include_param_unchecked": false,
+  "import_not_normalised": false,
+  "unique_email_race_unhandled": true,
+  "posts_include_unbounded": true
+ },
+ "profile-patch-draft-2": {
+  "include_param_unchecked": false,
+  "import_not_normalised": true,
+  "unique_email_race_unhandled": true,
+  "posts_include_unbounded": true
+ },
+ "profile-patch-draft-3": {
+  "include_param_unchecked": false,
+  "import_not_normalised": true,
+  "unique_email_race_unhandled": true,
+  "posts_include_unbounded": true
+ },
+ "profile-patch-plain-1": {
+  "include_param_unchecked": true,
+  "import_not_normalised": false,
+  "unique_email_race_unhandled": true,
+  "posts_include_unbounded": true
+ },
+ "profile-patch-prev-1": {
+  "include_param_unchecked": false,
+  "import_not_normalised": false,
+  "unique_email_race_unhandled": true,
+  "posts_include_unbounded": true
+ },
+ "profile-patch-prev-2": {
+  "include_param_unchecked": false,
+  "import_not_normalised": true,
+  "unique_email_race_unhandled": true,
+  "posts_include_unbounded": true
+ },
+ "profile-patch-prev-3": {
+  "include_param_unchecked": false,
+  "import_not_normalised": false,
+  "unique_email_race_unhandled": true,
+  "posts_include_unbounded": true
+ },
+ "profile-patch-skill-1": {
+  "include_param_unchecked": false,
+  "import_not_normalised": true,
+  "unique_email_race_unhandled": true,
+  "posts_include_unbounded": true
+ },
+ "profile-patch-skill-2": {
+  "include_param_unchecked": false,
+  "import_not_normalised": false,
+  "unique_email_race_unhandled": true,
+  "posts_include_unbounded": true
+ },
+ "profile-patch-skill-3": {
+  "include_param_unchecked": false,
+  "import_not_normalised": false,
+  "unique_email_race_unhandled": true,
+  "posts_include_unbounded": true
+ },
+ "shipments-api-draft-1": {
+  "paginated_links_drop_filters": false,
+  "sort_allowlist_duplicated_in_form_request": false,
+  "shipments_without_foreign_keys": false,
+  "ownership_columns_fillable": false
+ },
+ "shipments-api-draft-2": {
+  "paginated_links_drop_filters": false,
+  "sort_allowlist_duplicated_in_form_request": false,
+  "shipments_without_foreign_keys": false,
+  "ownership_columns_fillable": false
+ },
+ "shipments-api-draft-3": {
+  "paginated_links_drop_filters": false,
+  "sort_allowlist_duplicated_in_form_request": false,
+  "shipments_without_foreign_keys": false,
+  "ownership_columns_fillable": false
+ },
+ "shipments-api-plain-1": {
+  "paginated_links_drop_filters": true,
+  "sort_allowlist_duplicated_in_form_request": false,
+  "shipments_without_foreign_keys": true,
+  "ownership_columns_fillable": true
+ },
+ "shipments-api-prev-1": {
+  "paginated_links_drop_filters": false,
+  "sort_allowlist_duplicated_in_form_request": false,
+  "shipments_without_foreign_keys": false,
+  "ownership_columns_fillable": false
+ },
+ "shipments-api-prev-2": {
+  "paginated_links_drop_filters": false,
+  "sort_allowlist_duplicated_in_form_request": false,
+  "shipments_without_foreign_keys": false,
+  "ownership_columns_fillable": false
+ },
+ "shipments-api-prev-3": {
+  "paginated_links_drop_filters": false,
+  "sort_allowlist_duplicated_in_form_request": true,
+  "shipments_without_foreign_keys": false,
+  "ownership_columns_fillable": false
+ },
+ "shipments-api-skill-1": {
+  "paginated_links_drop_filters": false,
+  "sort_allowlist_duplicated_in_form_request": false,
+  "shipments_without_foreign_keys": false,
+  "ownership_columns_fillable": false
+ },
+ "shipments-api-skill-2": {
+  "paginated_links_drop_filters": true,
+  "sort_allowlist_duplicated_in_form_request": false,
+  "shipments_without_foreign_keys": false,
+  "ownership_columns_fillable": false
+ },
+ "shipments-api-skill-3": {
+  "paginated_links_drop_filters": false,
+  "sort_allowlist_duplicated_in_form_request": false,
+  "shipments_without_foreign_keys": false,
+  "ownership_columns_fillable": true
+ },
+ "team-permissions-draft-1": {
+  "has_permission_to_throws": false,
+  "database_seeder_not_rerunnable": false,
+  "post_body_unbounded_text_column": true,
+  "admin_role_lacks_editor_permissions": false,
+  "database_seeder_creates_known_user": true,
+  "no_morph_map_for_role_assignments": true,
+  "posts_index_unpaginated": false,
+  "add_member_not_atomic": false
+ },
+ "team-permissions-draft-2": {
+  "has_permission_to_throws": false,
+  "database_seeder_not_rerunnable": true,
+  "post_body_unbounded_text_column": true,
+  "admin_role_lacks_editor_permissions": true,
+  "database_seeder_creates_known_user": true,
+  "no_morph_map_for_role_assignments": true,
+  "posts_index_unpaginated": false,
+  "add_member_not_atomic": false
+ },
+ "team-permissions-draft-3": {
+  "has_permission_to_throws": false,
+  "database_seeder_not_rerunnable": true,
+  "post_body_unbounded_text_column": true,
+  "admin_role_lacks_editor_permissions": true,
+  "database_seeder_creates_known_user": true,
+  "no_morph_map_for_role_assignments": true,
+  "posts_index_unpaginated": false,
+  "add_member_not_atomic": true
+ },
+ "team-permissions-plain-1": {
+  "has_permission_to_throws": false,
+  "database_seeder_not_rerunnable": true,
+  "post_body_unbounded_text_column": true,
+  "admin_role_lacks_editor_permissions": false,
+  "database_seeder_creates_known_user": true,
+  "no_morph_map_for_role_assignments": true,
+  "posts_index_unpaginated": false,
+  "add_member_not_atomic": false
+ },
+ "team-permissions-prev-1": {
+  "has_permission_to_throws": true,
+  "database_seeder_not_rerunnable": true,
+  "post_body_unbounded_text_column": true,
+  "admin_role_lacks_editor_permissions": false,
+  "database_seeder_creates_known_user": true,
+  "no_morph_map_for_role_assignments": true,
+  "posts_index_unpaginated": true,
+  "add_member_not_atomic": true
+ },
+ "team-permissions-prev-2": {
+  "has_permission_to_throws": false,
+  "database_seeder_not_rerunnable": true,
+  "post_body_unbounded_text_column": true,
+  "admin_role_lacks_editor_permissions": true,
+  "database_seeder_creates_known_user": true,
+  "no_morph_map_for_role_assignments": true,
+  "posts_index_unpaginated": false,
+  "add_member_not_atomic": false
+ },
+ "team-permissions-prev-3": {
+  "has_permission_to_throws": false,
+  "database_seeder_not_rerunnable": false,
+  "post_body_unbounded_text_column": false,
+  "admin_role_lacks_editor_permissions": false,
+  "database_seeder_creates_known_user": true,
+  "no_morph_map_for_role_assignments": true,
+  "posts_index_unpaginated": false,
+  "add_member_not_atomic": false
+ },
+ "team-permissions-skill-1": {
+  "has_permission_to_throws": false,
+  "database_seeder_not_rerunnable": false,
+  "post_body_unbounded_text_column": true,
+  "admin_role_lacks_editor_permissions": true,
+  "database_seeder_creates_known_user": false,
+  "no_morph_map_for_role_assignments": true,
+  "posts_index_unpaginated": false,
+  "add_member_not_atomic": false
+ },
+ "team-permissions-skill-2": {
+  "has_permission_to_throws": false,
+  "database_seeder_not_rerunnable": false,
+  "post_body_unbounded_text_column": true,
+  "admin_role_lacks_editor_permissions": false,
+  "database_seeder_creates_known_user": false,
+  "no_morph_map_for_role_assignments": true,
+  "posts_index_unpaginated": false,
+  "add_member_not_atomic": false
+ },
+ "team-permissions-skill-3": {
+  "has_permission_to_throws": false,
+  "database_seeder_not_rerunnable": false,
+  "post_body_unbounded_text_column": true,
+  "admin_role_lacks_editor_permissions": true,
+  "database_seeder_creates_known_user": false,
+  "no_morph_map_for_role_assignments": true,
+  "posts_index_unpaginated": false,
+  "add_member_not_atomic": true
+ },
+ "team-roles-page-draft-1": {
+  "paginates_every_user_list": true,
+  "has_roles_without_morph_map": true,
+  "pest_global_helper_function": true
+ },
+ "team-roles-page-draft-2": {
+  "paginates_every_user_list": true,
+  "has_roles_without_morph_map": true,
+  "pest_global_helper_function": true
+ },
+ "team-roles-page-plain-1": {
+  "paginates_every_user_list": true,
+  "has_roles_without_morph_map": true,
+  "pest_global_helper_function": false
+ },
+ "team-roles-page-prev-1": {
+  "paginates_every_user_list": true,
+  "has_roles_without_morph_map": true,
+  "pest_global_helper_function": true
+ },
+ "team-roles-page-prev-2": {
+  "paginates_every_user_list": true,
+  "has_roles_without_morph_map": true,
+  "pest_global_helper_function": true
+ },
+ "team-roles-page-skill-1": {
+  "paginates_every_user_list": true,
+  "has_roles_without_morph_map": true,
+  "pest_global_helper_function": true
+ },
+ "team-roles-page-skill-2": {
+  "paginates_every_user_list": true,
+  "has_roles_without_morph_map": true,
+  "pest_global_helper_function": true
+ }
+}

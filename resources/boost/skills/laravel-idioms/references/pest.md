@@ -7,7 +7,9 @@ Check before writing a test:
 - Only `phpunit/phpunit` and existing tests are classes (the Livewire starter kit ships this way) → write PHPUnit classes in the same style. Don't install Pest or convert files unless asked.
 - Asked to migrate → `composer require pestphp/pest pestphp/pest-plugin-drift --dev`, then `./vendor/bin/pest --drift tests/Feature` (one folder at a time is fine). Don't hand-rewrite files.
 
-Pest 5 needs PHP 8.4 and PHPUnit 13; bump every `pestphp/*` plugin to `^5.0` together with `pestphp/pest`.
+Check `pestphp/pest` in `composer.lock` before using anything marked **(5)**:
+- Pest 4: PHP 8.3+ and PHPUnit 12. A Laravel 13 app on PHP 8.3 is on Pest 4.
+- Pest 5: PHP 8.4+ and PHPUnit 13. Don't bump `pestphp/pest` to get a Pest 5 feature on PHP 8.3: Composer can't resolve it. When upgrading, bump every `pestphp/*` plugin to `^5.0` together with `pestphp/pest`.
 
 ## tests/Pest.php
 
@@ -58,7 +60,7 @@ expect($user->refresh())
 - `->refresh()` the model after the action, before asserting.
 - Partial checks: `toMatchArray([...])` (calls `toArray()` on models). Counts: `toHaveCount`. Types: `toBeInstanceOf`, `toContainOnlyInstancesOf`, `toBeCollection()` (Laravel plugin).
 - Over collections: `->each->is_visible->toBeFalse()` and ordered `->sequence(A, B)`, not a `foreach` of expects. `Factory::sequence()` is an unrelated API (varies attributes while creating).
-- Pest 5 matchers over regexes: `toBeEmail`, `toBeUlid`, `toBeUuid`, `toBeUrl`, `toBeIpAddress`.
+- Matchers over regexes: `toBeUuid`, `toBeUrl`; **(5)** also `toBeEmail`, `toBeUlid`, `toBeIpAddress`, `toBeMacAddress`, `toBeHostname`. On Pest 4 those are undefined methods.
 - Repeated multi-step assertion → `expect()->extend('toBePublished', fn () => $this->published_at->not->toBeNull()->is_visible->toBeTrue())` in `tests/Pest.php`, returning the expectation. To change `toBe()` for models use `expect()->pipe()` / `intercept()`. No standalone `assertX()` helper functions.
 
 ## Exceptions
@@ -162,6 +164,6 @@ it('has a name')
 - Higher-order only when the body is a single `$this` chain or expectation; the `expect()` value must be a closure. Side effects: `->defer(fn () => ...)` (`tap()` was removed). Any arrange step → a normal closure.
 - Never comment tests out: `->skip('reason')`, `->skip(fn () => ! config('services.mailgun.secret'), 'mailgun not configured')` (evaluated after `beforeEach`), `skipOnCi()`/`skipLocally()`, `->todo()`.
 - Never commit `->only()`. CI with `--ci` ignores it; local runs silently drop the rest of the suite.
-- Run `./vendor/bin/pest --parallel --tia` locally; keep `--tia` out of CI.
+- Run `./vendor/bin/pest --parallel` locally; **(5)** add `--tia` (test impact analysis) locally, never in CI.
 
-Evidence: `pestphp/pest` `src/Mixins/Expectation.php`, `src/Expectation.php`, `src/PendingCalls/TestCall.php`, `src/ArchPresets/`, `stubs/init-laravel/Pest.php.stub`; `pest-plugin-laravel` `src/{Http,Container,Expectations}.php`; Pest docs; filamentphp/demo `tests/`; laravel/livewire-starter-kit `tests/`.
+Evidence: `pestphp/pest` `composer.json` (4.x: php ^8.3, phpunit ^12.5; 5.x: php ^8.4, phpunit ^13.4), `src/Mixins/Expectation.php` (4.x vs 5.x), `src/Plugins/Help.php` (`--tia`, 5.x only), `src/Expectation.php`, `src/PendingCalls/TestCall.php`, `src/ArchPresets/`, `stubs/init-laravel/Pest.php.stub`; `pest-plugin-laravel` `src/{Http,Container,Expectations}.php`; Pest docs; filamentphp/demo `tests/`; laravel/livewire-starter-kit `tests/`.

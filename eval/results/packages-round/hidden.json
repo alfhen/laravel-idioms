@@ -1,0 +1,2834 @@
+{
+ "activity-feed-plain-1": {
+  "task": "activity-feed",
+  "arm": "plain",
+  "run": 1,
+  "tests": {
+   "The feed is newest first in pages of twenty": true,
+   "Walking every page returns each activity exactly once when many share a timestamp": true,
+   "Items name their subject kind and id": true,
+   "Type post returns only post activities across every page": true,
+   "Type comment and type invoice filter too": true,
+   "An unknown type is rejected or empty": true,
+   "An array type is never a server error": true,
+   "A deleted subject does not break the feed": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "activity-feed-prev-1": {
+  "task": "activity-feed",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "The feed is newest first in pages of twenty": true,
+   "Walking every page returns each activity exactly once when many share a timestamp": true,
+   "Items name their subject kind and id": true,
+   "Type post returns only post activities across every page": true,
+   "Type comment and type invoice filter too": true,
+   "An unknown type is rejected or empty": true,
+   "An array type is never a server error": true,
+   "A deleted subject does not break the feed": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "activity-feed-prev-2": {
+  "task": "activity-feed",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "The feed is newest first in pages of twenty": true,
+   "Walking every page returns each activity exactly once when many share a timestamp": true,
+   "Items name their subject kind and id": true,
+   "Type post returns only post activities across every page": true,
+   "Type comment and type invoice filter too": true,
+   "An unknown type is rejected or empty": true,
+   "An array type is never a server error": true,
+   "A deleted subject does not break the feed": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "activity-feed-prev-3": {
+  "task": "activity-feed",
+  "arm": "prev",
+  "run": 3,
+  "tests": {
+   "The feed is newest first in pages of twenty": true,
+   "Walking every page returns each activity exactly once when many share a timestamp": true,
+   "Items name their subject kind and id": true,
+   "Type post returns only post activities across every page": true,
+   "Type comment and type invoice filter too": true,
+   "An unknown type is rejected or empty": true,
+   "An array type is never a server error": true,
+   "A deleted subject does not break the feed": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "block-user-plain-1": {
+  "task": "block-user",
+  "arm": "plain",
+  "run": 1,
+  "tests": {
+   "A normal user can log in with a session": true,
+   "A blocked user cannot log in": true,
+   "A blocked user cannot get a new api token": true,
+   "An existing api token stops working once blocked": true,
+   "An existing session ends on the next request": true,
+   "A remember me cookie stops working once blocked": true,
+   "Other users stay logged in when someone is blocked": true,
+   "The password reset flow works for a normal user": true,
+   "A password reset does not let a blocked user back in": true,
+   "A blocked user cannot reset their way in with a fresh link": true,
+   "After unblocking login works again": true,
+   "Only admins can block or unblock": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "block-user-prev-1": {
+  "task": "block-user",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "A normal user can log in with a session": true,
+   "A blocked user cannot log in": true,
+   "A blocked user cannot get a new api token": true,
+   "An existing api token stops working once blocked": true,
+   "An existing session ends on the next request": true,
+   "A remember me cookie stops working once blocked": true,
+   "Other users stay logged in when someone is blocked": true,
+   "The password reset flow works for a normal user": true,
+   "A password reset does not let a blocked user back in": true,
+   "A blocked user cannot reset their way in with a fresh link": true,
+   "After unblocking login works again": true,
+   "Only admins can block or unblock": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "block-user-prev-2": {
+  "task": "block-user",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "A normal user can log in with a session": true,
+   "A blocked user cannot log in": true,
+   "A blocked user cannot get a new api token": true,
+   "An existing api token stops working once blocked": true,
+   "An existing session ends on the next request": true,
+   "A remember me cookie stops working once blocked": true,
+   "Other users stay logged in when someone is blocked": true,
+   "The password reset flow works for a normal user": true,
+   "A password reset does not let a blocked user back in": true,
+   "A blocked user cannot reset their way in with a fresh link": true,
+   "After unblocking login works again": true,
+   "Only admins can block or unblock": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "block-user-prev-3": {
+  "task": "block-user",
+  "arm": "prev",
+  "run": 3,
+  "tests": {
+   "A normal user can log in with a session": true,
+   "A blocked user cannot log in": true,
+   "A blocked user cannot get a new api token": true,
+   "An existing api token stops working once blocked": true,
+   "An existing session ends on the next request": true,
+   "A remember me cookie stops working once blocked": true,
+   "Other users stay logged in when someone is blocked": true,
+   "The password reset flow works for a normal user": true,
+   "A password reset does not let a blocked user back in": true,
+   "A blocked user cannot reset their way in with a fresh link": true,
+   "After unblocking login works again": true,
+   "Only admins can block or unblock": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "carrier-quote-prev-1": {
+  "task": "carrier-quote",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "It returns the carriers rates": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Transient errors are retried": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A carrier that does not answer gets the fallback": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "carrier-quote-prev-2": {
+  "task": "carrier-quote",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "It returns the carriers rates": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Transient errors are retried": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A carrier that does not answer gets the fallback": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "document-vault-prev-1": {
+  "task": "document-vault",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "test_an_upload_is_stored_privately_under_a_generated_name": true,
+   "test_a_file_that_only_claims_to_be_an_image_is_rejected": true,
+   "test_a_file_over_5_mb_is_rejected": true,
+   "test_the_link_downloads_the_file_without_logging_in": true,
+   "test_the_link_stops_working_after_10_minutes": true,
+   "test_a_tampered_link_is_refused": true,
+   "test_another_user_cannot_get_a_link": true,
+   "test_a_link_to_a_missing_file_answers_404": true,
+   "test_guest_without_accept_header_gets_json_401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "document-vault-prev-2": {
+  "task": "document-vault",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "test_an_upload_is_stored_privately_under_a_generated_name": true,
+   "test_a_file_that_only_claims_to_be_an_image_is_rejected": true,
+   "test_a_file_over_5_mb_is_rejected": true,
+   "test_the_link_downloads_the_file_without_logging_in": true,
+   "test_the_link_stops_working_after_10_minutes": true,
+   "test_a_tampered_link_is_refused": true,
+   "test_another_user_cannot_get_a_link": true,
+   "test_a_link_to_a_missing_file_answers_404": true,
+   "test_guest_without_accept_header_gets_json_401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "export-purge-command-prev-1": {
+  "task": "export-purge-command",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "test_it_removes_every_expired_export_and_its_file_and_keeps_recent_ones": true,
+   "test_the_retention_period_can_be_changed": true,
+   "test_a_dry_run_deletes_nothing_and_reports_the_count": true,
+   "test_in_production_it_refuses_to_delete_without_confirmation_when_unattended": true,
+   "test_in_production_force_deletes_unattended": true,
+   "test_a_file_that_cannot_be_deleted_keeps_its_row_does_not_stop_the_rest_and_fails_the_run": true,
+   "test_it_is_scheduled_nightly_at_three_on_one_server_and_the_scheduled_invocation_works_unattended_in_production": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "export-purge-command-prev-2": {
+  "task": "export-purge-command",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "test_it_removes_every_expired_export_and_its_file_and_keeps_recent_ones": true,
+   "test_the_retention_period_can_be_changed": true,
+   "test_a_dry_run_deletes_nothing_and_reports_the_count": true,
+   "test_in_production_it_refuses_to_delete_without_confirmation_when_unattended": true,
+   "test_in_production_force_deletes_unattended": true,
+   "test_a_file_that_cannot_be_deleted_keeps_its_row_does_not_stop_the_rest_and_fails_the_run": true,
+   "test_it_is_scheduled_nightly_at_three_on_one_server_and_the_scheduled_invocation_works_unattended_in_production": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "invoice-uploads-plain-1": {
+  "task": "invoice-uploads",
+  "arm": "plain",
+  "run": 1,
+  "tests": {
+   "An invoice is never stored on the public disk or exposed by a public url": true,
+   "The owner downloads exactly the bytes uploaded": true,
+   "Another user cannot download the invoice": true,
+   "Another user cannot replace the invoice": true,
+   "A guest cannot download": true,
+   "An order without an invoice answers 404": true,
+   "The stored file name never contains the client file name": true,
+   "A text file named pdf is rejected with 422": true,
+   "A file over 5 mb is rejected with 422": true,
+   "A re upload leaves exactly one file for the order": true,
+   "An empty text field named like the file does not bypass validation": true,
+   "An empty text field named like the file alongside a valid pdf": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "invoice-uploads-prev-1": {
+  "task": "invoice-uploads",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "An invoice is never stored on the public disk or exposed by a public url": true,
+   "The owner downloads exactly the bytes uploaded": true,
+   "Another user cannot download the invoice": true,
+   "Another user cannot replace the invoice": true,
+   "A guest cannot download": true,
+   "An order without an invoice answers 404": true,
+   "The stored file name never contains the client file name": true,
+   "A text file named pdf is rejected with 422": true,
+   "A file over 5 mb is rejected with 422": true,
+   "A re upload leaves exactly one file for the order": true,
+   "An empty text field named like the file does not bypass validation": true,
+   "An empty text field named like the file alongside a valid pdf": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "invoice-uploads-prev-2": {
+  "task": "invoice-uploads",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "An invoice is never stored on the public disk or exposed by a public url": true,
+   "The owner downloads exactly the bytes uploaded": true,
+   "Another user cannot download the invoice": true,
+   "Another user cannot replace the invoice": true,
+   "A guest cannot download": true,
+   "An order without an invoice answers 404": true,
+   "The stored file name never contains the client file name": true,
+   "A text file named pdf is rejected with 422": true,
+   "A file over 5 mb is rejected with 422": true,
+   "A re upload leaves exactly one file for the order": true,
+   "An empty text field named like the file does not bypass validation": true,
+   "An empty text field named like the file alongside a valid pdf": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "invoice-uploads-prev-3": {
+  "task": "invoice-uploads",
+  "arm": "prev",
+  "run": 3,
+  "tests": {
+   "An invoice is never stored on the public disk or exposed by a public url": true,
+   "The owner downloads exactly the bytes uploaded": true,
+   "Another user cannot download the invoice": true,
+   "Another user cannot replace the invoice": true,
+   "A guest cannot download": true,
+   "An order without an invoice answers 404": true,
+   "The stored file name never contains the client file name": true,
+   "A text file named pdf is rejected with 422": true,
+   "A file over 5 mb is rejected with 422": true,
+   "A re upload leaves exactly one file for the order": true,
+   "An empty text field named like the file does not bypass validation": true,
+   "An empty text field named like the file alongside a valid pdf": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "markdown-comments-plain-1": {
+  "task": "markdown-comments",
+  "arm": "plain",
+  "run": 1,
+  "tests": {
+   "A script tag is inert in the json and on the page": true,
+   "An image with an event handler is inert in the json and on the page": true,
+   "Raw html is inert in the json and on the page": true,
+   "A javascript markdown link is inert in the json and on the page": true,
+   "Bold and https links still render in the json and on the page": true,
+   "Guests cannot post comments": true,
+   "Comments are newest first fifteen per page": true,
+   "Walking the json pages returns each same second comment once": true,
+   "Walking the article pages shows each same second comment once": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "markdown-comments-prev-1": {
+  "task": "markdown-comments",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "A script tag is inert in the json and on the page": true,
+   "An image with an event handler is inert in the json and on the page": true,
+   "Raw html is inert in the json and on the page": true,
+   "A javascript markdown link is inert in the json and on the page": true,
+   "Bold and https links still render in the json and on the page": true,
+   "Guests cannot post comments": true,
+   "Comments are newest first fifteen per page": true,
+   "Walking the json pages returns each same second comment once": true,
+   "Walking the article pages shows each same second comment once": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "markdown-comments-prev-2": {
+  "task": "markdown-comments",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "A script tag is inert in the json and on the page": true,
+   "An image with an event handler is inert in the json and on the page": true,
+   "Raw html is inert in the json and on the page": true,
+   "A javascript markdown link is inert in the json and on the page": true,
+   "Bold and https links still render in the json and on the page": true,
+   "Guests cannot post comments": true,
+   "Comments are newest first fifteen per page": true,
+   "Walking the json pages returns each same second comment once": true,
+   "Walking the article pages shows each same second comment once": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "markdown-comments-prev-3": {
+  "task": "markdown-comments",
+  "arm": "prev",
+  "run": 3,
+  "tests": {
+   "A script tag is inert in the json and on the page": true,
+   "An image with an event handler is inert in the json and on the page": true,
+   "Raw html is inert in the json and on the page": true,
+   "A javascript markdown link is inert in the json and on the page": true,
+   "Bold and https links still render in the json and on the page": true,
+   "Guests cannot post comments": true,
+   "Comments are newest first fifteen per page": true,
+   "Walking the json pages returns each same second comment once": false,
+   "Walking the article pages shows each same second comment once": false
+  },
+  "exit_code": 1,
+  "output_tail": "{\"tool\":\"pest\",\"result\":\"failed\",\"tests\":9,\"passed\":7,\"assertions\":104,\"duration_ms\":1211,\"failed\":2,\"failures\":[{\"test\":\"Tests\\\\Hidden\\\\MarkdownCommentsHiddenTest::test_walking_the_json_pages_returns_each_same_second_comment_once\",\"file\":\"/private/var/folders/14/09m_2jb959v7m9pj06bnpr280000gn/T/hidden-rwl2e4xt/app/tests/Hidden/MarkdownCommentsHiddenTest.php\",\"line\":37,\"message\":\"posting a comment answered 429\\nFailed asserting that 429 is less than 400.\",\"trace\":[\"/private/var/folders/14/09m_2jb959v7m9pj06bnpr280000gn/T/hidden-rwl2e4xt/app/tests/Hidden/MarkdownCommentsHiddenTest.php:37\",\"/private/var/folders/14/09m_2jb959v7m9pj06bnpr280000gn/T/hidden-rwl2e4xt/app/tests/Hidden/MarkdownCommentsHiddenTest.php:220\"]},{\"test\":\"Tests\\\\Hidden\\\\MarkdownCommentsHiddenTest::test_walking_the_article_pages_shows_each_same_second_comment_once\",\"file\":\"/private/var/folders/14/09m_2jb959v7m9pj06bnpr280000gn/T/hidden-rwl2e4xt/app/tests/Hidden/MarkdownCommentsHiddenTest.php\",\"line\":37,\"message\":\"posting a comment answered 429\\nFailed asserting that 429 is less than 400.\",\"trace\":[\"/private/var/folders/14/09m_2jb959v7m9pj06bnpr280000gn/T/hidden-rwl2e4xt/app/tests/Hidden/MarkdownCommentsHiddenTest.php:37\",\"/private/var/folders/14/09m_2jb959v7m9pj06bnpr280000gn/T/hidden-rwl2e4xt/app/tests/Hidden/MarkdownCommentsHiddenTest.php:242\"]}]}\n"
+ },
+ "notes-search-api-prev-1": {
+  "task": "notes-search-api",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "test_list_is_newest_first_by_default_and_sorts_by_title": true,
+   "test_sorting_by_the_secret_column_is_not_possible": true,
+   "test_sorting_by_the_api_token_column_is_not_possible": true,
+   "test_an_unknown_or_injected_sort_is_never_a_server_error": true,
+   "test_an_array_sort_is_never_a_server_error": true,
+   "test_a_bad_direction_is_never_a_server_error": true,
+   "test_search_matches_part_of_a_title": true,
+   "test_a_percent_sign_in_the_search_is_not_a_wildcard": true,
+   "test_an_underscore_in_the_search_is_not_a_wildcard": true,
+   "test_a_search_for_a_percent_sign_finds_the_literal_title": true,
+   "test_a_search_for_an_underscore_finds_the_literal_title": true,
+   "test_the_list_shows_only_the_users_team": true,
+   "test_creating_a_note_in_another_teams_project_is_refused": true,
+   "test_team_and_author_come_from_the_user_not_the_body": true,
+   "test_another_teams_note_cannot_be_read": true,
+   "test_the_list_never_returns_internal_columns": true,
+   "test_showing_a_note_never_returns_internal_columns": true,
+   "test_creating_a_note_never_returns_the_projects_or_authors_internal_columns": true,
+   "test_responses_never_include_the_projects_or_authors_internal_columns": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "notes-search-api-prev-2": {
+  "task": "notes-search-api",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "test_list_is_newest_first_by_default_and_sorts_by_title": true,
+   "test_sorting_by_the_secret_column_is_not_possible": true,
+   "test_sorting_by_the_api_token_column_is_not_possible": true,
+   "test_an_unknown_or_injected_sort_is_never_a_server_error": true,
+   "test_an_array_sort_is_never_a_server_error": true,
+   "test_a_bad_direction_is_never_a_server_error": true,
+   "test_search_matches_part_of_a_title": true,
+   "test_a_percent_sign_in_the_search_is_not_a_wildcard": true,
+   "test_an_underscore_in_the_search_is_not_a_wildcard": true,
+   "test_a_search_for_a_percent_sign_finds_the_literal_title": true,
+   "test_a_search_for_an_underscore_finds_the_literal_title": true,
+   "test_the_list_shows_only_the_users_team": true,
+   "test_creating_a_note_in_another_teams_project_is_refused": true,
+   "test_team_and_author_come_from_the_user_not_the_body": true,
+   "test_another_teams_note_cannot_be_read": true,
+   "test_the_list_never_returns_internal_columns": true,
+   "test_showing_a_note_never_returns_internal_columns": true,
+   "test_creating_a_note_never_returns_the_projects_or_authors_internal_columns": true,
+   "test_responses_never_include_the_projects_or_authors_internal_columns": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "orders-api-prev-1": {
+  "task": "orders-api",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "A read token lists only the owners orders newest first": true,
+   "A read token cannot create orders": true,
+   "A write token without read cannot list": true,
+   "A write token creates an order without an accept header": true,
+   "Another users order is a 404 without internals": true,
+   "A missing order is a 404 without internals": true,
+   "Api responses do not start a session": true,
+   "Guest with json accept gets json 401": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "orders-api-prev-2": {
+  "task": "orders-api",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "A read token lists only the owners orders newest first": true,
+   "A read token cannot create orders": true,
+   "A write token without read cannot list": true,
+   "A write token creates an order without an accept header": true,
+   "Another users order is a 404 without internals": true,
+   "A missing order is a 404 without internals": true,
+   "Api responses do not start a session": true,
+   "Guest with json accept gets json 401": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "password-reset-links-plain-1": {
+  "task": "password-reset-links",
+  "arm": "plain",
+  "run": 1,
+  "tests": {
+   "test_forgot_password_mails_a_working_reset_link_on_the_canonical_site": true,
+   "test_forgot_password_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_forgot_password_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_owner_invites_and_the_mailed_link_adds_the_invitee": true,
+   "test_only_the_owner_can_invite": true,
+   "test_inviting_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_inviting_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_invite_link_without_its_query_string_is_rejected": true,
+   "test_another_user_cannot_use_the_invite_link": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "password-reset-links-prev-1": {
+  "task": "password-reset-links",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "test_forgot_password_mails_a_working_reset_link_on_the_canonical_site": true,
+   "test_forgot_password_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_forgot_password_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_owner_invites_and_the_mailed_link_adds_the_invitee": true,
+   "test_only_the_owner_can_invite": true,
+   "test_inviting_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_inviting_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_invite_link_without_its_query_string_is_rejected": true,
+   "test_another_user_cannot_use_the_invite_link": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "password-reset-links-prev-2": {
+  "task": "password-reset-links",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "test_forgot_password_mails_a_working_reset_link_on_the_canonical_site": true,
+   "test_forgot_password_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_forgot_password_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_owner_invites_and_the_mailed_link_adds_the_invitee": true,
+   "test_only_the_owner_can_invite": true,
+   "test_inviting_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_inviting_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_invite_link_without_its_query_string_is_rejected": true,
+   "test_another_user_cannot_use_the_invite_link": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "password-reset-links-prev-3": {
+  "task": "password-reset-links",
+  "arm": "prev",
+  "run": 3,
+  "tests": {
+   "test_forgot_password_mails_a_working_reset_link_on_the_canonical_site": true,
+   "test_forgot_password_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_forgot_password_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_owner_invites_and_the_mailed_link_adds_the_invitee": true,
+   "test_only_the_owner_can_invite": true,
+   "test_inviting_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_inviting_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_invite_link_without_its_query_string_is_rejected": true,
+   "test_another_user_cannot_use_the_invite_link": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "payment-states-plain-1": {
+  "task": "payment-states",
+  "arm": "plain",
+  "run": 1,
+  "tests": {
+   "Paying a pending payment marks it paid records one ledger entry and mails one receipt": true,
+   "Paying twice records one ledger entry and one receipt": true,
+   "A payment paid by a concurrent request after it was read is not paid again": true,
+   "A failing ledger write leaves the payment pending and sends no receipt": true,
+   "Refunding a paid payment records a negative ledger entry": true,
+   "Refunding a pending payment is rejected and changes nothing": true,
+   "Admin can set any known state by name without side effects": true,
+   "Admin endpoint rejects unknown state names with a client error not a crash": true,
+   "Non admin cannot set a state": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "payment-states-prev-1": {
+  "task": "payment-states",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "Paying a pending payment marks it paid records one ledger entry and mails one receipt": true,
+   "Paying twice records one ledger entry and one receipt": true,
+   "A payment paid by a concurrent request after it was read is not paid again": true,
+   "A failing ledger write leaves the payment pending and sends no receipt": true,
+   "Refunding a paid payment records a negative ledger entry": true,
+   "Refunding a pending payment is rejected and changes nothing": true,
+   "Admin can set any known state by name without side effects": true,
+   "Admin endpoint rejects unknown state names with a client error not a crash": true,
+   "Non admin cannot set a state": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "payment-states-prev-2": {
+  "task": "payment-states",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "Paying a pending payment marks it paid records one ledger entry and mails one receipt": true,
+   "Paying twice records one ledger entry and one receipt": true,
+   "A payment paid by a concurrent request after it was read is not paid again": true,
+   "A failing ledger write leaves the payment pending and sends no receipt": true,
+   "Refunding a paid payment records a negative ledger entry": true,
+   "Refunding a pending payment is rejected and changes nothing": true,
+   "Admin can set any known state by name without side effects": true,
+   "Admin endpoint rejects unknown state names with a client error not a crash": true,
+   "Non admin cannot set a state": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "payment-states-prev-3": {
+  "task": "payment-states",
+  "arm": "prev",
+  "run": 3,
+  "tests": {
+   "Paying a pending payment marks it paid records one ledger entry and mails one receipt": true,
+   "Paying twice records one ledger entry and one receipt": true,
+   "A payment paid by a concurrent request after it was read is not paid again": true,
+   "A failing ledger write leaves the payment pending and sends no receipt": true,
+   "Refunding a paid payment records a negative ledger entry": true,
+   "Refunding a pending payment is rejected and changes nothing": true,
+   "Admin can set any known state by name without side effects": true,
+   "Admin endpoint rejects unknown state names with a client error not a crash": true,
+   "Non admin cannot set a state": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "profile-patch-plain-1": {
+  "task": "profile-patch",
+  "arm": "plain",
+  "run": 1,
+  "tests": {
+   "Guests cannot read or change a profile": true,
+   "Show returns the pinned profile shape": true,
+   "Posts are neither returned nor queried unless included": true,
+   "Include posts returns only the users own posts": true,
+   "Patching only the name leaves bio and phone unchanged": true,
+   "An explicit null clears the bio and leaves the rest": true,
+   "Patch ignores is admin team id and id": true,
+   "An invalid email is rejected and changes nothing": true,
+   "An over long name is rejected and changes nothing": true,
+   "A null or non string name is rejected not a server error": true,
+   "An email taken by another user is rejected but keeping your own is fine": true,
+   "The patch response does not load posts": true,
+   "Import creates valid rows and exits zero": true,
+   "Import rejects a bad email row still imports the rest and exits non zero": true,
+   "Import rejects wrongly typed rows without crashing": true,
+   "Import updates an existing user by email and ignores privileged fields": true,
+   "Import of a missing file exits non zero and creates nothing": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "profile-patch-prev-1": {
+  "task": "profile-patch",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "Guests cannot read or change a profile": true,
+   "Show returns the pinned profile shape": true,
+   "Posts are neither returned nor queried unless included": true,
+   "Include posts returns only the users own posts": true,
+   "Patching only the name leaves bio and phone unchanged": true,
+   "An explicit null clears the bio and leaves the rest": true,
+   "Patch ignores is admin team id and id": true,
+   "An invalid email is rejected and changes nothing": true,
+   "An over long name is rejected and changes nothing": true,
+   "A null or non string name is rejected not a server error": true,
+   "An email taken by another user is rejected but keeping your own is fine": true,
+   "The patch response does not load posts": true,
+   "Import creates valid rows and exits zero": true,
+   "Import rejects a bad email row still imports the rest and exits non zero": true,
+   "Import rejects wrongly typed rows without crashing": true,
+   "Import updates an existing user by email and ignores privileged fields": true,
+   "Import of a missing file exits non zero and creates nothing": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "profile-patch-prev-2": {
+  "task": "profile-patch",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "Guests cannot read or change a profile": true,
+   "Show returns the pinned profile shape": true,
+   "Posts are neither returned nor queried unless included": true,
+   "Include posts returns only the users own posts": true,
+   "Patching only the name leaves bio and phone unchanged": true,
+   "An explicit null clears the bio and leaves the rest": true,
+   "Patch ignores is admin team id and id": true,
+   "An invalid email is rejected and changes nothing": true,
+   "An over long name is rejected and changes nothing": true,
+   "A null or non string name is rejected not a server error": true,
+   "An email taken by another user is rejected but keeping your own is fine": true,
+   "The patch response does not load posts": true,
+   "Import creates valid rows and exits zero": true,
+   "Import rejects a bad email row still imports the rest and exits non zero": true,
+   "Import rejects wrongly typed rows without crashing": true,
+   "Import updates an existing user by email and ignores privileged fields": true,
+   "Import of a missing file exits non zero and creates nothing": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "profile-patch-prev-3": {
+  "task": "profile-patch",
+  "arm": "prev",
+  "run": 3,
+  "tests": {
+   "Guests cannot read or change a profile": true,
+   "Show returns the pinned profile shape": true,
+   "Posts are neither returned nor queried unless included": true,
+   "Include posts returns only the users own posts": true,
+   "Patching only the name leaves bio and phone unchanged": true,
+   "An explicit null clears the bio and leaves the rest": true,
+   "Patch ignores is admin team id and id": true,
+   "An invalid email is rejected and changes nothing": true,
+   "An over long name is rejected and changes nothing": true,
+   "A null or non string name is rejected not a server error": true,
+   "An email taken by another user is rejected but keeping your own is fine": true,
+   "The patch response does not load posts": true,
+   "Import creates valid rows and exits zero": true,
+   "Import rejects a bad email row still imports the rest and exits non zero": true,
+   "Import rejects wrongly typed rows without crashing": true,
+   "Import updates an existing user by email and ignores privileged fields": true,
+   "Import of a missing file exits non zero and creates nothing": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipment-sync-prev-1": {
+  "task": "shipment-sync",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true,
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipment-sync-prev-2": {
+  "task": "shipment-sync",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true,
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipments-api-plain-1": {
+  "task": "shipments-api",
+  "arm": "plain",
+  "run": 1,
+  "tests": {
+   "The list shows only the users warehouse": true,
+   "The user id filter does not match other ids containing the digits": true,
+   "The status filter paid never returns unpaid shipments": true,
+   "The paid flag zero or false returns only unpaid shipments": true,
+   "The paid flag one or true returns only paid shipments": true,
+   "Unknown or internal filters are rejected": true,
+   "Unknown or internal sorts are rejected": true,
+   "The list sorts on public fields": true,
+   "The list never returns the internal column": true,
+   "A user without a warehouse never sees unscoped shipments": true,
+   "Creating a shipment uses the users warehouse and identity": true,
+   "Creating with another warehouses carrier is refused": true,
+   "A user without a warehouse cannot create with an unscoped carrier": true,
+   "An array carrier id is a validation error": true,
+   "A zero carrier id is a validation error": true,
+   "A false carrier id is a validation error": true,
+   "An injected string carrier id is a validation error": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipments-api-prev-1": {
+  "task": "shipments-api",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "The list shows only the users warehouse": true,
+   "The user id filter does not match other ids containing the digits": true,
+   "The status filter paid never returns unpaid shipments": true,
+   "The paid flag zero or false returns only unpaid shipments": true,
+   "The paid flag one or true returns only paid shipments": true,
+   "Unknown or internal filters are rejected": true,
+   "Unknown or internal sorts are rejected": true,
+   "The list sorts on public fields": true,
+   "The list never returns the internal column": true,
+   "A user without a warehouse never sees unscoped shipments": true,
+   "Creating a shipment uses the users warehouse and identity": true,
+   "Creating with another warehouses carrier is refused": true,
+   "A user without a warehouse cannot create with an unscoped carrier": true,
+   "An array carrier id is a validation error": true,
+   "A zero carrier id is a validation error": true,
+   "A false carrier id is a validation error": true,
+   "An injected string carrier id is a validation error": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipments-api-prev-2": {
+  "task": "shipments-api",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "The list shows only the users warehouse": true,
+   "The user id filter does not match other ids containing the digits": true,
+   "The status filter paid never returns unpaid shipments": true,
+   "The paid flag zero or false returns only unpaid shipments": true,
+   "The paid flag one or true returns only paid shipments": true,
+   "Unknown or internal filters are rejected": true,
+   "Unknown or internal sorts are rejected": true,
+   "The list sorts on public fields": true,
+   "The list never returns the internal column": true,
+   "A user without a warehouse never sees unscoped shipments": true,
+   "Creating a shipment uses the users warehouse and identity": true,
+   "Creating with another warehouses carrier is refused": true,
+   "A user without a warehouse cannot create with an unscoped carrier": true,
+   "An array carrier id is a validation error": true,
+   "A zero carrier id is a validation error": true,
+   "A false carrier id is a validation error": true,
+   "An injected string carrier id is a validation error": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipments-api-prev-3": {
+  "task": "shipments-api",
+  "arm": "prev",
+  "run": 3,
+  "tests": {
+   "The list shows only the users warehouse": true,
+   "The user id filter does not match other ids containing the digits": true,
+   "The status filter paid never returns unpaid shipments": true,
+   "The paid flag zero or false returns only unpaid shipments": true,
+   "The paid flag one or true returns only paid shipments": true,
+   "Unknown or internal filters are rejected": true,
+   "Unknown or internal sorts are rejected": true,
+   "The list sorts on public fields": true,
+   "The list never returns the internal column": true,
+   "A user without a warehouse never sees unscoped shipments": true,
+   "Creating a shipment uses the users warehouse and identity": true,
+   "Creating with another warehouses carrier is refused": true,
+   "A user without a warehouse cannot create with an unscoped carrier": true,
+   "An array carrier id is a validation error": true,
+   "A zero carrier id is a validation error": true,
+   "A false carrier id is a validation error": true,
+   "An injected string carrier id is a validation error": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "stock-csv-import-prev-1": {
+  "task": "stock-csv-import",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "A bom crlf file with padded mixed case headers imports every row": true,
+   "Columns are found by name in any order": true,
+   "Invalid rows are reported with their file line and valid rows still import": true,
+   "Blank lines are ignored but still counted in line numbers": true,
+   "Importing a sku again updates it": true,
+   "A header only csv is accepted": true,
+   "A file without both headers is rejected": true,
+   "A non csv file is rejected": true,
+   "A file over 5 mb is rejected": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "stock-csv-import-prev-2": {
+  "task": "stock-csv-import",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "A bom crlf file with padded mixed case headers imports every row": true,
+   "Columns are found by name in any order": true,
+   "Invalid rows are reported with their file line and valid rows still import": true,
+   "Blank lines are ignored but still counted in line numbers": true,
+   "Importing a sku again updates it": true,
+   "A header only csv is accepted": true,
+   "A file without both headers is rejected": true,
+   "A non csv file is rejected": true,
+   "A file over 5 mb is rejected": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "team-permissions-plain-1": {
+  "task": "team-permissions",
+  "arm": "plain",
+  "run": 1,
+  "tests": {
+   "An editor creates and updates posts in their team": true,
+   "An editor cannot delete posts": true,
+   "An editor cannot update or delete another teams post": true,
+   "An editor in one team who is a plain member of another cannot write there": true,
+   "A member without a role can read but not write": true,
+   "A user outside the team cannot read or write": true,
+   "An admin updates and deletes in their own team": true,
+   "An admin cannot update or delete another teams post": true,
+   "Running the seeder again neither fails nor duplicates": true,
+   "A permission granted to a role applies on the next request": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "team-permissions-prev-1": {
+  "task": "team-permissions",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "An editor creates and updates posts in their team": true,
+   "An editor cannot delete posts": true,
+   "An editor cannot update or delete another teams post": true,
+   "An editor in one team who is a plain member of another cannot write there": true,
+   "A member without a role can read but not write": true,
+   "A user outside the team cannot read or write": true,
+   "An admin updates and deletes in their own team": true,
+   "An admin cannot update or delete another teams post": true,
+   "Running the seeder again neither fails nor duplicates": true,
+   "A permission granted to a role applies on the next request": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "team-permissions-prev-2": {
+  "task": "team-permissions",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "An editor creates and updates posts in their team": true,
+   "An editor cannot delete posts": true,
+   "An editor cannot update or delete another teams post": true,
+   "An editor in one team who is a plain member of another cannot write there": true,
+   "A member without a role can read but not write": true,
+   "A user outside the team cannot read or write": true,
+   "An admin updates and deletes in their own team": false,
+   "An admin cannot update or delete another teams post": true,
+   "Running the seeder again neither fails nor duplicates": true,
+   "A permission granted to a role applies on the next request": true
+  },
+  "exit_code": 1,
+  "output_tail": "{\"tool\":\"pest\",\"result\":\"failed\",\"tests\":10,\"passed\":9,\"assertions\":56,\"duration_ms\":639,\"failed\":1,\"failures\":[{\"test\":\"Tests\\\\Hidden\\\\TeamPermissionsHiddenTest::test_an_admin_updates_and_deletes_in_their_own_team\",\"file\":\"/private/var/folders/14/09m_2jb959v7m9pj06bnpr280000gn/T/hidden-rsveqtsl/app/tests/Hidden/TeamPermissionsHiddenTest.php\",\"line\":182,\"message\":\"Failed asserting that false is true.\"}]}\n"
+ },
+ "team-permissions-prev-3": {
+  "task": "team-permissions",
+  "arm": "prev",
+  "run": 3,
+  "tests": {
+   "An editor creates and updates posts in their team": true,
+   "An editor cannot delete posts": true,
+   "An editor cannot update or delete another teams post": true,
+   "An editor in one team who is a plain member of another cannot write there": true,
+   "A member without a role can read but not write": true,
+   "A user outside the team cannot read or write": true,
+   "An admin updates and deletes in their own team": true,
+   "An admin cannot update or delete another teams post": true,
+   "Running the seeder again neither fails nor duplicates": true,
+   "A permission granted to a role applies on the next request": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "team-roles-page-plain-1": {
+  "task": "team-roles-page",
+  "arm": "plain",
+  "run": 1,
+  "tests": {
+   "Guests are sent to login": true,
+   "Members without the admin role are forbidden": true,
+   "Users without any role are forbidden": true,
+   "Admins see every user with their role names": true,
+   "The number of queries does not grow with the number of users": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "team-roles-page-prev-1": {
+  "task": "team-roles-page",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "Guests are sent to login": true,
+   "Members without the admin role are forbidden": true,
+   "Users without any role are forbidden": true,
+   "Admins see every user with their role names": true,
+   "The number of queries does not grow with the number of users": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "team-roles-page-prev-2": {
+  "task": "team-roles-page",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "Guests are sent to login": true,
+   "Members without the admin role are forbidden": true,
+   "Users without any role are forbidden": true,
+   "Admins see every user with their role names": true,
+   "The number of queries does not grow with the number of users": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "token-login-prev-1": {
+  "task": "token-login",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true,
+   "A missing field is a 422": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "The limit resets after a minute": true,
+   "Revoking deletes only the token used": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "token-login-prev-2": {
+  "task": "token-login",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true,
+   "A missing field is a 422": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "The limit resets after a minute": true,
+   "Revoking deletes only the token used": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "activity-feed-skill-1": {
+  "task": "activity-feed",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "The feed is newest first in pages of twenty": true,
+   "Walking every page returns each activity exactly once when many share a timestamp": true,
+   "Items name their subject kind and id": true,
+   "Type post returns only post activities across every page": true,
+   "Type comment and type invoice filter too": true,
+   "An unknown type is rejected or empty": true,
+   "An array type is never a server error": true,
+   "A deleted subject does not break the feed": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "activity-feed-skill-2": {
+  "task": "activity-feed",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "The feed is newest first in pages of twenty": true,
+   "Walking every page returns each activity exactly once when many share a timestamp": true,
+   "Items name their subject kind and id": true,
+   "Type post returns only post activities across every page": true,
+   "Type comment and type invoice filter too": true,
+   "An unknown type is rejected or empty": true,
+   "An array type is never a server error": true,
+   "A deleted subject does not break the feed": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "activity-feed-skill-3": {
+  "task": "activity-feed",
+  "arm": "skill",
+  "run": 3,
+  "tests": {
+   "The feed is newest first in pages of twenty": true,
+   "Walking every page returns each activity exactly once when many share a timestamp": true,
+   "Items name their subject kind and id": true,
+   "Type post returns only post activities across every page": true,
+   "Type comment and type invoice filter too": true,
+   "An unknown type is rejected or empty": true,
+   "An array type is never a server error": true,
+   "A deleted subject does not break the feed": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "block-user-skill-1": {
+  "task": "block-user",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "A normal user can log in with a session": true,
+   "A blocked user cannot log in": true,
+   "A blocked user cannot get a new api token": true,
+   "An existing api token stops working once blocked": true,
+   "An existing session ends on the next request": true,
+   "A remember me cookie stops working once blocked": true,
+   "Other users stay logged in when someone is blocked": true,
+   "The password reset flow works for a normal user": true,
+   "A password reset does not let a blocked user back in": true,
+   "A blocked user cannot reset their way in with a fresh link": true,
+   "After unblocking login works again": true,
+   "Only admins can block or unblock": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "block-user-skill-2": {
+  "task": "block-user",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "A normal user can log in with a session": true,
+   "A blocked user cannot log in": true,
+   "A blocked user cannot get a new api token": true,
+   "An existing api token stops working once blocked": true,
+   "An existing session ends on the next request": true,
+   "A remember me cookie stops working once blocked": true,
+   "Other users stay logged in when someone is blocked": true,
+   "The password reset flow works for a normal user": true,
+   "A password reset does not let a blocked user back in": true,
+   "A blocked user cannot reset their way in with a fresh link": true,
+   "After unblocking login works again": true,
+   "Only admins can block or unblock": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "block-user-skill-3": {
+  "task": "block-user",
+  "arm": "skill",
+  "run": 3,
+  "tests": {
+   "A normal user can log in with a session": true,
+   "A blocked user cannot log in": true,
+   "A blocked user cannot get a new api token": true,
+   "An existing api token stops working once blocked": true,
+   "An existing session ends on the next request": true,
+   "A remember me cookie stops working once blocked": true,
+   "Other users stay logged in when someone is blocked": true,
+   "The password reset flow works for a normal user": true,
+   "A password reset does not let a blocked user back in": true,
+   "A blocked user cannot reset their way in with a fresh link": true,
+   "After unblocking login works again": true,
+   "Only admins can block or unblock": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "carrier-quote-skill-1": {
+  "task": "carrier-quote",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "It returns the carriers rates": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Transient errors are retried": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A carrier that does not answer gets the fallback": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "carrier-quote-skill-2": {
+  "task": "carrier-quote",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "It returns the carriers rates": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Transient errors are retried": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A carrier that does not answer gets the fallback": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "document-vault-skill-1": {
+  "task": "document-vault",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "test_an_upload_is_stored_privately_under_a_generated_name": true,
+   "test_a_file_that_only_claims_to_be_an_image_is_rejected": true,
+   "test_a_file_over_5_mb_is_rejected": true,
+   "test_the_link_downloads_the_file_without_logging_in": true,
+   "test_the_link_stops_working_after_10_minutes": true,
+   "test_a_tampered_link_is_refused": true,
+   "test_another_user_cannot_get_a_link": true,
+   "test_a_link_to_a_missing_file_answers_404": true,
+   "test_guest_without_accept_header_gets_json_401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "document-vault-skill-2": {
+  "task": "document-vault",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "test_an_upload_is_stored_privately_under_a_generated_name": true,
+   "test_a_file_that_only_claims_to_be_an_image_is_rejected": true,
+   "test_a_file_over_5_mb_is_rejected": true,
+   "test_the_link_downloads_the_file_without_logging_in": true,
+   "test_the_link_stops_working_after_10_minutes": true,
+   "test_a_tampered_link_is_refused": true,
+   "test_another_user_cannot_get_a_link": true,
+   "test_a_link_to_a_missing_file_answers_404": true,
+   "test_guest_without_accept_header_gets_json_401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "export-purge-command-skill-1": {
+  "task": "export-purge-command",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "test_it_removes_every_expired_export_and_its_file_and_keeps_recent_ones": true,
+   "test_the_retention_period_can_be_changed": true,
+   "test_a_dry_run_deletes_nothing_and_reports_the_count": true,
+   "test_in_production_it_refuses_to_delete_without_confirmation_when_unattended": true,
+   "test_in_production_force_deletes_unattended": true,
+   "test_a_file_that_cannot_be_deleted_keeps_its_row_does_not_stop_the_rest_and_fails_the_run": true,
+   "test_it_is_scheduled_nightly_at_three_on_one_server_and_the_scheduled_invocation_works_unattended_in_production": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "export-purge-command-skill-2": {
+  "task": "export-purge-command",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "test_it_removes_every_expired_export_and_its_file_and_keeps_recent_ones": true,
+   "test_the_retention_period_can_be_changed": true,
+   "test_a_dry_run_deletes_nothing_and_reports_the_count": true,
+   "test_in_production_it_refuses_to_delete_without_confirmation_when_unattended": true,
+   "test_in_production_force_deletes_unattended": true,
+   "test_a_file_that_cannot_be_deleted_keeps_its_row_does_not_stop_the_rest_and_fails_the_run": true,
+   "test_it_is_scheduled_nightly_at_three_on_one_server_and_the_scheduled_invocation_works_unattended_in_production": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "invoice-uploads-skill-1": {
+  "task": "invoice-uploads",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "An invoice is never stored on the public disk or exposed by a public url": true,
+   "The owner downloads exactly the bytes uploaded": true,
+   "Another user cannot download the invoice": true,
+   "Another user cannot replace the invoice": true,
+   "A guest cannot download": true,
+   "An order without an invoice answers 404": true,
+   "The stored file name never contains the client file name": true,
+   "A text file named pdf is rejected with 422": true,
+   "A file over 5 mb is rejected with 422": true,
+   "A re upload leaves exactly one file for the order": true,
+   "An empty text field named like the file does not bypass validation": true,
+   "An empty text field named like the file alongside a valid pdf": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "invoice-uploads-skill-2": {
+  "task": "invoice-uploads",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "An invoice is never stored on the public disk or exposed by a public url": true,
+   "The owner downloads exactly the bytes uploaded": true,
+   "Another user cannot download the invoice": true,
+   "Another user cannot replace the invoice": true,
+   "A guest cannot download": true,
+   "An order without an invoice answers 404": true,
+   "The stored file name never contains the client file name": true,
+   "A text file named pdf is rejected with 422": true,
+   "A file over 5 mb is rejected with 422": true,
+   "A re upload leaves exactly one file for the order": true,
+   "An empty text field named like the file does not bypass validation": true,
+   "An empty text field named like the file alongside a valid pdf": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "invoice-uploads-skill-3": {
+  "task": "invoice-uploads",
+  "arm": "skill",
+  "run": 3,
+  "tests": {
+   "An invoice is never stored on the public disk or exposed by a public url": true,
+   "The owner downloads exactly the bytes uploaded": true,
+   "Another user cannot download the invoice": true,
+   "Another user cannot replace the invoice": true,
+   "A guest cannot download": true,
+   "An order without an invoice answers 404": true,
+   "The stored file name never contains the client file name": true,
+   "A text file named pdf is rejected with 422": true,
+   "A file over 5 mb is rejected with 422": true,
+   "A re upload leaves exactly one file for the order": true,
+   "An empty text field named like the file does not bypass validation": true,
+   "An empty text field named like the file alongside a valid pdf": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "markdown-comments-skill-1": {
+  "task": "markdown-comments",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "A script tag is inert in the json and on the page": true,
+   "An image with an event handler is inert in the json and on the page": true,
+   "Raw html is inert in the json and on the page": true,
+   "A javascript markdown link is inert in the json and on the page": true,
+   "Bold and https links still render in the json and on the page": true,
+   "Guests cannot post comments": true,
+   "Comments are newest first fifteen per page": true,
+   "Walking the json pages returns each same second comment once": true,
+   "Walking the article pages shows each same second comment once": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "markdown-comments-skill-2": {
+  "task": "markdown-comments",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "A script tag is inert in the json and on the page": true,
+   "An image with an event handler is inert in the json and on the page": true,
+   "Raw html is inert in the json and on the page": true,
+   "A javascript markdown link is inert in the json and on the page": true,
+   "Bold and https links still render in the json and on the page": true,
+   "Guests cannot post comments": true,
+   "Comments are newest first fifteen per page": true,
+   "Walking the json pages returns each same second comment once": true,
+   "Walking the article pages shows each same second comment once": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "markdown-comments-skill-3": {
+  "task": "markdown-comments",
+  "arm": "skill",
+  "run": 3,
+  "tests": {
+   "A script tag is inert in the json and on the page": true,
+   "An image with an event handler is inert in the json and on the page": true,
+   "Raw html is inert in the json and on the page": true,
+   "A javascript markdown link is inert in the json and on the page": true,
+   "Bold and https links still render in the json and on the page": true,
+   "Guests cannot post comments": true,
+   "Comments are newest first fifteen per page": true,
+   "Walking the json pages returns each same second comment once": true,
+   "Walking the article pages shows each same second comment once": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "notes-search-api-skill-1": {
+  "task": "notes-search-api",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "test_list_is_newest_first_by_default_and_sorts_by_title": true,
+   "test_sorting_by_the_secret_column_is_not_possible": true,
+   "test_sorting_by_the_api_token_column_is_not_possible": true,
+   "test_an_unknown_or_injected_sort_is_never_a_server_error": true,
+   "test_an_array_sort_is_never_a_server_error": true,
+   "test_a_bad_direction_is_never_a_server_error": true,
+   "test_search_matches_part_of_a_title": true,
+   "test_a_percent_sign_in_the_search_is_not_a_wildcard": true,
+   "test_an_underscore_in_the_search_is_not_a_wildcard": true,
+   "test_a_search_for_a_percent_sign_finds_the_literal_title": true,
+   "test_a_search_for_an_underscore_finds_the_literal_title": true,
+   "test_the_list_shows_only_the_users_team": true,
+   "test_creating_a_note_in_another_teams_project_is_refused": true,
+   "test_team_and_author_come_from_the_user_not_the_body": true,
+   "test_another_teams_note_cannot_be_read": true,
+   "test_the_list_never_returns_internal_columns": true,
+   "test_showing_a_note_never_returns_internal_columns": true,
+   "test_creating_a_note_never_returns_the_projects_or_authors_internal_columns": true,
+   "test_responses_never_include_the_projects_or_authors_internal_columns": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "notes-search-api-skill-2": {
+  "task": "notes-search-api",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "test_list_is_newest_first_by_default_and_sorts_by_title": true,
+   "test_sorting_by_the_secret_column_is_not_possible": true,
+   "test_sorting_by_the_api_token_column_is_not_possible": true,
+   "test_an_unknown_or_injected_sort_is_never_a_server_error": true,
+   "test_an_array_sort_is_never_a_server_error": true,
+   "test_a_bad_direction_is_never_a_server_error": true,
+   "test_search_matches_part_of_a_title": true,
+   "test_a_percent_sign_in_the_search_is_not_a_wildcard": true,
+   "test_an_underscore_in_the_search_is_not_a_wildcard": true,
+   "test_a_search_for_a_percent_sign_finds_the_literal_title": true,
+   "test_a_search_for_an_underscore_finds_the_literal_title": true,
+   "test_the_list_shows_only_the_users_team": true,
+   "test_creating_a_note_in_another_teams_project_is_refused": true,
+   "test_team_and_author_come_from_the_user_not_the_body": true,
+   "test_another_teams_note_cannot_be_read": true,
+   "test_the_list_never_returns_internal_columns": true,
+   "test_showing_a_note_never_returns_internal_columns": true,
+   "test_creating_a_note_never_returns_the_projects_or_authors_internal_columns": true,
+   "test_responses_never_include_the_projects_or_authors_internal_columns": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "orders-api-skill-1": {
+  "task": "orders-api",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "A read token lists only the owners orders newest first": true,
+   "A read token cannot create orders": true,
+   "A write token without read cannot list": true,
+   "A write token creates an order without an accept header": true,
+   "Another users order is a 404 without internals": true,
+   "A missing order is a 404 without internals": true,
+   "Api responses do not start a session": true,
+   "Guest with json accept gets json 401": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "orders-api-skill-2": {
+  "task": "orders-api",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "A read token lists only the owners orders newest first": true,
+   "A read token cannot create orders": true,
+   "A write token without read cannot list": true,
+   "A write token creates an order without an accept header": true,
+   "Another users order is a 404 without internals": true,
+   "A missing order is a 404 without internals": true,
+   "Api responses do not start a session": true,
+   "Guest with json accept gets json 401": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "password-reset-links-skill-1": {
+  "task": "password-reset-links",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "test_forgot_password_mails_a_working_reset_link_on_the_canonical_site": true,
+   "test_forgot_password_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_forgot_password_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_owner_invites_and_the_mailed_link_adds_the_invitee": true,
+   "test_only_the_owner_can_invite": true,
+   "test_inviting_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_inviting_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_invite_link_without_its_query_string_is_rejected": true,
+   "test_another_user_cannot_use_the_invite_link": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "password-reset-links-skill-2": {
+  "task": "password-reset-links",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "test_forgot_password_mails_a_working_reset_link_on_the_canonical_site": true,
+   "test_forgot_password_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_forgot_password_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_owner_invites_and_the_mailed_link_adds_the_invitee": true,
+   "test_only_the_owner_can_invite": true,
+   "test_inviting_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_inviting_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_invite_link_without_its_query_string_is_rejected": true,
+   "test_another_user_cannot_use_the_invite_link": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "password-reset-links-skill-3": {
+  "task": "password-reset-links",
+  "arm": "skill",
+  "run": 3,
+  "tests": {
+   "test_forgot_password_mails_a_working_reset_link_on_the_canonical_site": true,
+   "test_forgot_password_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_forgot_password_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_owner_invites_and_the_mailed_link_adds_the_invitee": true,
+   "test_only_the_owner_can_invite": true,
+   "test_inviting_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_inviting_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_invite_link_without_its_query_string_is_rejected": true,
+   "test_another_user_cannot_use_the_invite_link": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "payment-states-skill-1": {
+  "task": "payment-states",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "Paying a pending payment marks it paid records one ledger entry and mails one receipt": true,
+   "Paying twice records one ledger entry and one receipt": true,
+   "A payment paid by a concurrent request after it was read is not paid again": true,
+   "A failing ledger write leaves the payment pending and sends no receipt": true,
+   "Refunding a paid payment records a negative ledger entry": true,
+   "Refunding a pending payment is rejected and changes nothing": true,
+   "Admin can set any known state by name without side effects": true,
+   "Admin endpoint rejects unknown state names with a client error not a crash": true,
+   "Non admin cannot set a state": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "payment-states-skill-2": {
+  "task": "payment-states",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "Paying a pending payment marks it paid records one ledger entry and mails one receipt": true,
+   "Paying twice records one ledger entry and one receipt": true,
+   "A payment paid by a concurrent request after it was read is not paid again": true,
+   "A failing ledger write leaves the payment pending and sends no receipt": true,
+   "Refunding a paid payment records a negative ledger entry": true,
+   "Refunding a pending payment is rejected and changes nothing": true,
+   "Admin can set any known state by name without side effects": true,
+   "Admin endpoint rejects unknown state names with a client error not a crash": true,
+   "Non admin cannot set a state": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "payment-states-skill-3": {
+  "task": "payment-states",
+  "arm": "skill",
+  "run": 3,
+  "tests": {
+   "Paying a pending payment marks it paid records one ledger entry and mails one receipt": true,
+   "Paying twice records one ledger entry and one receipt": true,
+   "A payment paid by a concurrent request after it was read is not paid again": true,
+   "A failing ledger write leaves the payment pending and sends no receipt": true,
+   "Refunding a paid payment records a negative ledger entry": true,
+   "Refunding a pending payment is rejected and changes nothing": true,
+   "Admin can set any known state by name without side effects": true,
+   "Admin endpoint rejects unknown state names with a client error not a crash": true,
+   "Non admin cannot set a state": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "profile-patch-skill-1": {
+  "task": "profile-patch",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "Guests cannot read or change a profile": true,
+   "Show returns the pinned profile shape": true,
+   "Posts are neither returned nor queried unless included": true,
+   "Include posts returns only the users own posts": true,
+   "Patching only the name leaves bio and phone unchanged": true,
+   "An explicit null clears the bio and leaves the rest": true,
+   "Patch ignores is admin team id and id": true,
+   "An invalid email is rejected and changes nothing": true,
+   "An over long name is rejected and changes nothing": true,
+   "A null or non string name is rejected not a server error": true,
+   "An email taken by another user is rejected but keeping your own is fine": true,
+   "The patch response does not load posts": true,
+   "Import creates valid rows and exits zero": true,
+   "Import rejects a bad email row still imports the rest and exits non zero": true,
+   "Import rejects wrongly typed rows without crashing": true,
+   "Import updates an existing user by email and ignores privileged fields": true,
+   "Import of a missing file exits non zero and creates nothing": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "profile-patch-skill-2": {
+  "task": "profile-patch",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "Guests cannot read or change a profile": true,
+   "Show returns the pinned profile shape": true,
+   "Posts are neither returned nor queried unless included": true,
+   "Include posts returns only the users own posts": true,
+   "Patching only the name leaves bio and phone unchanged": true,
+   "An explicit null clears the bio and leaves the rest": true,
+   "Patch ignores is admin team id and id": true,
+   "An invalid email is rejected and changes nothing": true,
+   "An over long name is rejected and changes nothing": true,
+   "A null or non string name is rejected not a server error": true,
+   "An email taken by another user is rejected but keeping your own is fine": true,
+   "The patch response does not load posts": true,
+   "Import creates valid rows and exits zero": true,
+   "Import rejects a bad email row still imports the rest and exits non zero": true,
+   "Import rejects wrongly typed rows without crashing": true,
+   "Import updates an existing user by email and ignores privileged fields": true,
+   "Import of a missing file exits non zero and creates nothing": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "profile-patch-skill-3": {
+  "task": "profile-patch",
+  "arm": "skill",
+  "run": 3,
+  "tests": {
+   "Guests cannot read or change a profile": true,
+   "Show returns the pinned profile shape": true,
+   "Posts are neither returned nor queried unless included": true,
+   "Include posts returns only the users own posts": true,
+   "Patching only the name leaves bio and phone unchanged": true,
+   "An explicit null clears the bio and leaves the rest": true,
+   "Patch ignores is admin team id and id": true,
+   "An invalid email is rejected and changes nothing": true,
+   "An over long name is rejected and changes nothing": true,
+   "A null or non string name is rejected not a server error": true,
+   "An email taken by another user is rejected but keeping your own is fine": true,
+   "The patch response does not load posts": true,
+   "Import creates valid rows and exits zero": true,
+   "Import rejects a bad email row still imports the rest and exits non zero": true,
+   "Import rejects wrongly typed rows without crashing": true,
+   "Import updates an existing user by email and ignores privileged fields": true,
+   "Import of a missing file exits non zero and creates nothing": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipment-sync-skill-1": {
+  "task": "shipment-sync",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true,
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipment-sync-skill-2": {
+  "task": "shipment-sync",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true,
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipments-api-skill-1": {
+  "task": "shipments-api",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "The list shows only the users warehouse": true,
+   "The user id filter does not match other ids containing the digits": true,
+   "The status filter paid never returns unpaid shipments": true,
+   "The paid flag zero or false returns only unpaid shipments": true,
+   "The paid flag one or true returns only paid shipments": true,
+   "Unknown or internal filters are rejected": true,
+   "Unknown or internal sorts are rejected": true,
+   "The list sorts on public fields": true,
+   "The list never returns the internal column": true,
+   "A user without a warehouse never sees unscoped shipments": true,
+   "Creating a shipment uses the users warehouse and identity": true,
+   "Creating with another warehouses carrier is refused": true,
+   "A user without a warehouse cannot create with an unscoped carrier": true,
+   "An array carrier id is a validation error": true,
+   "A zero carrier id is a validation error": true,
+   "A false carrier id is a validation error": true,
+   "An injected string carrier id is a validation error": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipments-api-skill-2": {
+  "task": "shipments-api",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "The list shows only the users warehouse": true,
+   "The user id filter does not match other ids containing the digits": true,
+   "The status filter paid never returns unpaid shipments": true,
+   "The paid flag zero or false returns only unpaid shipments": true,
+   "The paid flag one or true returns only paid shipments": true,
+   "Unknown or internal filters are rejected": true,
+   "Unknown or internal sorts are rejected": true,
+   "The list sorts on public fields": true,
+   "The list never returns the internal column": true,
+   "A user without a warehouse never sees unscoped shipments": true,
+   "Creating a shipment uses the users warehouse and identity": true,
+   "Creating with another warehouses carrier is refused": true,
+   "A user without a warehouse cannot create with an unscoped carrier": true,
+   "An array carrier id is a validation error": true,
+   "A zero carrier id is a validation error": true,
+   "A false carrier id is a validation error": true,
+   "An injected string carrier id is a validation error": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipments-api-skill-3": {
+  "task": "shipments-api",
+  "arm": "skill",
+  "run": 3,
+  "tests": {
+   "The list shows only the users warehouse": true,
+   "The user id filter does not match other ids containing the digits": true,
+   "The status filter paid never returns unpaid shipments": true,
+   "The paid flag zero or false returns only unpaid shipments": true,
+   "The paid flag one or true returns only paid shipments": true,
+   "Unknown or internal filters are rejected": true,
+   "Unknown or internal sorts are rejected": true,
+   "The list sorts on public fields": true,
+   "The list never returns the internal column": true,
+   "A user without a warehouse never sees unscoped shipments": true,
+   "Creating a shipment uses the users warehouse and identity": true,
+   "Creating with another warehouses carrier is refused": true,
+   "A user without a warehouse cannot create with an unscoped carrier": true,
+   "An array carrier id is a validation error": true,
+   "A zero carrier id is a validation error": true,
+   "A false carrier id is a validation error": true,
+   "An injected string carrier id is a validation error": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "stock-csv-import-skill-1": {
+  "task": "stock-csv-import",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "A bom crlf file with padded mixed case headers imports every row": true,
+   "Columns are found by name in any order": true,
+   "Invalid rows are reported with their file line and valid rows still import": true,
+   "Blank lines are ignored but still counted in line numbers": true,
+   "Importing a sku again updates it": true,
+   "A header only csv is accepted": true,
+   "A file without both headers is rejected": true,
+   "A non csv file is rejected": true,
+   "A file over 5 mb is rejected": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "stock-csv-import-skill-2": {
+  "task": "stock-csv-import",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "A bom crlf file with padded mixed case headers imports every row": true,
+   "Columns are found by name in any order": true,
+   "Invalid rows are reported with their file line and valid rows still import": true,
+   "Blank lines are ignored but still counted in line numbers": true,
+   "Importing a sku again updates it": true,
+   "A header only csv is accepted": true,
+   "A file without both headers is rejected": true,
+   "A non csv file is rejected": true,
+   "A file over 5 mb is rejected": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "team-permissions-skill-1": {
+  "task": "team-permissions",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "An editor creates and updates posts in their team": true,
+   "An editor cannot delete posts": true,
+   "An editor cannot update or delete another teams post": true,
+   "An editor in one team who is a plain member of another cannot write there": true,
+   "A member without a role can read but not write": true,
+   "A user outside the team cannot read or write": true,
+   "An admin updates and deletes in their own team": true,
+   "An admin cannot update or delete another teams post": true,
+   "Running the seeder again neither fails nor duplicates": true,
+   "A permission granted to a role applies on the next request": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "team-permissions-skill-2": {
+  "task": "team-permissions",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "An editor creates and updates posts in their team": true,
+   "An editor cannot delete posts": true,
+   "An editor cannot update or delete another teams post": true,
+   "An editor in one team who is a plain member of another cannot write there": true,
+   "A member without a role can read but not write": true,
+   "A user outside the team cannot read or write": true,
+   "An admin updates and deletes in their own team": true,
+   "An admin cannot update or delete another teams post": true,
+   "Running the seeder again neither fails nor duplicates": true,
+   "A permission granted to a role applies on the next request": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "team-permissions-skill-3": {
+  "task": "team-permissions",
+  "arm": "skill",
+  "run": 3,
+  "tests": {
+   "An editor creates and updates posts in their team": true,
+   "An editor cannot delete posts": true,
+   "An editor cannot update or delete another teams post": true,
+   "An editor in one team who is a plain member of another cannot write there": true,
+   "A member without a role can read but not write": true,
+   "A user outside the team cannot read or write": true,
+   "An admin updates and deletes in their own team": true,
+   "An admin cannot update or delete another teams post": true,
+   "Running the seeder again neither fails nor duplicates": true,
+   "A permission granted to a role applies on the next request": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "team-roles-page-skill-1": {
+  "task": "team-roles-page",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "Guests are sent to login": true,
+   "Members without the admin role are forbidden": true,
+   "Users without any role are forbidden": true,
+   "Admins see every user with their role names": true,
+   "The number of queries does not grow with the number of users": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "team-roles-page-skill-2": {
+  "task": "team-roles-page",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "Guests are sent to login": true,
+   "Members without the admin role are forbidden": true,
+   "Users without any role are forbidden": true,
+   "Admins see every user with their role names": true,
+   "The number of queries does not grow with the number of users": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "token-login-skill-1": {
+  "task": "token-login",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true,
+   "A missing field is a 422": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "The limit resets after a minute": true,
+   "Revoking deletes only the token used": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "token-login-skill-2": {
+  "task": "token-login",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true,
+   "A missing field is a 422": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "The limit resets after a minute": true,
+   "Revoking deletes only the token used": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "activity-feed-draft-1": {
+  "task": "activity-feed",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "The feed is newest first in pages of twenty": true,
+   "Walking every page returns each activity exactly once when many share a timestamp": true,
+   "Items name their subject kind and id": true,
+   "Type post returns only post activities across every page": true,
+   "Type comment and type invoice filter too": true,
+   "An unknown type is rejected or empty": true,
+   "An array type is never a server error": true,
+   "A deleted subject does not break the feed": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "activity-feed-draft-2": {
+  "task": "activity-feed",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "The feed is newest first in pages of twenty": true,
+   "Walking every page returns each activity exactly once when many share a timestamp": true,
+   "Items name their subject kind and id": true,
+   "Type post returns only post activities across every page": true,
+   "Type comment and type invoice filter too": true,
+   "An unknown type is rejected or empty": true,
+   "An array type is never a server error": true,
+   "A deleted subject does not break the feed": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "activity-feed-draft-3": {
+  "task": "activity-feed",
+  "arm": "draft",
+  "run": 3,
+  "tests": {
+   "The feed is newest first in pages of twenty": true,
+   "Walking every page returns each activity exactly once when many share a timestamp": true,
+   "Items name their subject kind and id": true,
+   "Type post returns only post activities across every page": true,
+   "Type comment and type invoice filter too": true,
+   "An unknown type is rejected or empty": true,
+   "An array type is never a server error": true,
+   "A deleted subject does not break the feed": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "block-user-draft-1": {
+  "task": "block-user",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "A normal user can log in with a session": true,
+   "A blocked user cannot log in": true,
+   "A blocked user cannot get a new api token": true,
+   "An existing api token stops working once blocked": true,
+   "An existing session ends on the next request": true,
+   "A remember me cookie stops working once blocked": true,
+   "Other users stay logged in when someone is blocked": true,
+   "The password reset flow works for a normal user": true,
+   "A password reset does not let a blocked user back in": true,
+   "A blocked user cannot reset their way in with a fresh link": true,
+   "After unblocking login works again": true,
+   "Only admins can block or unblock": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "block-user-draft-2": {
+  "task": "block-user",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "A normal user can log in with a session": true,
+   "A blocked user cannot log in": true,
+   "A blocked user cannot get a new api token": true,
+   "An existing api token stops working once blocked": true,
+   "An existing session ends on the next request": true,
+   "A remember me cookie stops working once blocked": true,
+   "Other users stay logged in when someone is blocked": true,
+   "The password reset flow works for a normal user": true,
+   "A password reset does not let a blocked user back in": true,
+   "A blocked user cannot reset their way in with a fresh link": true,
+   "After unblocking login works again": true,
+   "Only admins can block or unblock": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "block-user-draft-3": {
+  "task": "block-user",
+  "arm": "draft",
+  "run": 3,
+  "tests": {
+   "A normal user can log in with a session": true,
+   "A blocked user cannot log in": true,
+   "A blocked user cannot get a new api token": true,
+   "An existing api token stops working once blocked": true,
+   "An existing session ends on the next request": true,
+   "A remember me cookie stops working once blocked": true,
+   "Other users stay logged in when someone is blocked": true,
+   "The password reset flow works for a normal user": true,
+   "A password reset does not let a blocked user back in": true,
+   "A blocked user cannot reset their way in with a fresh link": true,
+   "After unblocking login works again": true,
+   "Only admins can block or unblock": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "carrier-quote-draft-1": {
+  "task": "carrier-quote",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "It returns the carriers rates": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Transient errors are retried": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A carrier that does not answer gets the fallback": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "carrier-quote-draft-2": {
+  "task": "carrier-quote",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "It returns the carriers rates": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Transient errors are retried": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A carrier that does not answer gets the fallback": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "document-vault-draft-1": {
+  "task": "document-vault",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "test_an_upload_is_stored_privately_under_a_generated_name": true,
+   "test_a_file_that_only_claims_to_be_an_image_is_rejected": true,
+   "test_a_file_over_5_mb_is_rejected": true,
+   "test_the_link_downloads_the_file_without_logging_in": true,
+   "test_the_link_stops_working_after_10_minutes": true,
+   "test_a_tampered_link_is_refused": true,
+   "test_another_user_cannot_get_a_link": true,
+   "test_a_link_to_a_missing_file_answers_404": true,
+   "test_guest_without_accept_header_gets_json_401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "document-vault-draft-2": {
+  "task": "document-vault",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "test_an_upload_is_stored_privately_under_a_generated_name": true,
+   "test_a_file_that_only_claims_to_be_an_image_is_rejected": true,
+   "test_a_file_over_5_mb_is_rejected": true,
+   "test_the_link_downloads_the_file_without_logging_in": true,
+   "test_the_link_stops_working_after_10_minutes": true,
+   "test_a_tampered_link_is_refused": true,
+   "test_another_user_cannot_get_a_link": true,
+   "test_a_link_to_a_missing_file_answers_404": true,
+   "test_guest_without_accept_header_gets_json_401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "export-purge-command-draft-1": {
+  "task": "export-purge-command",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "test_it_removes_every_expired_export_and_its_file_and_keeps_recent_ones": true,
+   "test_the_retention_period_can_be_changed": false,
+   "test_a_dry_run_deletes_nothing_and_reports_the_count": true,
+   "test_in_production_it_refuses_to_delete_without_confirmation_when_unattended": true,
+   "test_in_production_force_deletes_unattended": true,
+   "test_a_file_that_cannot_be_deleted_keeps_its_row_does_not_stop_the_rest_and_fails_the_run": true,
+   "test_it_is_scheduled_nightly_at_three_on_one_server_and_the_scheduled_invocation_works_unattended_in_production": true
+  },
+  "exit_code": 1,
+  "output_tail": "{\"tool\":\"phpunit\",\"result\":\"failed\",\"tests\":7,\"passed\":6,\"assertions\":23,\"duration_ms\":1390,\"failed\":1,\"failures\":[{\"test\":\"Tests\\\\Hidden\\\\ExportPurgeCommandHiddenTest::test_the_retention_period_can_be_changed\",\"file\":\"/private/var/folders/14/09m_2jb959v7m9pj06bnpr280000gn/T/hidden-rze0vou3/app/tests/Hidden/ExportPurgeCommandHiddenTest.php\",\"line\":68,\"message\":\"Expected status code 0 but received 1.\\nFailed asserting that 1 matches expected 0.\",\"trace\":[\"/private/var/folders/14/09m_2jb959v7m9pj06bnpr280000gn/T/hidden-rze0vou3/app/vendor/laravel/framework/src/Illuminate/Testing/PendingCommand.php:464\",\"/private/var/folders/14/09m_2jb959v7m9pj06bnpr280000gn/T/hidden-rze0vou3/app/tests/Hidden/ExportPurgeCommandHiddenTest.php:68\"]}]}\n"
+ },
+ "export-purge-command-draft-2": {
+  "task": "export-purge-command",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "test_it_removes_every_expired_export_and_its_file_and_keeps_recent_ones": true,
+   "test_the_retention_period_can_be_changed": true,
+   "test_a_dry_run_deletes_nothing_and_reports_the_count": true,
+   "test_in_production_it_refuses_to_delete_without_confirmation_when_unattended": true,
+   "test_in_production_force_deletes_unattended": true,
+   "test_a_file_that_cannot_be_deleted_keeps_its_row_does_not_stop_the_rest_and_fails_the_run": true,
+   "test_it_is_scheduled_nightly_at_three_on_one_server_and_the_scheduled_invocation_works_unattended_in_production": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "invoice-uploads-draft-1": {
+  "task": "invoice-uploads",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "An invoice is never stored on the public disk or exposed by a public url": true,
+   "The owner downloads exactly the bytes uploaded": true,
+   "Another user cannot download the invoice": true,
+   "Another user cannot replace the invoice": true,
+   "A guest cannot download": true,
+   "An order without an invoice answers 404": true,
+   "The stored file name never contains the client file name": true,
+   "A text file named pdf is rejected with 422": true,
+   "A file over 5 mb is rejected with 422": true,
+   "A re upload leaves exactly one file for the order": true,
+   "An empty text field named like the file does not bypass validation": true,
+   "An empty text field named like the file alongside a valid pdf": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "invoice-uploads-draft-2": {
+  "task": "invoice-uploads",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "An invoice is never stored on the public disk or exposed by a public url": true,
+   "The owner downloads exactly the bytes uploaded": true,
+   "Another user cannot download the invoice": true,
+   "Another user cannot replace the invoice": true,
+   "A guest cannot download": true,
+   "An order without an invoice answers 404": true,
+   "The stored file name never contains the client file name": true,
+   "A text file named pdf is rejected with 422": true,
+   "A file over 5 mb is rejected with 422": true,
+   "A re upload leaves exactly one file for the order": true,
+   "An empty text field named like the file does not bypass validation": true,
+   "An empty text field named like the file alongside a valid pdf": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "invoice-uploads-draft-3": {
+  "task": "invoice-uploads",
+  "arm": "draft",
+  "run": 3,
+  "tests": {
+   "An invoice is never stored on the public disk or exposed by a public url": true,
+   "The owner downloads exactly the bytes uploaded": true,
+   "Another user cannot download the invoice": true,
+   "Another user cannot replace the invoice": true,
+   "A guest cannot download": true,
+   "An order without an invoice answers 404": true,
+   "The stored file name never contains the client file name": true,
+   "A text file named pdf is rejected with 422": true,
+   "A file over 5 mb is rejected with 422": true,
+   "A re upload leaves exactly one file for the order": true,
+   "An empty text field named like the file does not bypass validation": true,
+   "An empty text field named like the file alongside a valid pdf": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "markdown-comments-draft-1": {
+  "task": "markdown-comments",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "A script tag is inert in the json and on the page": true,
+   "An image with an event handler is inert in the json and on the page": true,
+   "Raw html is inert in the json and on the page": true,
+   "A javascript markdown link is inert in the json and on the page": true,
+   "Bold and https links still render in the json and on the page": true,
+   "Guests cannot post comments": true,
+   "Comments are newest first fifteen per page": true,
+   "Walking the json pages returns each same second comment once": true,
+   "Walking the article pages shows each same second comment once": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "markdown-comments-draft-2": {
+  "task": "markdown-comments",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "A script tag is inert in the json and on the page": true,
+   "An image with an event handler is inert in the json and on the page": true,
+   "Raw html is inert in the json and on the page": true,
+   "A javascript markdown link is inert in the json and on the page": true,
+   "Bold and https links still render in the json and on the page": true,
+   "Guests cannot post comments": true,
+   "Comments are newest first fifteen per page": true,
+   "Walking the json pages returns each same second comment once": true,
+   "Walking the article pages shows each same second comment once": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "markdown-comments-draft-3": {
+  "task": "markdown-comments",
+  "arm": "draft",
+  "run": 3,
+  "tests": {
+   "A script tag is inert in the json and on the page": true,
+   "An image with an event handler is inert in the json and on the page": true,
+   "Raw html is inert in the json and on the page": true,
+   "A javascript markdown link is inert in the json and on the page": true,
+   "Bold and https links still render in the json and on the page": true,
+   "Guests cannot post comments": true,
+   "Comments are newest first fifteen per page": true,
+   "Walking the json pages returns each same second comment once": true,
+   "Walking the article pages shows each same second comment once": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "notes-search-api-draft-1": {
+  "task": "notes-search-api",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "test_list_is_newest_first_by_default_and_sorts_by_title": true,
+   "test_sorting_by_the_secret_column_is_not_possible": true,
+   "test_sorting_by_the_api_token_column_is_not_possible": true,
+   "test_an_unknown_or_injected_sort_is_never_a_server_error": true,
+   "test_an_array_sort_is_never_a_server_error": true,
+   "test_a_bad_direction_is_never_a_server_error": true,
+   "test_search_matches_part_of_a_title": true,
+   "test_a_percent_sign_in_the_search_is_not_a_wildcard": true,
+   "test_an_underscore_in_the_search_is_not_a_wildcard": true,
+   "test_a_search_for_a_percent_sign_finds_the_literal_title": true,
+   "test_a_search_for_an_underscore_finds_the_literal_title": true,
+   "test_the_list_shows_only_the_users_team": true,
+   "test_creating_a_note_in_another_teams_project_is_refused": true,
+   "test_team_and_author_come_from_the_user_not_the_body": true,
+   "test_another_teams_note_cannot_be_read": true,
+   "test_the_list_never_returns_internal_columns": true,
+   "test_showing_a_note_never_returns_internal_columns": true,
+   "test_creating_a_note_never_returns_the_projects_or_authors_internal_columns": true,
+   "test_responses_never_include_the_projects_or_authors_internal_columns": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "notes-search-api-draft-2": {
+  "task": "notes-search-api",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "test_list_is_newest_first_by_default_and_sorts_by_title": true,
+   "test_sorting_by_the_secret_column_is_not_possible": true,
+   "test_sorting_by_the_api_token_column_is_not_possible": true,
+   "test_an_unknown_or_injected_sort_is_never_a_server_error": true,
+   "test_an_array_sort_is_never_a_server_error": true,
+   "test_a_bad_direction_is_never_a_server_error": true,
+   "test_search_matches_part_of_a_title": true,
+   "test_a_percent_sign_in_the_search_is_not_a_wildcard": true,
+   "test_an_underscore_in_the_search_is_not_a_wildcard": true,
+   "test_a_search_for_a_percent_sign_finds_the_literal_title": true,
+   "test_a_search_for_an_underscore_finds_the_literal_title": true,
+   "test_the_list_shows_only_the_users_team": true,
+   "test_creating_a_note_in_another_teams_project_is_refused": true,
+   "test_team_and_author_come_from_the_user_not_the_body": true,
+   "test_another_teams_note_cannot_be_read": true,
+   "test_the_list_never_returns_internal_columns": true,
+   "test_showing_a_note_never_returns_internal_columns": true,
+   "test_creating_a_note_never_returns_the_projects_or_authors_internal_columns": true,
+   "test_responses_never_include_the_projects_or_authors_internal_columns": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "orders-api-draft-1": {
+  "task": "orders-api",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "A read token lists only the owners orders newest first": true,
+   "A read token cannot create orders": true,
+   "A write token without read cannot list": true,
+   "A write token creates an order without an accept header": true,
+   "Another users order is a 404 without internals": true,
+   "A missing order is a 404 without internals": true,
+   "Api responses do not start a session": true,
+   "Guest with json accept gets json 401": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "orders-api-draft-2": {
+  "task": "orders-api",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "A read token lists only the owners orders newest first": true,
+   "A read token cannot create orders": true,
+   "A write token without read cannot list": true,
+   "A write token creates an order without an accept header": true,
+   "Another users order is a 404 without internals": true,
+   "A missing order is a 404 without internals": true,
+   "Api responses do not start a session": true,
+   "Guest with json accept gets json 401": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "password-reset-links-draft-1": {
+  "task": "password-reset-links",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "test_forgot_password_mails_a_working_reset_link_on_the_canonical_site": true,
+   "test_forgot_password_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_forgot_password_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_owner_invites_and_the_mailed_link_adds_the_invitee": true,
+   "test_only_the_owner_can_invite": true,
+   "test_inviting_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_inviting_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_invite_link_without_its_query_string_is_rejected": true,
+   "test_another_user_cannot_use_the_invite_link": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "password-reset-links-draft-2": {
+  "task": "password-reset-links",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "test_forgot_password_mails_a_working_reset_link_on_the_canonical_site": true,
+   "test_forgot_password_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_forgot_password_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_owner_invites_and_the_mailed_link_adds_the_invitee": true,
+   "test_only_the_owner_can_invite": true,
+   "test_inviting_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_inviting_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_invite_link_without_its_query_string_is_rejected": true,
+   "test_another_user_cannot_use_the_invite_link": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "password-reset-links-draft-3": {
+  "task": "password-reset-links",
+  "arm": "draft",
+  "run": 3,
+  "tests": {
+   "test_forgot_password_mails_a_working_reset_link_on_the_canonical_site": true,
+   "test_forgot_password_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_forgot_password_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_owner_invites_and_the_mailed_link_adds_the_invitee": true,
+   "test_only_the_owner_can_invite": true,
+   "test_inviting_on_a_forged_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_inviting_with_a_forwarded_host_is_rejected_or_mails_a_canonical_link": true,
+   "test_the_invite_link_without_its_query_string_is_rejected": true,
+   "test_another_user_cannot_use_the_invite_link": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "payment-states-draft-1": {
+  "task": "payment-states",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "Paying a pending payment marks it paid records one ledger entry and mails one receipt": true,
+   "Paying twice records one ledger entry and one receipt": true,
+   "A payment paid by a concurrent request after it was read is not paid again": true,
+   "A failing ledger write leaves the payment pending and sends no receipt": true,
+   "Refunding a paid payment records a negative ledger entry": true,
+   "Refunding a pending payment is rejected and changes nothing": true,
+   "Admin can set any known state by name without side effects": true,
+   "Admin endpoint rejects unknown state names with a client error not a crash": true,
+   "Non admin cannot set a state": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "payment-states-draft-2": {
+  "task": "payment-states",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "Paying a pending payment marks it paid records one ledger entry and mails one receipt": true,
+   "Paying twice records one ledger entry and one receipt": true,
+   "A payment paid by a concurrent request after it was read is not paid again": true,
+   "A failing ledger write leaves the payment pending and sends no receipt": true,
+   "Refunding a paid payment records a negative ledger entry": true,
+   "Refunding a pending payment is rejected and changes nothing": true,
+   "Admin can set any known state by name without side effects": true,
+   "Admin endpoint rejects unknown state names with a client error not a crash": true,
+   "Non admin cannot set a state": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "payment-states-draft-3": {
+  "task": "payment-states",
+  "arm": "draft",
+  "run": 3,
+  "tests": {
+   "Paying a pending payment marks it paid records one ledger entry and mails one receipt": true,
+   "Paying twice records one ledger entry and one receipt": true,
+   "A payment paid by a concurrent request after it was read is not paid again": true,
+   "A failing ledger write leaves the payment pending and sends no receipt": true,
+   "Refunding a paid payment records a negative ledger entry": true,
+   "Refunding a pending payment is rejected and changes nothing": true,
+   "Admin can set any known state by name without side effects": true,
+   "Admin endpoint rejects unknown state names with a client error not a crash": true,
+   "Non admin cannot set a state": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "profile-patch-draft-1": {
+  "task": "profile-patch",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "Guests cannot read or change a profile": true,
+   "Show returns the pinned profile shape": true,
+   "Posts are neither returned nor queried unless included": true,
+   "Include posts returns only the users own posts": true,
+   "Patching only the name leaves bio and phone unchanged": true,
+   "An explicit null clears the bio and leaves the rest": true,
+   "Patch ignores is admin team id and id": true,
+   "An invalid email is rejected and changes nothing": true,
+   "An over long name is rejected and changes nothing": true,
+   "A null or non string name is rejected not a server error": true,
+   "An email taken by another user is rejected but keeping your own is fine": true,
+   "The patch response does not load posts": true,
+   "Import creates valid rows and exits zero": true,
+   "Import rejects a bad email row still imports the rest and exits non zero": true,
+   "Import rejects wrongly typed rows without crashing": true,
+   "Import updates an existing user by email and ignores privileged fields": true,
+   "Import of a missing file exits non zero and creates nothing": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "profile-patch-draft-2": {
+  "task": "profile-patch",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "Guests cannot read or change a profile": true,
+   "Show returns the pinned profile shape": true,
+   "Posts are neither returned nor queried unless included": true,
+   "Include posts returns only the users own posts": true,
+   "Patching only the name leaves bio and phone unchanged": true,
+   "An explicit null clears the bio and leaves the rest": true,
+   "Patch ignores is admin team id and id": true,
+   "An invalid email is rejected and changes nothing": true,
+   "An over long name is rejected and changes nothing": true,
+   "A null or non string name is rejected not a server error": true,
+   "An email taken by another user is rejected but keeping your own is fine": true,
+   "The patch response does not load posts": true,
+   "Import creates valid rows and exits zero": true,
+   "Import rejects a bad email row still imports the rest and exits non zero": true,
+   "Import rejects wrongly typed rows without crashing": true,
+   "Import updates an existing user by email and ignores privileged fields": true,
+   "Import of a missing file exits non zero and creates nothing": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "profile-patch-draft-3": {
+  "task": "profile-patch",
+  "arm": "draft",
+  "run": 3,
+  "tests": {
+   "Guests cannot read or change a profile": true,
+   "Show returns the pinned profile shape": true,
+   "Posts are neither returned nor queried unless included": true,
+   "Include posts returns only the users own posts": true,
+   "Patching only the name leaves bio and phone unchanged": true,
+   "An explicit null clears the bio and leaves the rest": true,
+   "Patch ignores is admin team id and id": true,
+   "An invalid email is rejected and changes nothing": true,
+   "An over long name is rejected and changes nothing": true,
+   "A null or non string name is rejected not a server error": true,
+   "An email taken by another user is rejected but keeping your own is fine": true,
+   "The patch response does not load posts": true,
+   "Import creates valid rows and exits zero": true,
+   "Import rejects a bad email row still imports the rest and exits non zero": true,
+   "Import rejects wrongly typed rows without crashing": true,
+   "Import updates an existing user by email and ignores privileged fields": true,
+   "Import of a missing file exits non zero and creates nothing": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipment-sync-draft-1": {
+  "task": "shipment-sync",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true,
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipment-sync-draft-2": {
+  "task": "shipment-sync",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true,
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipments-api-draft-1": {
+  "task": "shipments-api",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "The list shows only the users warehouse": true,
+   "The user id filter does not match other ids containing the digits": true,
+   "The status filter paid never returns unpaid shipments": true,
+   "The paid flag zero or false returns only unpaid shipments": true,
+   "The paid flag one or true returns only paid shipments": true,
+   "Unknown or internal filters are rejected": true,
+   "Unknown or internal sorts are rejected": true,
+   "The list sorts on public fields": true,
+   "The list never returns the internal column": true,
+   "A user without a warehouse never sees unscoped shipments": true,
+   "Creating a shipment uses the users warehouse and identity": true,
+   "Creating with another warehouses carrier is refused": true,
+   "A user without a warehouse cannot create with an unscoped carrier": true,
+   "An array carrier id is a validation error": true,
+   "A zero carrier id is a validation error": true,
+   "A false carrier id is a validation error": true,
+   "An injected string carrier id is a validation error": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipments-api-draft-2": {
+  "task": "shipments-api",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "The list shows only the users warehouse": true,
+   "The user id filter does not match other ids containing the digits": true,
+   "The status filter paid never returns unpaid shipments": false,
+   "The paid flag zero or false returns only unpaid shipments": true,
+   "The paid flag one or true returns only paid shipments": true,
+   "Unknown or internal filters are rejected": true,
+   "Unknown or internal sorts are rejected": true,
+   "The list sorts on public fields": true,
+   "The list never returns the internal column": true,
+   "A user without a warehouse never sees unscoped shipments": true,
+   "Creating a shipment uses the users warehouse and identity": true,
+   "Creating with another warehouses carrier is refused": true,
+   "A user without a warehouse cannot create with an unscoped carrier": true,
+   "An array carrier id is a validation error": true,
+   "A zero carrier id is a validation error": true,
+   "A false carrier id is a validation error": true,
+   "An injected string carrier id is a validation error": true
+  },
+  "exit_code": 1,
+  "output_tail": "{\"tool\":\"pest\",\"result\":\"failed\",\"tests\":17,\"passed\":16,\"assertions\":54,\"duration_ms\":520,\"failed\":1,\"failures\":[{\"test\":\"Tests\\\\Hidden\\\\ShipmentsApiHiddenTest::test_the_status_filter_paid_never_returns_unpaid_shipments\",\"file\":\"/private/var/folders/14/09m_2jb959v7m9pj06bnpr280000gn/T/hidden-lcse5dtp/app/tests/Hidden/ShipmentsApiHiddenTest.php\",\"line\":131,\"message\":\"Failed asserting that two arrays are identical.\\n--- Expected\\n+++ Actual\\n@@ @@\\n-Array &0 [\\n-    0 => 'S-PAID',\\n-]\\n+Array &0 []\"}]}\n"
+ },
+ "shipments-api-draft-3": {
+  "task": "shipments-api",
+  "arm": "draft",
+  "run": 3,
+  "tests": {
+   "The list shows only the users warehouse": true,
+   "The user id filter does not match other ids containing the digits": true,
+   "The status filter paid never returns unpaid shipments": true,
+   "The paid flag zero or false returns only unpaid shipments": true,
+   "The paid flag one or true returns only paid shipments": true,
+   "Unknown or internal filters are rejected": true,
+   "Unknown or internal sorts are rejected": true,
+   "The list sorts on public fields": true,
+   "The list never returns the internal column": true,
+   "A user without a warehouse never sees unscoped shipments": true,
+   "Creating a shipment uses the users warehouse and identity": true,
+   "Creating with another warehouses carrier is refused": true,
+   "A user without a warehouse cannot create with an unscoped carrier": true,
+   "An array carrier id is a validation error": true,
+   "A zero carrier id is a validation error": true,
+   "A false carrier id is a validation error": true,
+   "An injected string carrier id is a validation error": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "stock-csv-import-draft-1": {
+  "task": "stock-csv-import",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "A bom crlf file with padded mixed case headers imports every row": true,
+   "Columns are found by name in any order": true,
+   "Invalid rows are reported with their file line and valid rows still import": true,
+   "Blank lines are ignored but still counted in line numbers": true,
+   "Importing a sku again updates it": true,
+   "A header only csv is accepted": true,
+   "A file without both headers is rejected": true,
+   "A non csv file is rejected": true,
+   "A file over 5 mb is rejected": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "stock-csv-import-draft-2": {
+  "task": "stock-csv-import",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "A bom crlf file with padded mixed case headers imports every row": true,
+   "Columns are found by name in any order": true,
+   "Invalid rows are reported with their file line and valid rows still import": true,
+   "Blank lines are ignored but still counted in line numbers": true,
+   "Importing a sku again updates it": true,
+   "A header only csv is accepted": true,
+   "A file without both headers is rejected": true,
+   "A non csv file is rejected": true,
+   "A file over 5 mb is rejected": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "team-permissions-draft-1": {
+  "task": "team-permissions",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "An editor creates and updates posts in their team": true,
+   "An editor cannot delete posts": true,
+   "An editor cannot update or delete another teams post": true,
+   "An editor in one team who is a plain member of another cannot write there": true,
+   "A member without a role can read but not write": true,
+   "A user outside the team cannot read or write": true,
+   "An admin updates and deletes in their own team": true,
+   "An admin cannot update or delete another teams post": true,
+   "Running the seeder again neither fails nor duplicates": true,
+   "A permission granted to a role applies on the next request": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "team-permissions-draft-2": {
+  "task": "team-permissions",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "An editor creates and updates posts in their team": true,
+   "An editor cannot delete posts": true,
+   "An editor cannot update or delete another teams post": true,
+   "An editor in one team who is a plain member of another cannot write there": true,
+   "A member without a role can read but not write": true,
+   "A user outside the team cannot read or write": true,
+   "An admin updates and deletes in their own team": true,
+   "An admin cannot update or delete another teams post": true,
+   "Running the seeder again neither fails nor duplicates": true,
+   "A permission granted to a role applies on the next request": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "team-permissions-draft-3": {
+  "task": "team-permissions",
+  "arm": "draft",
+  "run": 3,
+  "tests": {
+   "An editor creates and updates posts in their team": true,
+   "An editor cannot delete posts": true,
+   "An editor cannot update or delete another teams post": true,
+   "An editor in one team who is a plain member of another cannot write there": true,
+   "A member without a role can read but not write": true,
+   "A user outside the team cannot read or write": true,
+   "An admin updates and deletes in their own team": false,
+   "An admin cannot update or delete another teams post": true,
+   "Running the seeder again neither fails nor duplicates": true,
+   "A permission granted to a role applies on the next request": true
+  },
+  "exit_code": 1,
+  "output_tail": "{\"tool\":\"pest\",\"result\":\"failed\",\"tests\":10,\"passed\":9,\"assertions\":56,\"duration_ms\":616,\"failed\":1,\"failures\":[{\"test\":\"Tests\\\\Hidden\\\\TeamPermissionsHiddenTest::test_an_admin_updates_and_deletes_in_their_own_team\",\"file\":\"/private/var/folders/14/09m_2jb959v7m9pj06bnpr280000gn/T/hidden-sp3z1o48/app/tests/Hidden/TeamPermissionsHiddenTest.php\",\"line\":182,\"message\":\"Failed asserting that false is true.\"}]}\n"
+ },
+ "team-roles-page-draft-1": {
+  "task": "team-roles-page",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "Guests are sent to login": true,
+   "Members without the admin role are forbidden": true,
+   "Users without any role are forbidden": true,
+   "Admins see every user with their role names": true,
+   "The number of queries does not grow with the number of users": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "team-roles-page-draft-2": {
+  "task": "team-roles-page",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "Guests are sent to login": true,
+   "Members without the admin role are forbidden": true,
+   "Users without any role are forbidden": true,
+   "Admins see every user with their role names": true,
+   "The number of queries does not grow with the number of users": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "token-login-draft-1": {
+  "task": "token-login",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true,
+   "A missing field is a 422": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "The limit resets after a minute": true,
+   "Revoking deletes only the token used": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "token-login-draft-2": {
+  "task": "token-login",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true,
+   "A missing field is a 422": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "The limit resets after a minute": true,
+   "Revoking deletes only the token used": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ }
+}
