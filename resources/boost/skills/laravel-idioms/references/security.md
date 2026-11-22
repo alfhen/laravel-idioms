@@ -67,11 +67,11 @@ protected function search(Builder $q, string $term): void
 'project_id' => ['required', 'exists:projects,id'],
 'code'       => ['required', 'exists:invites,code'],
 // good: a type rule first, then the owner scope
-'project_id' => ['required', 'integer', Rule::exists('projects', 'id')->where('organization_id', $this->user()->organization_id)],
+'project_id' => ['required', 'integer:strict', Rule::exists('projects', 'id')->where('organization_id', $this->user()->organization_id)],
 'code'       => ['required', 'string', 'max:64', 'exists:invites,code'],
 // or skip the rule and resolve through the owner: $request->user()->organization->projects()->findOrFail($id)
 ```
-- Every `exists` and `unique` gets a type rule before it: `integer` for ids, `string` (with `max`) for codes, slugs and emails. Below 13.43.0 / 12.73.0 on MySQL and MariaDB, a JSON `0`, `false` or `[0]` reaches the query uncast and matches any non-numeric string, so `{"code": 0}` passes `exists:invites,code` (GHSA-wwq3-m3j5-wv66). The type rule fails it first.
+- Every `exists` and `unique` gets a type rule before it: `integer:strict` for ids in a JSON body (plain `integer` accepts `true` as 1, and the validated value stays `true`), `integer|min:1` for ids in a query string or form post, which arrive as strings, `string` (with `max`) for codes, slugs and emails. Below 13.43.0 / 12.73.0 on MySQL and MariaDB, a JSON `0`, `false` or `[0]` reaches the query uncast and matches any non-numeric string, so `{"code": 0}` passes `exists:invites,code` (GHSA-wwq3-m3j5-wv66). The type rule fails it first.
 - A null owner matches unowned rows. `->where('organization_id', null)` becomes `whereNull`, and the closure form `->where(fn ($q) => $q->where('organization_id', null))` also compiles to `IS NULL`. A user with no organization then passes `exists` for every row that has none. Neither form prevents it; refuse the request first:
 ```php
 public function authorize(): bool
@@ -233,7 +233,7 @@ final class UserMarkdown
 - `whereIn('id', $request->ids)->update(...)` touches other owners' rows. Scope it: `$request->user()->projects()->whereKey($ids)`.
 - `Route::resource('boards.cards')` binds `/boards/1/cards/99` even when 99 belongs to board 2. Add `->scopeBindings()` for a 404. Binding doesn't authorize.
 - `DB::table()` skips Eloquent global scopes, as does `withoutGlobalScopes()`: add the owner `where` by hand in exports and reports.
-- A denormalized owner column (a `user_id` copied from a parent row) goes stale when the parent changes. Authorize every endpoint, single and bulk, against the same source column, and derive the copy in a `saving` hook.
+- A denormalized owner column (a `user_id` copied from a parent row) goes stale when the parent changes. Authorize every endpoint, single and bulk, against the same source column, and derive the copy in a `saving` hook. That hook doesn't run when only the parent changes owner, so update the children's copies in the same transaction as the parent's change, or never read the copy for authorization.
 
 ## Tests
 

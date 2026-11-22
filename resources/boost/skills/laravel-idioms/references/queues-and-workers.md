@@ -118,6 +118,7 @@ The same holds for the `deferred` (12.35+) and `background` (12.37+) connections
 - Each real connection in the list needs its own `queue:work` (Horizon covers only Redis).
 - With a `sync` or `deferred` tail, a primary outage runs jobs inside web requests, without retries.
 - Listen for `Illuminate\Queue\Events\QueueFailedOver` and report it: it is the only signal that a failover happened.
+- A job dispatched with `afterCommit()` inside a transaction is not pushed during `dispatch()`: the first connection registers it and reports success, and the real push runs after the commit, outside the failover loop. If the primary is down then, nothing fails over and no `QueueFailedOver` fires. Where that job must not be lost, write an outbox row in the transaction and dispatch from it.
 
 ## Timeouts: limits in order
 

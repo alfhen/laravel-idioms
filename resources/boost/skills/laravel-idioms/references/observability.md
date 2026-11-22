@@ -122,6 +122,7 @@ DB::listen(function (QueryExecuted $query): void {
     }
 });
 ```
+- `sql` leaves the bindings out, but raw SQL with inline values (`whereRaw("email = '$email'")`) puts them in the text. Bind every value (`security.md`), or log only the time and connection where the code builds raw SQL.
 - `whenQueryingForLongerThan` adds up the time of every query on one connection (the default one through `DB::`; `DB::connection('x')` for others) and fires once when the total passes the threshold. An int threshold is milliseconds. Queue workers reset the total before each job, so it works per job too. It catches N+1 loops that no single slow query shows.
 - Log `$query->sql`, never `toRawSql()` or bindings: bindings carry emails, tokens and other request data.
 - Only where nothing else records queries. Pulse's slow-queries card and Nightwatch already do.
