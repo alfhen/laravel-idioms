@@ -74,3 +74,9 @@ jobs:
               --builds $w/builds.json --hidden $w/hidden.json \
               | diff -u $w/$run/tables.md -
           done
+          p=eval/results/packages-round
+          for run in round1/rep1 round1/rep2 round2/rep1 round2/rep2; do
+            python3 eval/aggregate.py --judgements $p/$run/judgements.json --mapping $p/$run/mapping.json \
+              --builds $p/builds.json --hidden $p/hidden.json \
+              | diff -u $p/$run/tables.md -
+          done

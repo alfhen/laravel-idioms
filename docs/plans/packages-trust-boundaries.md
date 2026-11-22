@@ -66,3 +66,17 @@ The checklist stays in SKILL.md this round. Moving it out without a compaction t
   3. Regression and probe: mean overall `skill` ≥ `prev` − 0.3 in both replicates, regression hidden tests not lower, and probe simplicity ≥ `prev` − 0.5.
   4. The skill fired in every `skill` and `prev` build.
 - **Revise loop (at most two):** revise from target-task misses only, and rebuild `skill` on the tasks the revision could touch.
+
+## Outcome
+
+The draft was written from the research before the pilot. Two revisions followed, each from defects the judges found in target-task builds. Against the pass bar:
+1. Hidden tests: this version passes 473/473 against 470/473 for v0.4.0, and no task is lower. **Met.** Pre-registered misses: 7 against 13 in total, and 4/21 against 11/21 on targets. **Met.** Not higher on any holdout: **not met**. activity-feed is 1/3 against 0/3 (no morph map), and password-reset-links is 2/3 against 1/3, because builds read the trusted-proxy range from `env()` in `bootstrap/app.php`.
+2. Bugs per build 1.05 / 1.05 against 1.39 / 1.50. Correctness on targets 8.42 / 8.50 against 7.46 / 7.17, and on holdouts 8.00 / 8.50 against 7.67 / 7.50. **Met.**
+3. Regression mean 8.03 / 7.82 against 8.05 / 7.76, regression hidden tests not lower, probe simplicity 9.00 / 7.50 against 7.50 / 7.50. **Met.** The probe's overall score is lower in both replicates.
+4. The skill fired in every `skill` and `prev` build. **Met.**
+
+Triggering (75/75 and 0/45 for both versions) and audit traps (the same for both) did not change.
+
+Follow-ups for the next round, from the two holdout misses:
+- The trusted-proxy rule should say the range lives in config (`config('app.trusted_proxies')` or a `TRUSTED_PROXIES` key read in a config file), not `env()` in `bootstrap/app.php`.
+- The morph-map rule (`Relation::enforceMorphMap()`) is only in `eloquent.md`. Give it a line in `SKILL.md` §5 if a fresh round confirms the miss.

@@ -1,0 +1,90 @@
+{
+ "team-permissions": {
+  "impl-1": "draft",
+  "impl-2": "prev"
+ },
+ "shipments-api": {
+  "impl-1": "prev",
+  "impl-2": "draft"
+ },
+ "profile-patch": {
+  "impl-1": "draft",
+  "impl-2": "prev"
+ },
+ "payment-states": {
+  "impl-1": "prev",
+  "impl-2": "draft"
+ },
+ "invoice-uploads": {
+  "impl-1": "draft",
+  "impl-2": "prev"
+ },
+ "markdown-comments": {
+  "impl-1": "prev",
+  "impl-2": "draft"
+ },
+ "block-user": {
+  "impl-1": "draft",
+  "impl-2": "prev"
+ },
+ "password-reset-links": {
+  "impl-1": "prev",
+  "impl-2": "draft"
+ },
+ "activity-feed": {
+  "impl-1": "draft",
+  "impl-2": "prev"
+ },
+ "team-roles-page": {
+  "impl-1": "prev",
+  "impl-2": "draft"
+ },
+ "sales-report": {
+  "impl-1": "draft",
+  "impl-2": "prev"
+ },
+ "blog-crud": {
+  "impl-1": "prev",
+  "impl-2": "draft"
+ },
+ "blade-catalogue": {
+  "impl-1": "draft",
+  "impl-2": "prev"
+ },
+ "filament-admin": {
+  "impl-1": "prev",
+  "impl-2": "draft"
+ },
+ "shipment-sync": {
+  "impl-1": "draft",
+  "impl-2": "prev"
+ },
+ "export-purge-command": {
+  "impl-1": "prev",
+  "impl-2": "draft"
+ },
+ "carrier-quote": {
+  "impl-1": "draft",
+  "impl-2": "prev"
+ },
+ "orders-api": {
+  "impl-1": "prev",
+  "impl-2": "draft"
+ },
+ "stock-csv-import": {
+  "impl-1": "draft",
+  "impl-2": "prev"
+ },
+ "token-login": {
+  "impl-1": "prev",
+  "impl-2": "draft"
+ },
+ "notes-search-api": {
+  "impl-1": "draft",
+  "impl-2": "prev"
+ },
+ "document-vault": {
+  "impl-1": "prev",
+  "impl-2": "draft"
+ }
+}

@@ -1,0 +1,100 @@
+{
+ "team-permissions": {
+  "impl-1": "prev",
+  "impl-2": "skill",
+  "impl-3": "plain"
+ },
+ "shipments-api": {
+  "impl-1": "skill",
+  "impl-2": "plain",
+  "impl-3": "prev"
+ },
+ "profile-patch": {
+  "impl-1": "skill",
+  "impl-2": "prev",
+  "impl-3": "plain"
+ },
+ "payment-states": {
+  "impl-1": "prev",
+  "impl-2": "skill",
+  "impl-3": "plain"
+ },
+ "invoice-uploads": {
+  "impl-1": "plain",
+  "impl-2": "skill",
+  "impl-3": "prev"
+ },
+ "markdown-comments": {
+  "impl-1": "prev",
+  "impl-2": "plain",
+  "impl-3": "skill"
+ },
+ "block-user": {
+  "impl-1": "prev",
+  "impl-2": "skill",
+  "impl-3": "plain"
+ },
+ "password-reset-links": {
+  "impl-1": "skill",
+  "impl-2": "plain",
+  "impl-3": "prev"
+ },
+ "activity-feed": {
+  "impl-1": "skill",
+  "impl-2": "prev",
+  "impl-3": "plain"
+ },
+ "team-roles-page": {
+  "impl-1": "plain",
+  "impl-2": "prev",
+  "impl-3": "skill"
+ },
+ "sales-report": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "blog-crud": {
+  "impl-1": "prev",
+  "impl-2": "skill"
+ },
+ "blade-catalogue": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "filament-admin": {
+  "impl-1": "prev",
+  "impl-2": "skill"
+ },
+ "shipment-sync": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "export-purge-command": {
+  "impl-1": "prev",
+  "impl-2": "skill"
+ },
+ "carrier-quote": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "orders-api": {
+  "impl-1": "prev",
+  "impl-2": "skill"
+ },
+ "stock-csv-import": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "token-login": {
+  "impl-1": "prev",
+  "impl-2": "skill"
+ },
+ "notes-search-api": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "document-vault": {
+  "impl-1": "prev",
+  "impl-2": "skill"
+ }
+}

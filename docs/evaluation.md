@@ -1,6 +1,6 @@
 # Evaluation
 
-All evaluations used fresh Laravel 13.33 apps: PHPUnit, Pest 5.2 and Filament 5.8 variants. **Claude Sonnet** did the building and **Claude Opus** the blind judging. Judges scored each build from 1 to 10 on:
+All evaluations used fresh Laravel 13 apps (13.33 up to round 7, 13.43 in round 8): PHPUnit, Pest 5 and Filament 5 variants, and in round 8 a variant with five Spatie packages. **Claude Sonnet** did the building and **Claude Opus** the blind judging. Judges scored each build from 1 to 10 on:
 - collections and helpers
 - thin controllers
 - validation and Form Requests
@@ -51,6 +51,16 @@ All evaluations used fresh Laravel 13.33 apps: PHPUnit, Pest 5.2 and Filament 5.
 | partner-sync (holdout) | An unattended sync command against a flaky partner: visible failures, no flood, exit codes |
 | subscription-renewals (holdout) | Renewal dates through short months, the customer's own day, real timestamps |
 | team-activity (probe) | A small staff page with relative sign-in times that tests for over-engineering |
+| team-permissions | Team roles with spatie/laravel-permission: no cross-team writes, idempotent seeder, permission changes apply at once |
+| shipments-api | A spatie/laravel-query-builder list: exact id, enum and boolean filters, unknown filters rejected, no unscoped rows for a user without a warehouse |
+| profile-patch | Profile PATCH and import with spatie/laravel-data: partial updates, ignored privileged fields, optional include |
+| payment-states | Payment states with spatie/laravel-model-states: paid once under concurrent requests, receipt only after commit |
+| invoice-uploads | Private PDF uploads with spatie/laravel-medialibrary: owner-only download, no client file names, validated bytes |
+| markdown-comments | User Markdown rendered inert in Blade and JSON, and stable paging over tied timestamps |
+| block-user (holdout) | Blocking a user across login, password reset, API tokens and open sessions |
+| password-reset-links (holdout) | Mailed reset and invite links that a forged `Host` header can't redirect |
+| activity-feed (holdout) | A polymorphic feed with tied timestamps, a type filter and deleted subjects |
+| team-roles-page (probe) | A small admin page of members and roles that tests for over-engineering |
 
 ## Skill vs no skill
 
@@ -252,6 +262,77 @@ Single tasks below `main`: blade-catalogue, cart-discounts, invoice-totals and t
 The judged text is commit `dfb80fb`. After the results, review fixes changed five skill files (`SKILL.md` §3c and the money and dates paragraph; `webhooks.md`, `livewire.md`, `observability.md`, `dates-and-money.md`), the checklist greps and a few version notes. Those changes were not judged. The out-of-sample replicate above built them (commit `30c9be2`) for the miss counts and hidden tests only; the `rules()` type check added after it has not been built.
 
 Raw judgements, mappings, per-build stats, hidden-test results, static and miss counts, triggering and audit runs are in [`eval/results/webhooks-security-round/`](../eval/results/webhooks-security-round). CI checks that the judge, build and hidden-test tables re-derive from them. The miss and static counts come from `misses.py` and `static.py` run on the build trees, which are not committed.
+
+## Installed packages and trust boundaries (v0.5.0)
+
+This round came out of a research pass in November 2026. Six researchers covered the Laravel 12/13 framework and its advisories, Spatie's guidelines and packages, first-party packages, open-source Laravel apps, PHP tooling and the agent-skill ecosystem, and a skeptic checked each finding against the skill and a primary source (76 findings; plan in [docs/plans/packages-trust-boundaries.md](plans/packages-trust-boundaries.md)). The changes:
+- **Spatie packages.** A new `references/packages.md` covers spatie/laravel-permission, -query-builder, -data, -model-states and -medialibrary, and `SKILL.md` §0 sends the agent there when `composer.lock` lists one. `SKILL.md` gets one rule each for the defaults that bite: a permission named like a policy ability is granted for every model; a bare query-builder filter is a partial `LIKE`; `Data::from($request->all())` never validates.
+- **Trust boundaries.** Every `exists`/`unique` gets a type rule, and a user with no tenant is denied. The stored upload is read from validated data. A paged `ORDER BY` ends in a unique column. Absolute links come from `APP_URL`, with trusted hosts pinned and proxies trusted by range. User Markdown is rendered with HTML escaped and unsafe links off.
+- **Corrections.** The `trustProxies(at: '*')` example, `/** @test */` under PHPUnit 12, `pint --dirty` outside Git, the Pest 4/5 version line, `composer audit` and Laravel 11's end of security support, plus newer 13.x APIs in references.
+
+**Method.** As in round 7: arms `plain`, `prev` (v0.4.0) and the change; a new `base-spatie` app with the five packages installed; ten new tasks whose hidden tests each passed two independent correct reference builds and failed a naive one. One difference: the draft was written from the research **before** the pilot, so it never saw the misses list. The `prev` and `plain` pilot ran next, two Opus reviewers per task read only those builds, and `misses.py` got the list before any skill build was read. Two revisions followed the draft, each from defects the judges found in target-task builds only.
+
+There are six target tasks (team-permissions, shipments-api, profile-patch, payment-states, invoice-uploads, markdown-comments), three holdouts (block-user, password-reset-links, activity-feed) and one probe (team-roles-page). The 12 regression tasks are sales-report, blog-crud, blade-catalogue, filament-admin, shipment-sync, export-purge-command, carrier-quote, orders-api, stock-csv-import, token-login, notes-search-api and document-vault. Targets and holdouts have three builds per skill arm and one `plain`; the probe and regression tasks two. Two blind Opus judges per task scored replicates 1 and 2.
+
+**Pre-registered misses** (builds that make the miss):
+
+| Task | Miss | No skill | v0.4.0 | Draft | This version |
+|---|---|---|---|---|---|
+| team-permissions | `hasPermissionTo()` (throws when the permission row is missing) | 0/1 | 1/3 | 0/3 | 0/3 |
+| team-permissions | `DatabaseSeeder` fails on a second deploy run | 1/1 | 2/3 | 2/3 | 0/3 |
+| team-permissions | unbounded `body` into a `TEXT` column (MySQL error, not 422) | 1/1 | 2/3 | 3/3 | 3/3 |
+| shipments-api | paginated links drop the filters | 1/1 | 0/3 | 0/3 | 1/3 |
+| profile-patch | `include` parameter not checked | 1/1 | 0/3 | 0/3 | 0/3 |
+| payment-states | receipt sent inside the open transaction | 1/1 | 3/3 | 2/3 | 0/3 |
+| invoice-uploads | stored file read with `$request->file()`, not the validated file | 1/1 | 3/3 | 0/3 | 0/3 |
+| block-user (holdout) | reset link built from the request host | 0/1 | 1/3 | 0/3 | 0/3 |
+| block-user (holdout) | login without a throttle | 1/1 | 0/3 | 0/3 | 0/3 |
+| password-reset-links (holdout) | `env()` outside config | 0/1 | 1/3 | 0/3 | 2/3 |
+| activity-feed (holdout) | no morph map at all | 1/1 | 0/3 | 1/3 | 1/3 |
+| **Targets** | | 6/7 | **11/21** | **7/21** | **4/21** |
+| **Holdouts** | | 2/4 | **2/12** | **1/12** | **3/12** |
+
+How to read this table: the list was read from the v0.4.0 and `plain` builds, so v0.4.0's count is in-sample. The draft never saw the list, so its 7/21 on targets is out of sample. The revisions were written from the draft's judged target bugs, two of which are also on this list (the deploy seeder and the receipt inside the transaction), so this version's drop on those two lines is in-sample. The `env()` hits for this version are `env('TRUSTED_PROXIES')` in `bootstrap/app.php`: the new rule says to trust only the balancer's range, and builds read the range from `env()`, which returns `null` once config is cached. Every check is a grep. 38 more "look at" items are in [`misses.md`](../eval/results/packages-round/misses.md).
+
+**Hidden tests** (45 builds per skill arm, 473 tests on tasks that have them): v0.4.0 470/473, draft 470/473, this version 473/473, `plain` 108/108. markdown-comments separates the arms (a paged walk over tied timestamps: v0.4.0 25/27, this version 27/27); every other new task is at the ceiling for every arm.
+
+**Judges** (mean overall score, replicates 1 / 2; v0.4.0 was judged again in each round, so its numbers move):
+
+| Task set | No skill | v0.4.0 | Draft | v0.4.0 | This version |
+|---|---|---|---|---|---|
+| Target (6 tasks) | 6.35 / – | 8.07 / 7.87 | 8.52 / 7.56 | 7.67 / 6.96 | **8.39 / 8.24** |
+| Holdout (3 tasks) | 6.72 / – | 7.78 / 7.83 | 6.88 / 7.58 | 7.67 / 7.37 | **7.72 / 8.17** |
+| Probe (1 task) | 6.65 / – | 7.50 / 7.25 | 7.60 / 8.00 | 8.30 / 7.40 | 7.90 / 7.00 |
+| Regression (12 tasks) | – | 7.82 / 7.60 | 8.30 / 8.19 | 8.05 / 7.76 | 8.03 / 7.82 |
+| All 22 | 6.49 / – | 7.87 / 7.69 | 8.13 / 7.93 | 7.91 / 7.47 | **8.08 / 7.95** |
+
+This version had fewer bugs per build than v0.4.0 (1.05 and 1.05, against 1.39 and 1.50) and higher correctness on targets (8.42 / 8.50 against 7.46 / 7.17) and holdouts (8.00 / 8.50 against 7.67 / 7.50).
+
+The draft did not pass: holdout correctness was lower in replicate 1 (6.67 against 7.83) and target correctness in replicate 2 (7.58 against 7.92). In replicate 2 one shipments-api build scored 5.00: a `->default(null)` on a boolean query-builder filter makes it run on every request. The draft's regression lead (8.30 / 8.19) did not hold after the revisions (8.03 / 7.82, level with v0.4.0).
+
+**What the revisions changed.** Each item is a defect the judges found in builds of a target task, checked against the installed source. Revision 1, from the draft:
+- `integer` passes JSON `true`, `"+1"` and `" 1"`; ids in a JSON body use `integer:strict` (2 of 3 shipments-api draft builds).
+- query-builder `->default(null)` also sets `nullable()`, so the filter runs with `null` on every request.
+- A receipt sent inside `DB::transaction()` goes out even if the commit fails.
+- Permission seeders that deploys run: the skeleton's `DatabaseSeeder` uses `WithoutModelEvents`, which stops the package's cache flush, and creates a fixed test user that fails a second run; with teams on, reset the team id first and restore it after a check.
+
+Revision 2, from revision 1: "send it after the closure returns" led a payment-states build to send the receipt synchronously after the commit, so a mail failure left a paid payment and a 500. The text now says to queue the mailable with `afterCommit()`. payment-states scored 6.75 / 6.20 with revision 1 and 7.60 / 7.50 with revision 2 (v0.4.0: 7.80 / 6.50 in the same judgements). Revision 2 changes one sentence, so it was rebuilt and judged again only on the tasks that send mail: payment-states and the holdouts block-user and password-reset-links. The other 19 tasks are revision-1 builds, whose text differs only in that sentence. The revision-1 builds of the three rebuilt tasks are kept as arm `rev1`.
+
+**Pass bar** (from the plan):
+1. Hidden tests not lower on any task: **met**. Misses lower in total (7 against 13): **met**. Not higher on any holdout: **not met** on two. activity-feed is 1/3 against 0/3 (one build has no morph map; the rule is only in `eloquent.md`, which that build didn't read). password-reset-links is 2/3 against 1/3 (`env('TRUSTED_PROXIES')`, above). Holdouts can't drive a revision, so both stay as known gaps for the next round.
+2. Bugs per build lower and correctness not lower on targets and holdouts, both replicates: **met**.
+3. Regression mean ≥ v0.4.0 − 0.3 (8.03 / 7.82 against 8.05 / 7.76), regression hidden tests not lower, probe simplicity ≥ v0.4.0 − 0.5 (9.00 / 7.50 against 7.50 / 7.50): **met**. The probe's overall score is lower in both replicates (7.90 / 7.00 against 8.30 / 7.40).
+4. The skill fired in every `skill` and `prev` build: **met** (106/106).
+
+**Non-regression checks.**
+- **Triggering:** 40 prompts, Haiku, 3 runs each: 75/75 should-trigger and 0/45 false triggers, for both this version and v0.4.0.
+- **Static checks:** per-build counts of `lockForUpdate`, `Cache::lock`, `throttle`, `report(`, `Log::` and `catch (\Throwable)` are within 0.02 of v0.4.0. No build matched `Date::use`, an `encrypted` cast or `catch (\Exception)`.
+- **Audit traps:** two runs each. This version and v0.4.0 behave the same: each fails trap d (`scopeAccepted()`) in one run with a rewrite that breaks PHPStan and the tests, and leaves it unverified in the other. Every other trap passes for both. Trap d is a known flake from earlier rounds.
+- **Cost:** builds cost $0.41 against $0.43 and took about the same time (92 against 105 seconds). `SKILL.md` grew from 431 to 445 lines. The round cost about $75 in builds and about $110 in judging, including re-judged tasks.
+
+**Caveats.** Hidden tests are at the ceiling on nine of ten new tasks, so the evidence is the misses (one pilot, three builds per arm) and judge scores from two replicates, which move by up to 3.5 points on one task between replicates (shipments-api, draft). Six builds were killed by the session (exit 143) and rebuilt once, and their tasks were judged again; that re-judging moved v0.4.0's regression mean by 0.07 / 0.29 through judge variance alone. Replicate N judges build N, so the third build of each target and holdout counts only toward hidden tests and misses. The rubric reflects the conventions the skill teaches.
+
+Raw judgements, mappings, per-build stats, hidden-test results, static and miss counts are in [`eval/results/packages-round/`](../eval/results/packages-round). CI checks that the judge, build and hidden-test tables re-derive from them.
 
 ## Audit mode
 
