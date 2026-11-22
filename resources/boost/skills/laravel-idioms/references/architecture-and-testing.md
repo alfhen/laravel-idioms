@@ -70,6 +70,21 @@ Route::get('/me', fn (#[CurrentUser] User $user) => $user)->middleware('auth');
 #[Singleton]
 interface EventPusher {}
 ```
+- `#[Singleton]` (12.21+) and `singleton()` only for stateless services: one instance serves every later request on an Octane worker and every later job on a queue worker. A singleton whose constructor takes `Request`, a `#[CurrentUser]`, `Auth::user()`, a tenant or a mutable config value serves the first caller's user or tenant to everyone after. Per-request or per-job state → `#[Scoped]` (12.21+) or `scoped()`, which both workers flush; or pass the value as a method argument.
+```php
+// bad: the first request's user is kept for the life of the worker
+#[Singleton]
+final class DashboardFilters
+{
+    public function __construct(#[CurrentUser] public User $user) {}
+}
+// good
+#[Scoped]
+final class DashboardFilters
+{
+    public function __construct(#[CurrentUser] public User $user) {}
+}
+```
 - Constructor injection over `app()` / `resolve()` / `new` inside methods.
 - Contextual attributes (`Config, Storage, Cache, DB, Log, CurrentUser, RouteParameter, Context, Give, Tag`) over facade lookups in constructors.
 - `register()` for bindings only; everything else in `boot()`.
@@ -83,6 +98,24 @@ interface EventPusher {}
 ## Testing
 
 Match the suite's framework: Pest closures if `tests/Pest.php` or `pestphp/pest` exists, otherwise PHPUnit classes in the existing style. Pest idioms (`Pest.php` bindings, `expect()`, datasets, arch tests) are in `pest.md`. The examples below are Pest; in a PHPUnit suite the same Laravel assertions go in `test_*` methods, and datasets become `#[DataProvider]` methods.
+
+PHPUnit 12+ (the Laravel 13 skeleton ships ^12.5) reads attributes only:
+```php
+// bad: doc-comment metadata is ignored. No `test` prefix, so the method never runs and the suite stays green
+/**
+ * @test
+ * @dataProvider invalidEmails
+ */
+public function it_rejects_invalid_emails(string $email): void {}
+// good
+#[Test]
+#[DataProvider('invalidEmails')]
+public function it_rejects_invalid_emails(string $email): void {}
+
+public static function invalidEmails(): array { return ['no at sign' => ['nope']]; }
+```
+- `#[Test]` or a `test_` prefix; providers are `public static` methods named in `#[DataProvider]`. The same goes for `@group`, `@depends` and `@covers` (`#[Group]`, `#[Depends]`, `#[CoversClass]`), all in `PHPUnit\Framework\Attributes`.
+- PHPUnit 13 (Pest 5) also removes `assertContainsOnly()` and `isType()` and deprecates the `any()` matcher.
 
 ```php
 it('stores an article', function () {
@@ -144,4 +177,4 @@ $this->mock(GithubUserApi::class, fn (MockInterface $m) => $m->expects('hasIdent
 - Cache behaviour: test against the array store with `travel()`, not a mocked `Cache::remember` (`caching.md`).
 - Pest arch tests (`arch()->preset()->laravel()`, custom rules): `pest.md`.
 
-Evidence: `laravel/docs/container.md`, `http-tests.md`, `Illuminate/Container/Attributes/`, laravel.io `tests/Integration/`.
+Evidence: `laravel/docs/container.md`, `http-tests.md`, `octane.md` (Dependency Injection and Octane), `Illuminate/Container/Attributes/`, `Illuminate/Container/Container.php` (`getScopedTyped`, `forgetScopedInstances`), `Illuminate/Queue/QueueServiceProvider.php` (scoped instances forgotten before each job); phpunit/phpunit `ChangeLog-12.0.md` (#5541, doc-comment metadata removed), `src/Util/Test.php` (`isTestMethod`), `src/Metadata/Parser/` (attribute parser only), `DEPRECATIONS.md` (13.x); laravel/laravel 13.x `composer.json`; laravel.io `tests/Integration/`.

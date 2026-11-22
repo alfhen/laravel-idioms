@@ -26,7 +26,7 @@ class ImportFeed implements ShouldQueue
 }
 ```
 - One `Illuminate\Foundation\Queue\Queueable` trait (it bundles Dispatchable, InteractsWithQueue, QueueableByBus, SerializesModels), not the four legacy traits.
-- Options as class attributes from `Illuminate\Queue\Attributes`: `Tries, Backoff, Timeout, MaxExceptions, CountCrashesAsExceptions, FailOnTimeout, UniqueFor, DeleteWhenMissingModels, WithoutRelations, Queue, Connection, Delay, DebounceFor`. They target the class only (`WithoutRelations` also a property), never a method. A `public $tries` property overrides the attribute, so never set both. A method (`tries()`, `backoff()`) only for dynamic values. Pre-13 apps keep properties.
+- Options as class attributes from `Illuminate\Queue\Attributes`: `Tries, Backoff, Timeout, MaxExceptions, CountCrashesAsExceptions, FailOnTimeout, UniqueFor, DeleteWhenMissingModels, WithoutRelations, Queue, Connection, Delay, DebounceFor`, and `RetryFor` on 13.43+. They target the class only (`WithoutRelations` also a property), never a method. A `public $tries` property overrides the attribute, so never set both. A method (`tries()`, `backoff()`) only for dynamic values. Pre-13 apps keep properties.
 - Constructor takes models (or ids), never attribute arrays, API responses or binary blobs. `#[WithoutRelations]` stops eager-loaded relations being serialized. Base64-encode any binary you must pass.
 - A class in `app/Jobs` is queued. Synchronous "command jobs" run with `dispatchSync` are legacy. Closure jobs (`dispatch(fn () => ...)`) get only `->name()`/`->catch()` and worker defaults: anything needing tries, timeout, middleware or `failed()` is a class.
 - Payload carries personal data or secrets → `implements ShouldBeEncrypted` (jobs, listeners, notifications). Payloads are plain JSON in Redis/DB/SQS and copied into `failed_jobs`. Only the serialized command is encrypted; every worker needs the same `APP_KEY`.
@@ -63,10 +63,31 @@ $this->order->shipment()->create(['reference' => $client->createShipment($this->
 
 ## Retries and failure
 
-- Default is **one attempt**. Every retry path counts: an exception, `release()`, a timeout, and a release by `RateLimited`, `WithoutOverlapping` or `Release` middleware. Jobs using those need a higher `#[Tries]` or `retryUntil()` on the job, whatever `--tries` the worker runs with, or the first release fails them.
-- Separate "released for later" from "broke": many tries plus `#[MaxExceptions(3)]`. Its counter lives in the cache, and exceptions swallowed by `ThrottlesExceptions` don't count, so bound those with `retryUntil()`. Time-bounded work uses `retryUntil(): DateTime { return now()->plus(minutes: 30); }`, which wins over tries.
+- Default is **one attempt**. Every retry path counts: an exception, `release()`, a timeout, and a release by `RateLimited`, `WithoutOverlapping` or `Release` middleware. Jobs using those need a higher `#[Tries]`, `#[RetryFor]` (13.43+) or `retryUntil()` on the job, whatever `--tries` the worker runs with, or the first release fails them.
+- Separate "released for later" from "broke": many tries plus `#[MaxExceptions(3)]`. Its counter lives in the cache, and exceptions swallowed by `ThrottlesExceptions` don't count, so bound those with a retry window. Time-bounded work uses `#[RetryFor(minutes: 30)]` on 13.43+ (seconds positional, `minutes:`/`hours:` named), or `retryUntil(): DateTime { return now()->plus(minutes: 30); }` before it. Either wins over tries; a `retryUntil()` method or property wins over the attribute, so never set both.
 - A killed attempt (OOM, SIGKILL) never counts toward `#[MaxExceptions]`. Jobs that can crash a worker add `#[CountCrashesAsExceptions]`; it does nothing without `MaxExceptions` and a cache store.
 - Without backoff a failed job is retried immediately. `#[Backoff([10, 60, 300])]` on the class; the last value repeats.
+- Polling ("not ready yet, check again later"): on 13.43+ `$this->releaseUsingBackoff()` releases with the job's own `#[Backoff]` for the current attempt (the last value repeats). Not `$this->release($this->backoff()[$this->attempts() - 1])`, which breaks once attempts outrun the list. Bound the polling with `#[RetryFor]`, which also replaces the default of one attempt.
+```php
+#[Backoff([30, 60, 300]), RetryFor(hours: 2)]
+final class PollRenderStatus implements ShouldQueue
+{
+    use Queueable;
+
+    public function __construct(public Render $render) {}
+
+    public function handle(RenderClient $client): void
+    {
+        if (! $client->isFinished($this->render->external_id)) {
+            $this->releaseUsingBackoff();
+
+            return;
+        }
+
+        $this->render->update(['finished_at' => now()]);
+    }
+}
+```
 - Permanent errors fail at once: `$this->fail('User token revoked.'); return;` in `handle()`, `new FailOnException([AuthorizationException::class])` middleware, or `$exceptions->dontRetry([...])` in `bootstrap/app.php`. `$this->release($delay)` only for transient conditions.
 - A timeout uses an attempt and retries if tries remain. Non-idempotent long jobs add `#[FailOnTimeout]`. Never `#[Timeout(0)]`: no alarm is set and a hung job runs forever.
 - `failed(?Throwable $e)` runs on a **fresh instance**: properties set in `handle()` are gone. `$e` may be `MaxAttemptsExceededException` or `TimeoutExceededException`. A queued listener's `failed()` receives `($event, Throwable $e)`.
@@ -90,6 +111,13 @@ ShipOrder::dispatch($order)->afterCommit();
 ## afterResponse is not a queue
 
 `dispatch(...)->afterResponse()` / `dispatchAfterResponse()` runs the job in the web process after the response is sent: no worker, no retries, no `failed_jobs`, errors only reported. Use it only for work you can lose. Anything that must happen is queued (`->afterCommit()` inside a transaction).
+
+The same holds for the `deferred` (12.35+) and `background` (12.37+) connections in `config/queue.php`, which look like queues but aren't. `deferred` runs the job in the web process after the response; `background` runs it in a spawned PHP process. Both run it once, on the sync driver: `#[Tries]`, `#[Backoff]` and `#[RetryFor]` don't apply, `failed()` runs on the first exception, and no `failed_jobs` row is written (only `queue:work` writes one). Don't pick them for work that must happen.
+
+`failover` (12.34+; the skeleton lists `database`, then `deferred`) pushes to the first connection that accepts the job:
+- Each real connection in the list needs its own `queue:work` (Horizon covers only Redis).
+- With a `sync` or `deferred` tail, a primary outage runs jobs inside web requests, without retries.
+- Listen for `Illuminate\Queue\Events\QueueFailedOver` and report it: it is the only signal that a failover happened.
 
 ## Timeouts: limits in order
 
@@ -115,10 +143,7 @@ public function middleware(): array
     ];
 }
 
-public function retryUntil(): DateTime
-{
-    return now()->plus(hours: 1);
-}
+// and on the class: #[RetryFor(hours: 1)] on 13.43+, else a retryUntil() method
 ```
 - Rate-limit external APIs with `RateLimited` + a named limiter, not `Redis::throttle` in `handle()`.
 - `WithoutOverlapping` is keyed on the resource id (no key = one lock for every job of the class) and always has `releaseAfter()` and `expireAfter()` (defaults: release at once, lock never expires). `dontRelease()` drops overlapping runs; `shared()` shares the key across job classes.
@@ -263,7 +288,7 @@ stopwaitsecs=3600
 ## Long-running worker state
 
 - One worker process runs many jobs. No per-job state in statics, singletons or properties of shared services: they leak into the next job.
-- Bind per-job services with `$this->app->scoped(...)`: the worker forgets scoped instances and resolved facades before each job. Statics are never reset.
+- Bind per-job services with `$this->app->scoped(...)` or `#[Scoped]` on the class (12.21+): the worker forgets scoped instances and resolved facades before each job. A `#[Singleton]` keeps the first job's state for the life of the worker (`architecture-and-testing.md`, Container). Statics are never reset.
 - `Context` is copied into every payload in plain text, outside `ShouldBeEncrypted`: small scalars only (trace id, tenant id, locale), never secrets or personal data, `addHidden()` included.
 
 ## Containers
@@ -279,6 +304,7 @@ stopwaitsecs=3600
 - **SQS:** payload max 1 MiB (enable `overflow` to a cache store for more); delay max 15 minutes, so longer waits are scheduled; no `retry_after` (visibility timeout, see Timeouts); `attempts()` is the receive count, so every release counts against the redrive policy's max receives.
 - **SQS FIFO:** per-message delay is dropped. Group with `->onGroup("customer-{$id}")` and dedupe with `deduplicationId()`; without one every message gets a fresh UUID and is never deduplicated.
 - **Redis:** `block_for` a small number (5) or `null`, never `0` (blocks SIGTERM until the next job). Redis Cluster queue names carry a hash tag (`'{default}'`). Apps sharing a Redis use their own prefix or database.
+- **Redis eviction:** a Redis that holds queues or Horizon runs `maxmemory-policy noeviction`. Under an evicting policy (`allkeys-lru`, `allkeys-lfu`, often a managed default) a full instance drops queued jobs with no exception, no `failed_jobs` row and no log line. The policy is per instance, not per database, so a cache that should evict needs its own instance. Jobs that vanished: check `evicted_keys` in `INFO stats` first.
 - **Database:** `DB_QUEUE_CONNECTION` can give the jobs table its own connection; inserts then commit outside the app's transaction, so `afterCommit()` still applies. Several workers want `FOR UPDATE SKIP LOCKED` (MySQL 8.0.1+, MariaDB 10.6+, PostgreSQL 9.5+); older versions fall back to plain row locks and workers contend.
 
 ## Horizon
@@ -308,6 +334,7 @@ Queue::failing(fn (JobFailed $e) => Log::critical('Job failed', ['job' => $e->jo
 - `queue:monitor` alone alerts nobody: it only fires `QueueBusy`.
 - Backlog size doesn't prove workers consume. Add a liveness signal: a scheduled tiny job that stamps `Cache::put('queue:heartbeat', now())` with an alert when it goes stale (or `spatie/laravel-health`'s `QueueCheck`).
 - `Queue::after()`/`JobProcessed` also fire for released and failed jobs: check `isReleased()`/`hasFailed()` before counting a success.
+- Jobs creeping toward their timeout, on 13.40+: `Queue::whenJobRunsLongerThan(CarbonInterval::seconds(45), fn (Job $job, float $ms) => Log::warning('Slow job', ['job' => $job->resolveName(), 'ms' => $ms]))` in `AppServiceProvider::boot()`. It fires for failed attempts too. An int threshold is **milliseconds**, unlike `Schedule::whenTaskRunsLongerThan()`'s seconds: pass a `CarbonInterval`.
 - Horizon: `waits` per `connection:queue` (undefined pairs default to 60 s) plus `Horizon::routeMailNotificationsTo()`/`routeSlackNotificationsTo()` in `HorizonServiceProvider`.
 
 ## Housekeeping (routes/console.php)
@@ -353,4 +380,4 @@ $job->assertNotFailed();
 - Idempotency: run `handle()` twice and assert one row, one charge, one mail.
 - Status-tracking jobs: call `(new ImportFeed($feed))->failed(new RuntimeException('boom'))` and assert the row is marked failed.
 
-Evidence: `Illuminate/Foundation/Queue/Queueable.php`, `Foundation/Console/stubs/job.queued.stub`, `Illuminate/Queue/{Attributes,Middleware}/*`, `Queue/{Worker,QueueManager,QueueRoutes,QueueServiceProvider,SerializesModels,SerializesAndRestoresModelIdentifiers,InteractsWithQueue,CallQueuedHandler,SqsQueue,DatabaseQueue}.php`, `Queue/Jobs/SqsJob.php`, `Queue/Console/{WorkCommand,MonitorCommand,PruneBatchesCommand}.php`, `Queue/Events/QueueBusy.php`, `Bus/{Batch,PendingBatch,UniqueLock,Batchable,Dispatcher}.php`, `Foundation/Bus/{PendingDispatch,PendingChain}.php`, `Events/{Dispatcher,CallQueuedListener}.php`, `Database/Eloquent/Model.php` (`newQueryForRestoration`), `Log/Context/ContextServiceProvider.php`, `Support/Testing/Fakes/{QueueFake,BusFake,MailFake,EventFake,NotificationFake}.php`; `laravel/docs/queues.md`, `events.md`, `notifications.md`, `mail.md`, `horizon.md`, `scheduling.md`; laravel/laravel `config/queue.php`, `database/migrations/0001_01_01_000002_create_jobs_table.php`; laravel/horizon `config/horizon.php`, `src/SupervisorOptions.php`, `CHANGELOG.md`; laravel.io `app/Jobs/`, `app/Listeners/`, `routes/console.php`.
+Evidence: `Illuminate/Queue/Attributes/RetryFor.php`, `Queue/Queue.php` (`getJobExpiration`: `retryUntil` wins over `RetryFor`), `Queue/InteractsWithQueue.php` (`releaseUsingBackoff`), `Queue/QueueManager.php` (`whenJobRunsLongerThan`), `Queue/Events/JobAttempted.php` (duration in ms), `Queue/{DeferredQueue,BackgroundQueue,SyncQueue,FailoverQueue}.php`, `Queue/Events/QueueFailedOver.php`, `Queue/Console/WorkCommand.php` (only it logs `failed_jobs`), `Container/Attributes/Scoped.php`; laravel/framework release notes v12.34.0 (#57341), v12.35.0 (#57428), v12.37.0 (#57648), v13.40.0 (#62141), v13.43.0 (#62434, #62435); redis.io `docs/latest/develop/reference/eviction/`; `Illuminate/Foundation/Queue/Queueable.php`, `Foundation/Console/stubs/job.queued.stub`, `Illuminate/Queue/{Attributes,Middleware}/*`, `Queue/{Worker,QueueManager,QueueRoutes,QueueServiceProvider,SerializesModels,SerializesAndRestoresModelIdentifiers,InteractsWithQueue,CallQueuedHandler,SqsQueue,DatabaseQueue}.php`, `Queue/Jobs/SqsJob.php`, `Queue/Console/{WorkCommand,MonitorCommand,PruneBatchesCommand}.php`, `Queue/Events/QueueBusy.php`, `Bus/{Batch,PendingBatch,UniqueLock,Batchable,Dispatcher}.php`, `Foundation/Bus/{PendingDispatch,PendingChain}.php`, `Events/{Dispatcher,CallQueuedListener}.php`, `Database/Eloquent/Model.php` (`newQueryForRestoration`), `Log/Context/ContextServiceProvider.php`, `Support/Testing/Fakes/{QueueFake,BusFake,MailFake,EventFake,NotificationFake}.php`; `laravel/docs/queues.md`, `events.md`, `notifications.md`, `mail.md`, `horizon.md`, `scheduling.md`; laravel/laravel `config/queue.php`, `database/migrations/0001_01_01_000002_create_jobs_table.php`; laravel/horizon `config/horizon.php`, `src/SupervisorOptions.php`, `CHANGELOG.md`; laravel.io `app/Jobs/`, `app/Listeners/`, `routes/console.php`.

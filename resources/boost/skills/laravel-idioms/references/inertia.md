@@ -19,9 +19,11 @@ return Inertia::render('Tickets/Show', [
 - A model prop goes through `toArray()`: `$hidden` is the only brake. Use explicit arrays, `->only()`, `->through()` or a resource whose `toArray()` is an allow-list. Never `parent::toArray()` or `$this->resource->toArray()` in a resource: that reopens the leak.
 - A bare paginator prop sends full model rows plus URL metadata. Map it and keep filters in the page links:
 ```php
-'tickets' => Ticket::query()->latest()->paginate(15)->withQueryString()
+'tickets' => Ticket::query()->latest()->latest('id')->paginate(15)->withQueryString()
     ->through(fn (Ticket $t) => ['id' => $t->id, 'subject' => $t->subject, 'status' => $t->status->value]),
 ```
+- A paged prop ends its order with a unique column (`latest()->latest('id')`), or tied rows repeat or vanish across pages (`eloquent.md`, Ordering).
+- HTML in a prop (rendered Markdown shown with `v-html` or `dangerouslySetInnerHTML`) is built with `html_input` escaped and `allow_unsafe_links` off (`blade.md`, Escaping).
 - Not every list needs a resource class: an already-mapped array or a `pluck()` of pairs is fine. The rule is "no bare models". History encryption (`Inertia::encryptHistory()`) is not a leak fix.
 
 ## Shared props

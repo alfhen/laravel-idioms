@@ -44,7 +44,7 @@ Load assets with `@vite(['resources/css/app.css', 'resources/js/app.js'])` in `<
 ```
 ```php
 // good: controller
-$posts = Post::with('author')->withCount('comments')->latest()->paginate(20)->withQueryString();
+$posts = Post::with('author')->withCount('comments')->latest()->latest('id')->paginate(20)->withQueryString();
 return view('posts.index', ['posts' => $posts]);
 ```
 ```blade
@@ -59,7 +59,7 @@ return view('posts.index', ['posts' => $posts]);
 @endif
 ```
 - No queries, querying relationship methods, or `Auth::user()->relation` in loops. Enable `Model::preventLazyLoading(! app()->isProduction())`.
-- Paginate in the controller; `->withQueryString()` (or `->appends(request()->only(...))`) keeps filters on page 2.
+- Paginate in the controller; `->withQueryString()` (or `->appends(request()->only(...))`) keeps filters on page 2. End the order with a unique column (`latest()->latest('id')`), or tied rows repeat or vanish across pages (`eloquent.md`, Ordering).
 - Data many views need (nav counts, current team) → `View::composer('layouts.app', fn (View $view) => $view->with(...))` or `View::share` in a provider, not a `@php` query in the layout. Formatting → model accessors/methods; a presenter only when reused.
 - `$loop->first/last/index/iteration/parent` instead of manual counters.
 
@@ -89,7 +89,15 @@ return view('posts.index', ['posts' => $posts]);
 
 ## Escaping and JS
 
-- `{{ }}` escapes. `{!! !!}` only for HTML you produced or sanitised (rendered markdown through a purifier); never user input or flash messages that interpolate user data.
+- `{{ }}` escapes. `{!! !!}` only for HTML you produced or sanitised; never user input or flash messages that interpolate user data.
+- Markdown from users: `Str::markdown()`, `Str::inlineMarkdown()` and `->markdown()` pass raw HTML and `javascript:` links through by default (CommonMark `html_input` is `allow`, `allow_unsafe_links` is true). Turn both off, once, in a model method or helper the views share:
+```blade
+{{-- bad: <img src=x onerror=...> and [x](javascript:...) survive --}}
+{!! Str::markdown($post->body) !!}
+{{-- good: these options live in the one shared helper (security.md, User Markdown) --}}
+{!! Str::markdown($post->body, ['html_input' => 'escape', 'allow_unsafe_links' => false]) !!}
+```
+  `'strip'` drops the HTML instead of showing it. Use a purifier only when some raw HTML must survive. The same applies to Markdown rendered into JSON or Inertia props (`security.md`).
 - PHP → JS/Alpine: `x-data="{ open: @js($errors->has('code')) }"`, `<script>var app = {{ Js::from($config) }};</script>`. Never `{!! json_encode() !!}` or `'{{ $x }}'` in a JS string. Pass a plain variable, not a complex expression.
 
 ## Other directives
@@ -99,4 +107,4 @@ return view('posts.index', ['posts' => $posts]);
 - htmx/Turbo partials: wrap the region in `@fragment('user-list')` and `return view('users.index', [...])->fragmentIf($request->hasHeader('HX-Request'), 'user-list');`. No duplicate partial view or endpoint.
 - User-facing strings through `__()`, passed to props with a colon: `:title="__('Log in')"`.
 
-Evidence: `laravel/docs/blade.md`, `validation.md`, `precognition.md`, `vite.md`, `pagination.md`; `Illuminate/View/Compilers/Concerns/*`, `Illuminate/View/ComponentAttributeBag.php`, `Illuminate/Http/Concerns/InteractsWithFlashData.php`; laravel.io `resources/views/components/`; livewire-starter-kit `resources/views/`.
+Evidence: `laravel/docs/blade.md`, `validation.md`, `precognition.md`, `vite.md`, `pagination.md`; `Illuminate/View/Compilers/Concerns/*`, `Illuminate/View/ComponentAttributeBag.php`, `Illuminate/Http/Concerns/InteractsWithFlashData.php`, `Illuminate/Support/Str.php` (`markdown`, `inlineMarkdown`), `league/commonmark/src/Environment/Environment.php` (`html_input`, `allow_unsafe_links` defaults), `laravel/docs/strings.md` (Markdown Security); laravel.io `resources/views/components/`; livewire-starter-kit `resources/views/`.

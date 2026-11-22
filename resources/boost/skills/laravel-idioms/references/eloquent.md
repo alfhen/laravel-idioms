@@ -129,6 +129,43 @@ public function latestOrder(): HasOne
 ```
 Always add the return type. Use `latestOfMany()` / `ofMany()` rather than `$user->orders->sortByDesc('id')->first()`. Use `->chaperone()` on a hasMany to hydrate the inverse without extra queries.
 
+## Polymorphic relations
+
+Add a morph map in the same change as the first `morphTo`, `morphMany` or `morphToMany`:
+```php
+// AppServiceProvider::boot()
+Relation::enforceMorphMap([
+    'article' => Article::class,
+    'video' => Video::class,
+    'user' => User::class,
+]);
+```
+- Without a map, `*_type` columns store the class name: renaming or moving a model orphans its rows, and the class name reaches API output. Use short aliases that never change.
+- `enforceMorphMap()` makes `getMorphClass()` throw `ClassMorphViolationException` for any model written to a morph column without an alias. That includes package columns: Sanctum's `tokenable_type`, notifications' `notifiable_type`, spatie/laravel-permission's `model_has_roles.model_type`, spatie/laravel-medialibrary's `media.model_type`. Map every model those touch (usually `User`).
+- An app with existing class-name rows needs a data migration to the aliases in the same change. Relation queries filter by the alias, so old rows silently drop out.
+- Query and eager load per type:
+```php
+Image::whereHasMorph('imageable', [Article::class, Video::class], fn (Builder $q, string $type) => $q->where('published', true))->get();
+Image::whereMorphedTo('imageable', $article)->get();
+Image::with(['imageable' => fn (MorphTo $m) => $m->morphWith([Article::class => ['author']])])->get();   // morphWithCount() for counts
+```
+Index the pair: `morphs()` in the migration (see `migrations.md`).
+
+## Ordering that pages or walks
+
+Ties in `ORDER BY` come back in any order, and the order can change between queries. Offset pages then repeat or skip rows, a cursor page skips tied rows at its boundary, and code that walks rows in order (a running balance, "the previous entry") picks a different row per run. End such an `ORDER BY` with a unique column:
+```php
+// bad: rows with the same created_at repeat or vanish across pages
+Article::latest()->paginate(20);
+// good
+Article::latest()->latest('id')->paginate(20);
+Entry::orderBy('booked_on')->orderBy('id')->cursorPaginate(50);
+$query->orderBy($sort, $dir)->orderBy('id');   // also after an allow-listed user sort
+```
+- Applies to `paginate()`, `simplePaginate()`, `cursorPaginate()`, `limit()`/`offset()` loops, and any loop that depends on row order. A list shown once, unpaged, needs none.
+- `cursorPaginate()` adds the key only when the query has no order at all. `chunkById()`/`lazyById()` order by the key already. `latestOfMany('created_at')` adds the key as a tiebreaker itself.
+- Test with tied timestamps: create rows with one fixed `created_at` and assert the pages share no id and together hold every row.
+
 ## Retrieval
 
 | Want | Use |
@@ -210,4 +247,4 @@ User::factory()->trashed()->create();
 ```
 Not `Post::factory()->create(['user_id' => $user->id])` repeated across tests.
 
-Evidence: `Illuminate/Database/Eloquent/Concerns/HasAttributes.php:1733`, `Concerns/QueriesRelationships.php`, `Builder.php`, `Attributes/`, `Model.php:576`, `laravel/docs/eloquent.md`, `eloquent-relationships.md`, `eloquent-factories.md`.
+Evidence: `Illuminate/Database/Eloquent/Concerns/HasAttributes.php:1733`, `Concerns/QueriesRelationships.php` (`whereHasMorph`, `whereMorphedTo`), `Concerns/HasRelationships.php` (`getMorphClass`), `Relations/Relation.php` (`enforceMorphMap`), `Relations/MorphTo.php` (`morphWith`), `Relations/Concerns/CanBeOneOfMany.php`, `Builder.php` (`ensureOrderForCursorPagination`), `Attributes/`, `Model.php:576`, `laravel/docs/eloquent.md`, `eloquent-relationships.md` (Custom Polymorphic Types), `eloquent-factories.md`, `pagination.md` (Cursor Pagination); https://dev.mysql.com/doc/refman/8.4/en/limit-optimization.html; firefly-iii/firefly-iii#12862; BookStack and solidtime `AppServiceProvider` (`enforceMorphMap`).
