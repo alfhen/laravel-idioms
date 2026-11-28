@@ -92,3 +92,5 @@ It covers: the `shop` user caching over TLS with a `scheme` config, stock config
 2. In `eval/tasks.json`, add `"hidden": "eval/hidden/<Name>HiddenTest.php"` and `"hidden_runner": "valkey"` to the task.
 3. Check the test against correct reference builds with `python3 eval/hidden.py --tasks <task>`.
 4. Keep tests that share the server from depending on each other's keys. Call `flushValkey()` in `setUp()`.
+
+The runner container touches `/app/.hidden-started` before PHPUnit starts. If the marker is missing after the run, Compose failed before the container ran (it can exit 1, like a failing PHPUnit), so the script exits 3 and `hidden.py` does not score the run.

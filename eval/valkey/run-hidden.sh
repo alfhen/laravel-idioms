@@ -39,7 +39,7 @@ docker image inspect laravel-idioms-valkey-php:local >/dev/null 2>&1 || "${compo
 cli=("${compose[@]}" exec -T valkey valkey-cli --tls --cacert /certs/ca.crt --user admin --pass adminpass --no-auth-warning)
 "${cli[@]}" ACL LOAD >&2 && "${cli[@]}" REPLICAOF NO ONE >&2 && "${cli[@]}" FLUSHALL >&2 || { echo "run-hidden: Valkey reset failed" >&2; exit 3; }
 
-rm -f "$app/.env" "$app/.env.testing" "$app/.hidden-junit.xml"
+rm -f "$app/.env" "$app/.env.testing" "$app/.hidden-junit.xml" "$app/.hidden-started"
 # A build that ran config:cache or route:cache would freeze the config and ignore the env the tests set.
 find "$app/bootstrap/cache" -maxdepth 1 -name '*.php' -delete 2>/dev/null
 # PHPUnit even for Pest builds: hidden tests are plain PHPUnit classes (reconcile() handles both name styles),
@@ -50,8 +50,11 @@ runner=vendor/bin/phpunit
   --user "$(id -u):$(id -g)" \
   -v "$app:/app" \
   -e APP_KEY="$app_key" \
-  php timeout -k 5 "${VALKEY_TEST_TIMEOUT:-840}" php "$runner" "tests/Hidden/$hidden" --log-junit /app/.hidden-junit.xml
+  php sh -c 'touch /app/.hidden-started && exec timeout -k 5 "$0" php "$1" "$2" --log-junit /app/.hidden-junit.xml' \
+  "${VALKEY_TEST_TIMEOUT:-840}" "$runner" "tests/Hidden/$hidden"
 code=$?
+# No start marker: Compose failed before the container ran (it can exit 1 then, like PHPUnit). That is infrastructure.
+if [ ! -f "$app/.hidden-started" ]; then echo "run-hidden: the runner container never started (exit $code)" >&2; exit 3; fi
 
 mkdir -p "$(dirname "$junit_out")"
 if [ -s "$app/.hidden-junit.xml" ]; then cp "$app/.hidden-junit.xml" "$junit_out"; else rm -f "$junit_out"; fi

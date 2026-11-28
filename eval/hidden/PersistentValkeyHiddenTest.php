@@ -360,42 +360,32 @@ class PersistentValkeyHiddenTest extends TestCase
 
     public function test_persistent_connections_are_reused_across_requests(): void
     {
-        // One admin connection, opened before request 1 and reused, so its own connection is never in the delta.
+        // While each request still holds its connections (after a cache write and a lock), record the ids of the shop
+        // user's clients on the server. Requests 2 to 5 must use only ids seen in request 1: no new connection for the
+        // cache or the lock. Ids, not a server-wide counter, so the admin health check doesn't count.
         $admin = $this->admin();
-        $received = fn () => (int) ($admin->info('stats')['total_connections_received'] ?? -1);
-
-        $counts = [];
-        $afterFirst = null;
+        $seen = [];
         for ($i = 1; $i <= 5; $i++) {
-            $this->request(function () use ($i) {
+            $seen[$i] = $this->request(function () use ($i, $admin) {
                 Cache::put("leaktest-cache-$i", 'v', 300);
                 $lock = Cache::lock("leaktest-lock-$i", 60);
                 $this->assertTrue($lock->get());
-                $lock->release();
                 $this->assertSame('v', Cache::get("leaktest-cache-$i"));
-            });
-            if ($i === 1) {
-                $afterFirst = $received();
-            }
-            // The server notices the end of a request a moment later: poll up to 1.5 s for the count to settle.
-            $deadline = microtime(true) + 1.5;
-            do {
-                $counts[$i] = count($this->shopClients($admin));
-                if ($i === 1 ? $counts[1] >= 1 : $counts[$i] === $counts[1]) {
-                    break;
-                }
-                usleep(100_000);
-            } while (microtime(true) < $deadline);
-        }
-        $afterFifth = $received();
+                $ids = array_map(fn ($c) => $c['id'], $this->shopClients($admin));
+                $lock->release();
 
-        $this->assertGreaterThanOrEqual(1, $counts[1], 'no shop connection stays open after a request: nothing is persistent');
-        $this->assertSame(array_fill(1, 5, $counts[1]), $counts, 'the number of shop connections grew across requests: '.json_encode($counts));
-        $this->assertGreaterThan(0, $afterFirst, 'could not read total_connections_received from INFO stats');
-        $this->assertSame(0, $afterFifth - $afterFirst, sprintf(
-            'requests 2 to 5 opened %d new connections to Valkey (cache and lock together): every connection they use must be reused',
-            $afterFifth - $afterFirst
-        ));
+                return $ids;
+            });
+        }
+
+        $this->assertNotEmpty($seen[1], 'no shop connection was open during request 1');
+        for ($i = 2; $i <= 5; $i++) {
+            $new = array_values(array_diff($seen[$i], $seen[1]));
+            $this->assertSame([], $new, sprintf(
+                'request %d used new connections to Valkey (client ids %s, request 1 had %s): every connection the cache and the lock use must be reused',
+                $i, json_encode($new), json_encode($seen[1])
+            ));
+        }
     }
 
     public function test_the_app_works_without_the_persistent_switch(): void
