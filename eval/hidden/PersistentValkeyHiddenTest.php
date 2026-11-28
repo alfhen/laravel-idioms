@@ -241,10 +241,10 @@ class PersistentValkeyHiddenTest extends TestCase
     }
 
     /** @return list<array<string, string>> */
-    private function shopClients(): array
+    private function shopClients(?\Redis $admin = null): array
     {
         $rows = [];
-        foreach (explode("\n", trim((string) $this->admin()->rawCommand('CLIENT', 'LIST'))) as $line) {
+        foreach (explode("\n", trim((string) ($admin ?? $this->admin())->rawCommand('CLIENT', 'LIST'))) as $line) {
             $fields = [];
             foreach (explode(' ', trim($line)) as $pair) {
                 [$k, $v] = array_pad(explode('=', $pair, 2), 2, '');
@@ -335,6 +335,17 @@ class PersistentValkeyHiddenTest extends TestCase
         return false;
     }
 
+    /** The first lock call after a socket drop must acquire the lock or throw: a silent false means nothing was locked. */
+    private function acquireOrThrow(string $name, int $seconds): void
+    {
+        try {
+            $got = Cache::lock($name, $seconds)->get();
+        } catch (Throwable) {
+            return; // failing loudly is allowed
+        }
+        $this->assertTrue($got, "the lock `$name` was not acquired after the socket dropped, and nothing was thrown");
+    }
+
     /** Uses the cache and takes then releases a lock, the way a normal request does. */
     private function warm(string $name, bool $lockFirst = true): void
     {
@@ -349,7 +360,12 @@ class PersistentValkeyHiddenTest extends TestCase
 
     public function test_persistent_connections_are_reused_across_requests(): void
     {
+        // One admin connection, opened before request 1 and reused, so its own connection is never in the delta.
+        $admin = $this->admin();
+        $received = fn () => (int) ($admin->info('stats')['total_connections_received'] ?? -1);
+
         $counts = [];
+        $afterFirst = null;
         for ($i = 1; $i <= 5; $i++) {
             $this->request(function () use ($i) {
                 Cache::put("leaktest-cache-$i", 'v', 300);
@@ -358,19 +374,28 @@ class PersistentValkeyHiddenTest extends TestCase
                 $lock->release();
                 $this->assertSame('v', Cache::get("leaktest-cache-$i"));
             });
+            if ($i === 1) {
+                $afterFirst = $received();
+            }
             // The server notices the end of a request a moment later: poll up to 1.5 s for the count to settle.
             $deadline = microtime(true) + 1.5;
             do {
-                $counts[$i] = count($this->shopClients());
+                $counts[$i] = count($this->shopClients($admin));
                 if ($i === 1 ? $counts[1] >= 1 : $counts[$i] === $counts[1]) {
                     break;
                 }
                 usleep(100_000);
             } while (microtime(true) < $deadline);
         }
+        $afterFifth = $received();
 
         $this->assertGreaterThanOrEqual(1, $counts[1], 'no shop connection stays open after a request: nothing is persistent');
         $this->assertSame(array_fill(1, 5, $counts[1]), $counts, 'the number of shop connections grew across requests: '.json_encode($counts));
+        $this->assertGreaterThan(0, $afterFirst, 'could not read total_connections_received from INFO stats');
+        $this->assertSame(0, $afterFifth - $afterFirst, sprintf(
+            'requests 2 to 5 opened %d new connections to Valkey (cache and lock together): every connection they use must be reused',
+            $afterFifth - $afterFirst
+        ));
     }
 
     public function test_the_app_works_without_the_persistent_switch(): void
@@ -439,17 +464,14 @@ class PersistentValkeyHiddenTest extends TestCase
             // The lock connection is open; then its socket goes away; then the lock is taken.
             app('redis')->connection($dbs['lockConnection'])->ping();
             $which === 'all' ? $this->killClientsOf('shop') : $this->killShopSocketsOnDb($dbs['lock']);
-            try {
-                Cache::lock('leaktest-lock-mid', 60)->get();
-            } catch (Throwable) {
-                // Failing loudly is acceptable; a lock in the wrong database is not.
-            }
+            // Failing loudly is acceptable; a lock in the wrong database is not; a silent false means nothing was locked.
+            $this->acquireOrThrow('leaktest-lock-mid', 60);
         });
 
         $this->assertPlaced($dbs, "$which dropped mid-request");
 
         // Whatever happened, a request that now takes the same lock and holds it must be visible to the next one.
-        $this->request(fn () => Cache::lock('leaktest-lock-after', 60)->get());
+        $this->request(fn () => $this->assertTrue(Cache::lock('leaktest-lock-after', 60)->get(), 'the lock was not acquired'));
         $this->assertPlaced($dbs, "$which dropped mid-request, lock after");
         $this->request(fn () => $this->assertFalse(Cache::lock('leaktest-lock-after', 60)->get(), 'a held lock is invisible to the next request'));
     }
@@ -468,14 +490,11 @@ class PersistentValkeyHiddenTest extends TestCase
         $this->request(function () use ($dbs) {
             app('redis')->connection($dbs['lockConnection'])->ping();
             $this->killShopSocketsOnDb($dbs['lock']);
-            try {
-                Cache::lock('leaktest-lock-four', 60)->get();
-            } catch (Throwable) {
-            }
+            $this->acquireOrThrow('leaktest-lock-four', 60);
         });
 
         $this->assertPlaced($dbs, 'pool with an idle cache socket');
-        $this->request(fn () => Cache::lock('leaktest-lock-five', 60)->get());
+        $this->request(fn () => $this->assertTrue(Cache::lock('leaktest-lock-five', 60)->get(), 'the lock was not acquired'));
         $this->assertPlaced($dbs, 'pool with an idle cache socket, lock after');
         $this->request(fn () => $this->assertFalse(Cache::lock('leaktest-lock-five', 60)->get()));
     }
@@ -544,10 +563,7 @@ class PersistentValkeyHiddenTest extends TestCase
         $this->request(function () use ($dbs) {
             app('redis')->connection($dbs['lockConnection'])->ping();
             $this->killShopSocketsOnDb($dbs['lock']);
-            try {
-                Cache::lock('payouts:run', 600)->get();
-            } catch (Throwable) {
-            }
+            $this->acquireOrThrow('payouts:run', 600);
         });
         $held = $this->hasKey($this->allKeys(), $dbs['lock'], 'payouts:run');
         $this->assertPlaced($dbs, 'payouts lock after a drop');

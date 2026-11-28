@@ -131,6 +131,10 @@ def run_hidden(build_dir, task_key):
             exit_code, output = run_command(command, cwd, VALKEY_TIMEOUT if valkey else TIMEOUT, container, env)
         if valkey and exit_code == INFRA_EXIT:
             raise InfraError(f'{build_dir.name}: the Valkey stack failed, the test did not run:\n{output[-2000:]}')
+        # The outer timeout also covers waiting for another process's run (flock), and docker run exits 125-127 when
+        # the container never started: neither says anything about the build. The inner timeout (124) does.
+        if valkey and not (report.exists() and report.stat().st_size) and (exit_code is None or exit_code in (125, 126, 127)):
+            raise InfraError(f'{build_dir.name}: the runner did not run the test (exit {exit_code}):\n{output[-2000:]}')
         tests = {}
         # A run that timed out may have left a partial report, which could still count some passes.
         if exit_code is not None and report.exists() and report.stat().st_size:

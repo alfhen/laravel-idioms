@@ -670,12 +670,13 @@
   "build": "valkey-queue-skill-1",
   "task": "valkey-queue",
   "arm": "skill",
-  "seconds": 148,
-  "cost_usd": 0.59,
+  "seconds": 152,
+  "cost_usd": 0.68,
   "skills": [
    "laravel-idioms"
   ],
   "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md",
    "laravel-idioms/references/redis.md"
   ]
  },
@@ -683,29 +684,25 @@
   "build": "valkey-queue-skill-2",
   "task": "valkey-queue",
   "arm": "skill",
-  "seconds": 120,
-  "cost_usd": 0.61,
+  "seconds": 140,
+  "cost_usd": 0.56,
   "skills": [
    "laravel-idioms"
   ],
   "skill_files_read": [
-   "laravel-idioms/references/queues-and-workers.md",
-   "laravel-idioms/references/redis.md"
+   "laravel-idioms/references/queues-and-workers.md"
   ]
  },
  {
   "build": "valkey-queue-skill-3",
   "task": "valkey-queue",
   "arm": "skill",
-  "seconds": 131,
-  "cost_usd": 0.6,
+  "seconds": 116,
+  "cost_usd": 0.56,
   "skills": [
    "laravel-idioms"
   ],
-  "skill_files_read": [
-   "laravel-idioms/references/queues-and-workers.md",
-   "laravel-idioms/references/redis.md"
-  ]
+  "skill_files_read": []
  },
  {
   "build": "persistent-valkey-rev1-1",
@@ -815,6 +812,47 @@
    "laravel-idioms"
   ],
   "skill_files_read": []
+ },
+ {
+  "build": "valkey-queue-rev1-1",
+  "task": "valkey-queue",
+  "arm": "rev1",
+  "seconds": 148,
+  "cost_usd": 0.59,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "valkey-queue-rev1-2",
+  "task": "valkey-queue",
+  "arm": "rev1",
+  "seconds": 120,
+  "cost_usd": 0.61,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md",
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "valkey-queue-rev1-3",
+  "task": "valkey-queue",
+  "arm": "rev1",
+  "seconds": 131,
+  "cost_usd": 0.6,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md",
+   "laravel-idioms/references/redis.md"
+  ]
  },
  {
   "build": "caching-draft-1",

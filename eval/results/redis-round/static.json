@@ -3831,7 +3831,7 @@
    "Log:: call": 0,
    "catch (\\Throwable)": 0,
    "money package": 0,
-   "pint files to fix": 0
+   "pint files to fix": 1
   }
  },
  "valkey-queue-skill-2": {
@@ -3896,7 +3896,7 @@
    "Log:: call": 0,
    "catch (\\Throwable)": 0,
    "money package": 0,
-   "pint files to fix": 1
+   "pint files to fix": 2
   }
  },
  "valkey-queue-skill-3": {
@@ -3961,7 +3961,7 @@
    "Log:: call": 0,
    "catch (\\Throwable)": 0,
    "money package": 0,
-   "pint files to fix": 2
+   "pint files to fix": 1
   }
  }
 }

@@ -1623,81 +1623,41 @@
    "impl-1": {
     "scores": {
      "collections_helpers": 7,
-     "eloquent_idioms": 8,
-     "architecture_fit": 8,
-     "modern_laravel": 9,
-     "focus_area": 6,
-     "tests": 8,
-     "correctness": 6,
-     "simplicity": 8
-    },
-    "overall": 6.5,
-    "rank": 2,
-    "tests_pass": true,
-    "bugs": [
-     "config/database.php:158-180: no 'timeout' or 'read_timeout' on the Redis connections. PhpRedisConnector passes 0.0, so phpredis falls back to default_socket_timeout (60s). A network stall to the shared TLS node blocks web requests and workers for up to a minute, which breaks the 'no call hangs' requirement.",
-     "config/queue.php: block_for stays null, so workers poll with sleep=1 instead of blocking. Pickup is still prompt, but it adds idle round-trips to a shared node. Not a functional bug."
-    ],
-    "antipatterns": [
-     "routes/console.php:12: schedules queue:prune-failed, which the task did not ask for",
-     "tests/Feature/SendInvoiceReminderTest.php:41-46: checks Tries/Backoff/Timeout by matching class_basename strings from reflection. This tests how the code is written, not how it behaves.",
-     "config/horizon.php:207-209: adds tries/backoff to the supervisor defaults while the job class already declares #[Tries]/#[Backoff], so the same policy lives in two places",
-     "tests/Feature/ValkeyConfigTest.php:3-11: a global const PRODUCTION_ENV in a Pest file can clash with other files that define the same name"
-    ],
-    "strengths": [
-     "Every key stays under shop: (REDIS_PREFIX default 'shop:', HORIZON_PREFIX default 'shop:horizon:'). A test resolves the real Horizon::use() connection and checks its prefix and TLS scheme.",
-     "Horizon environments are ordered local first, then '*'. Horizon uses Str::is and takes the first match, so local keeps its own settings and every deployed environment gets workers.",
-     "Adds the scheme default 'tcp' so REDIS_SCHEME=tls works with no URL, and the app boots with no REDIS env (tested via /up)",
-     "Uses modern job attributes (#[Tries], #[Backoff], #[Timeout]), #[Fillable] on the model and a casts() method",
-     "Tests check that the dashboard is forbidden for guests, that the supervisor timeout is below retry_after, and that the horizon:snapshot schedule exists"
-    ]
-   },
-   "impl-2": {
-    "scores": {
-     "collections_helpers": 8,
-     "eloquent_idioms": 8,
+     "eloquent_idioms": 7,
      "architecture_fit": 8,
      "modern_laravel": 9,
      "focus_area": 8,
      "tests": 8,
      "correctness": 7,
-     "simplicity": 8
+     "simplicity": 7
     },
     "overall": 7.5,
     "rank": 1,
     "tests_pass": true,
     "bugs": [
-     "config/horizon.php environments: '*' comes before 'local'. ProvisioningPlan::deploy takes the first key that matches via Str::is, so 'local' is shadowed. A probe confirmed local gets maxProcesses 10, and the local block is dead config.",
-     "database/migrations/*_create_reminders_table.php: unique(invoice_id) plus createOrFirst means the same invoice can only ever get one reminder row. A second, intentional reminder for that invoice is silently dropped. The spec asked for an insert of a row per job run, so this changes required behaviour."
+     "database/migrations/2026_11_28_155217_create_reminders_table.php:14 adds a unique index on invoice_id, and the job uses createOrFirst. The spec says to insert a row each time. A second reminder for the same invoice is silently dropped (probe: two dispatches gave 1 row).",
+     "config/horizon.php:63 HORIZON_ADMINS comes only from env. Production sets no such var, so nobody can open the dashboard in production and there is no config default to fix it."
     ],
     "antipatterns": [
-     "config/database.php:166-167: '(float) (env(...) ?: 2.0)' is awkward ceremony compared with env('REDIS_TIMEOUT', 2.0)",
-     "tests/Feature/RedisConfigTest.php:10-33: the configWithEnv helper has a hard-coded key list to snapshot and restore. It is heavy, but it is correct.",
-     "tests/Feature/SendInvoiceReminderTest.php:44-50: asserts attributes by reflection instead of behaviour",
-     "tests/Pest.php: turns on RefreshDatabase for all Feature tests. Fine, but it is a global change made for one feature."
+     "config/horizon.php:213 tries/backoff are duplicated in the Horizon supervisor defaults and in the job attributes (app/Jobs/SendInvoiceReminder.php:12)",
+     "tests/Feature/RedisQueueConfigTest.php:18-29 changes $_ENV/$_SERVER by hand instead of using the Env repository",
+     "tests/Feature/SendInvoiceReminderTest.php:44 tests a PHP TypeError, which is a language guarantee and not app behaviour",
+     "No wildcard Horizon environment, so any APP_ENV other than production/local (for example staging) starts no workers"
     ],
     "strengths": [
-     "Sets finite connect and read timeouts (2s/5s), and a test checks that read_timeout stays above block_for. This is the only implementation that meets the 'no call hangs' requirement.",
-     "block_for=2 gives blocking pops, so new and delayed jobs are picked up within about 2s without idle polling",
-     "Every key stays under shop:, Horizon included, and the TLS scheme is wired into both the default and cache connections",
-     "Tests use a dataset to check both connections, restore env around the reloaded config, and cover empty env values and the bare no-REDIS boot",
-     "Schedules horizon:snapshot with onOneServer(). The job is redelivery-safe through createOrFirst and a unique index (useful, though stricter than the spec)."
+     "Sets connect and read timeouts (2s) on both Redis connections, so an outage does not hang requests or workers for 60s. Reads are safe because block_for is null.",
+     "REDIS_SCHEME uses ?: 'tcp', so an empty value cannot produce a '://host' URL",
+     "Both the queue prefix 'shop:' and the Horizon prefix 'shop:horizon:' are config defaults, so all keys stay inside the ACL pattern",
+     "Uses modern job attributes (#[Tries], #[Backoff], #[Timeout]), #[Fillable] and Schedule::command in routes/console.php",
+     "Tests check the production env, the no-env boot, the timeout-vs-retry_after invariant and the gate, including denial paths"
     ]
    },
-   "rationale": "Both implementations keep Redis and Horizon keys under shop:, add the TLS scheme, boot with no REDIS env, use modern job attributes, and pass their tests (16 and 19). The deciding difference is the focus requirement that no call hangs. impl-2 sets finite connect and read timeouts and uses block_for=2 with read_timeout above it, and tests that relationship. impl-1 sets no timeouts, so phpredis waits up to default_socket_timeout (60s) on a stalled shared node. impl-2 has its own bugs. Its '*' Horizon environment comes before 'local', so local takes the '*' settings (confirmed by a probe). Its unique invoice_id index silently drops a second reminder for the same invoice. Both are smaller than a missing timeout on a shared production Valkey node, so impl-2 ranks first."
-  },
-  "cost_usd": 0.5150100000000001
- },
- {
-  "key": "valkey-queue",
-  "judge": 2,
-  "v": {
-   "impl-1": {
+   "impl-2": {
     "scores": {
      "collections_helpers": 7,
      "eloquent_idioms": 8,
-     "architecture_fit": 7,
-     "modern_laravel": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
      "focus_area": 6,
      "tests": 7,
      "correctness": 7,
@@ -1707,56 +1667,97 @@
     "rank": 2,
     "tests_pass": true,
     "bugs": [
-     "config/database.php: no 'timeout' or 'read_timeout' on the Redis connections. phpredis falls back to default_socket_timeout (60s), so an unreachable or stalled TLS endpoint can hang dispatches and Horizon calls for up to a minute. The focus area asks for no hanging calls.",
-     "config/queue.php keeps block_for null, so workers poll the queue every second ('sleep' => 1 in horizon.php) instead of blocking. Pickup is still prompt, but this adds needless round-trips on a shared node."
+     "config/database.php:157-170 sets no timeout or read_timeout. phpredis then falls back to default_socket_timeout (60s), so an unreachable or slow Valkey node can hang web requests and Horizon calls. This misses the 'no call hangs' requirement.",
+     "config/database.php:159 env('REDIS_SCHEME', 'tcp') returns '' when REDIS_SCHEME is set but empty (confirmed by probe). formatHost then builds '://127.0.0.1', which breaks the connection."
     ],
     "antipatterns": [
-     "tests/Feature/ValkeyConfigTest.php:83 asserts that array_keys(environments) is exactly ['local','*']. That ties the test to key order, not behaviour.",
-     "tests/Feature/ValkeyConfigTest.php:5 defines a global const PRODUCTION_ENV in a Pest file. It can collide with other test files.",
-     "tests/Feature/ValkeyConfigTest.php:22 configWithEnv does not clear REDIS_*/APP_NAME already in the environment before loading, so the 'exactly the production env' setup is not isolated.",
-     ".env.example:49 sets REDIS_USERNAME=null, which is ceremony with no effect.",
-     "tests/Feature/SendInvoiceReminderTest.php:44 checks attribute names via reflection and class_basename. That tests implementation, not retry behaviour."
+     "app/Providers/HorizonServiceProvider.php:28-33 leaves the stub gate with an empty email list. The dashboard is closed to everyone with no comment explaining that.",
+     "config/horizon.php:207 tries/backoff are duplicated in the supervisor defaults and in the job attributes",
+     "tests/Feature/SendInvoiceReminderTest.php:39-44 reflects over attribute names instead of testing behaviour",
+     "routes/console.php:12 adds queue:prune-failed scheduling, which was not asked for"
     ],
     "strengths": [
-     "The prefix defaults to 'shop:' in config/database.php, and the Horizon prefix defaults to 'shop:horizon:'. A test runs Horizon::use('default') to check that the derived horizon connection inherits the TLS scheme and the shop: prefix.",
-     "Tests prove that /horizon is forbidden to guests and that /up boots with no REDIS env.",
-     "A plain create() in the job matches the spec. The model adds an integer cast, and a non-unique index keeps multiple reminders per invoice possible.",
-     "The job uses the modern #[Tries]/#[Backoff]/#[Timeout] attributes. The supervisor timeout stays below retry_after, schedules horizon:snapshot and prunes failed jobs."
+     "sleep => 1 on the supervisor gives faster pickup of new jobs",
+     "'*' wildcard Horizon environment, checked against the Str::is match in ProvisioningPlan, so every deployed APP_ENV gets workers",
+     "Tests use the Env repository with a try/finally restore, and they resolve the real Horizon connection via Horizon::use to check its prefix and TLS scheme",
+     "Plain create() with a non-unique index matches the spec, and casts invoice_id to integer",
+     "Tests /horizon returns 403 for guests and /up boots with no Redis env"
     ]
    },
-   "impl-2": {
+   "rationale": "I ranked impl-1 first. Both suites pass (15 and 16 tests). Both keep queue and Horizon keys under 'shop:', turn on TLS through the scheme option (checked against PhpRedisConnector::formatHost), install Horizon and schedule horizon:snapshot. The difference is the focus area. impl-1 sets 2s connect and read timeouts, so a Valkey outage cannot hang calls. impl-2 sets none, which leaves phpredis on the 60s socket default. impl-2 also turns an empty REDIS_SCHEME into a broken '://host'. impl-1 has its own spec deviation: the unique index on invoice_id silently drops repeat reminders. Its HORIZON_ADMINS env var is also useless in production. impl-2 does better on prompt pickup (sleep 1) and on wildcard environments. On balance, impl-1's handling of outages and edge cases outweighs its unique-index mistake."
+  },
+  "cost_usd": 0.5048018
+ },
+ {
+  "key": "valkey-queue",
+  "judge": 2,
+  "v": {
+   "impl-1": {
     "scores": {
      "collections_helpers": 7,
      "eloquent_idioms": 7,
      "architecture_fit": 8,
      "modern_laravel": 8,
-     "focus_area": 9,
+     "focus_area": 8,
      "tests": 8,
-     "correctness": 8,
-     "simplicity": 8
+     "correctness": 7,
+     "simplicity": 7
     },
-    "overall": 8,
+    "overall": 7.5,
     "rank": 1,
     "tests_pass": true,
     "bugs": [
-     "database/migrations/2026_11_28_140953_create_reminders_table.php:16 adds unique() on invoice_id, and the job uses createOrFirst. A second, legitimate reminder for the same invoice is silently dropped. Probe: two dispatchSync(5) calls left 1 row. The task only says handle() inserts a row, so this narrows the domain without being asked."
+     "database/migrations/2026_11_28_155217_create_reminders_table.php:13 + app/Jobs/SendInvoiceReminder.php:21: a unique index on invoice_id plus createOrFirst means a second reminder for the same invoice is silently dropped. Probe: running the job again 8 days later still left 1 row. The task asks for one inserted row per handle().",
+     "config/horizon.php:221-232: supervisors are defined only for 'production' and 'local'. Any other APP_ENV (staging, for example) gets no workers.",
+     "config/horizon.php:65 / HorizonServiceProvider gate: HORIZON_ADMINS exists only in .env, so the production dashboard is closed to everyone (it fails closed)."
     ],
     "antipatterns": [
-     "tests/Pest.php:18 turns on RefreshDatabase globally for all Feature tests, including pure config tests that do not need it.",
-     "tests/Feature/SendInvoiceReminderTest.php:44 checks Tries/Backoff by reflecting attribute names, which tests implementation details.",
-     "tests/Feature/RedisConfigTest.php:80 'boots with ... no REDIS env' only reads config values set by phpunit.xml. It never makes a request, so the claim that the app boots is barely tested.",
-     "There is no test that the /horizon dashboard is gated for guests."
+     "config/database.php:167-168: `(float) (env('REDIS_TIMEOUT') ?: 2.0)` means an explicit '0' cannot turn the timeout off. Minor.",
+     "tests/Feature/RedisQueueConfigTest.php:26-30: afterEach unsets real REDIS_* values in $_SERVER/$_ENV instead of restoring them.",
+     "tests/Feature/SendInvoiceReminderTest.php:44: the 'requires an int' test only checks PHP's type system."
     ],
     "strengths": [
-     "config/database.php sets finite connect and read timeouts (2s/5s), with '?:' so empty env values fall back to the defaults. block_for=2 stays below read_timeout, and a test asserts that relationship.",
-     "config/queue.php sets block_for to 2, so workers use blocking pops. Jobs and delayed jobs are picked up within about 2 seconds without busy polling.",
-     "The default prefix is 'shop:' and the Horizon prefix 'shop:horizon:'. Probe: Horizon::use('default') yields the 'shop:horizon:' prefix.",
-     "configWithEnv clears and restores every relevant key, so the production env set is reproduced exactly. Dataset tests cover the default and cache connections, and there is a test that empty timeout env values count as unset.",
-     "Schedules horizon:snapshot with onOneServer(). Queue::fake()->serializeAndRestore() is a modern way to test the job payload."
+     "Sets connect and read timeouts of 2s on the default and cache connections, and Horizon's connection inherits them (probe confirmed scheme tls and timeout 2.0 on the horizon connection), so an outage does not hang for the 60s default_socket_timeout.",
+     "Prefix is 'shop:' for queue keys and 'shop:horizon:' for Horizon, both from config defaults.",
+     "Scheme 'tls' is driven by REDIS_SCHEME with a tcp default, so the app boots without any Redis env.",
+     "Gate fails closed with strict in_array and tests both the allowed and denied paths.",
+     "Tests cover empty-string env edge cases, boot with no Redis env, and retry_after > timeout."
     ]
    },
-   "rationale": "Both implementations install Horizon, give queue and Horizon keys a default 'shop:' prefix in config, add a TLS scheme from REDIS_SCHEME, and register the provider. Both pass their suites: 19 tests for impl-2, 16 for impl-1. The probes (Horizon's derived prefix, timeout values, duplicate dispatch, guest access to the dashboard) showed one decisive difference in the focus area. impl-1 sets no Redis timeouts, so phpredis falls back to the 60s socket default on a remote TLS node. It also polls every second instead of blocking. impl-2 sets bounded connect and read timeouts and a blocking pop (block_for 2 < read_timeout 5), and tests that relationship. That meets the 'no call hangs, prompt pickup' requirement directly. impl-2's one real flaw is the unique invoice_id with createOrFirst, which silently drops repeat reminders for the same invoice. impl-1's plain create() matches the spec better, and it has a useful test that guests get 403 on the dashboard. On balance, impl-2's queue and Valkey setup is stronger and its tests are better isolated, so it ranks first."
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 6,
+     "eloquent_idioms": 7,
+     "architecture_fit": 8,
+     "modern_laravel": 8,
+     "focus_area": 6,
+     "tests": 7,
+     "correctness": 6,
+     "simplicity": 8
+    },
+    "overall": 6.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "config/database.php:158-184: no 'timeout' or 'read_timeout' on the Redis connections. phpredis then connects with timeout 0, which falls back to default_socket_timeout (60s), so an unreachable Valkey node makes dispatch and web requests hang. Probe: the horizon connection resolved with only 'scheme' and no timeouts. This misses the 'no call hangs' requirement.",
+     "app/Providers/HorizonServiceProvider.php:29: the gate allow-list is an empty stub, so nobody can open the dashboard in production and there is no way to configure it."
+    ],
+    "antipatterns": [
+     "tests/Feature/ValkeyConfigTest.php:7: a global `const PRODUCTION_ENV` in a Pest file leaks into the global namespace and can collide.",
+     "tests/Feature/SendInvoiceReminderTest.php:41-46: uses reflection to check that attribute class names exist. This tests declarations, not behaviour.",
+     "app/Providers/HorizonServiceProvider.php:29: `optional($user)->email` with non-strict in_array is stub code left as is.",
+     "routes/console.php:12: adds a queue:prune-failed schedule that was not requested. Small scope creep."
+    ],
+    "strengths": [
+     "Prefix is 'shop:' for queue keys and 'shop:horizon:' for Horizon, and the tests verify the Horizon::use() connection keeps both the prefix and TLS.",
+     "Scheme comes from REDIS_SCHEME with a tcp default, so the app boots without Redis env, and the /up check is tested.",
+     "The '*' wildcard environment in horizon.php runs workers in any deployed environment. Horizon's deploy() matches it with Str::is.",
+     "sleep=1 and block_for=null give prompt pickup without blocking pops.",
+     "Plain insert with create() matches the spec. The configWithEnv helper uses Env::getRepository and cleans up in finally."
+    ]
+   },
+   "rationale": "Both implementations are nearly identical in structure: same prefix strategy, the same Horizon stub, scheme wiring, job attributes and snapshot schedule. Both test suites pass (impl-2: 16 tests, impl-1: 15). The deciding difference is the task's 'no call hangs or times out' requirement. impl-1 sets 2s connect and read timeouts, and Horizon's connection inherits them. impl-2 sets none, so phpredis falls back to the 60s socket timeout when the node is down. impl-1 has its own spec deviation: a unique index with createOrFirst drops repeat reminders for the same invoice, which a probe confirmed. It also defines no workers for environments other than production and local. impl-2 is slightly simpler and closer to the spec on the insert. Still, the missing timeout is the bigger miss in this task's focus area, and impl-1's tests are more thorough (env edge cases, gate paths). Rank: impl-1, then impl-2."
   },
-  "cost_usd": 0.39991299999999996
+  "cost_usd": 0.5194432
  }
 ]

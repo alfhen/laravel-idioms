@@ -250,8 +250,14 @@ class ValkeyOutageHiddenTest extends TestCase
             }
             $reflection = new \ReflectionClass($class);
             foreach ($reflection->getProperties(\ReflectionProperty::IS_STATIC) as $property) {
-                if ($property->isInitialized() && ! $property->isReadOnly()) {
-                    $property->setValue($property->hasDefaultValue() ? $property->getDefaultValue() : null);
+                // Reset only to the declared default. No default, readonly, or not settable: leave it alone.
+                if ($property->isReadOnly() || ! $property->hasDefaultValue()) {
+                    continue;
+                }
+                try {
+                    $property->setValue($property->getDefaultValue());
+                } catch (\Throwable) {
+                    // cannot be set from outside: leave it
                 }
             }
         }
@@ -331,9 +337,11 @@ class ValkeyOutageHiddenTest extends TestCase
         $this->seedMerchants();
         $this->request($this->prod(), fn () => $this->assertTrue(Cache::lock('payouts:run', 600)->get()));
         $this->request($this->prod(), function () {
+            $before = Merchant::orderBy('id')->pluck('balance_cents', 'id')->all();
+            $this->assertCount(2, $before);
             $this->runCommand('payouts:run'); // any exit code: skipping quietly and failing are both fine
             $this->assertSame(0, Payout::count(), 'a run paid out while another run held the lock');
-            $this->assertSame(4000, (int) Merchant::sum('balance_cents'), 'balances changed while another run held the lock');
+            $this->assertSame($before, Merchant::orderBy('id')->pluck('balance_cents', 'id')->all(), 'a merchant balance changed while another run held the lock');
         });
     }
 
@@ -362,9 +370,11 @@ class ValkeyOutageHiddenTest extends TestCase
     {
         $this->seedMerchants();
         $this->request($this->prod(['REDIS_HOST' => 'closed.test']), function () {
+            $before = Merchant::orderBy('id')->pluck('balance_cents', 'id')->all();
+            $this->assertCount(2, $before);
             $this->assertNotSame(0, $this->runCommand('payouts:run'), 'the run must exit with a failure code when it cannot take its lock');
             $this->assertSame(0, Payout::count(), 'payouts were written without the cross-container lock');
-            $this->assertSame(4000, (int) Merchant::sum('balance_cents'), 'balances changed without the cross-container lock');
+            $this->assertSame($before, Merchant::orderBy('id')->pluck('balance_cents', 'id')->all(), 'a merchant balance changed without the cross-container lock');
             $this->assertOutageVisible('payouts:run');
         });
     }

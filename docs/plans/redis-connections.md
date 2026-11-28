@@ -56,7 +56,7 @@ Left out because unverified: MemoryDB, Upstash, Memorystore and Redis Cloud spec
 ## Outcome
 
 1. Hidden tests: 181/181 against 169/181 (`prev`) and 33/37 (`plain`). persistent-valkey separates the arms (45/45 against 33/45 and 11/15); the other new tasks are at the ceiling for every arm. **Met.**
-2. Judge mean on targets: 6.55 / 6.97 against 7.83 / 7.57. **Not met.** On persistent-valkey the judges marked `max_retries => 0` as a bug in every judgement and listed none of the `prev` builds' lock leaks, which the hidden tests reproduce. On valkey-cache and valkey-outage the judges found real but smaller issues (two connections per request, `tinker` subprocess tests, cutover steps).
+2. Judge mean on targets: 6.55 / 6.97 against 7.83 / 7.57. **Not met.** Most of the gap is valkey-cache and valkey-outage, where the judges found real issues (two connections per request, `tinker` subprocess tests, cutover steps). On persistent-valkey (lower in replicate 1, level in replicate 2) the judges listed none of the `prev` builds' lock leaks and asked for a `persistent_id` that phpredis ignores, but they also docked a real cost of `max_retries => 0` (a mid-request drop makes the next lock or write throw), which the text now states with an alternative.
 3. Regression 7.97 / 7.75 against 7.81 / 7.97, regression hidden tests 74/74 for both, probe simplicity 8.00 / 8.50 against 7.00 / 8.00. **Met.**
 4. The skill fired in 56/56 builds. **Met.**
 

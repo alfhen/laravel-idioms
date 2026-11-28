@@ -12,8 +12,8 @@
   "impl-2": "prev"
  },
  "valkey-queue": {
-  "impl-1": "prev",
-  "impl-2": "skill"
+  "impl-1": "skill",
+  "impl-2": "prev"
  },
  "orders-today": {
   "impl-1": "skill",

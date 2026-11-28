@@ -273,21 +273,55 @@ class ValkeyCacheHiddenTest extends TestCase
         $this->assertTrue($second->release());
     }
 
+    /**
+     * Runs one cache call and returns [seconds, result, thrown]. A call against a node that does not answer must fail:
+     * it throws, or it returns a failure value. A build that quietly falls back to another store succeeds, and is caught here.
+     *
+     * @return array{float, mixed, ?\Throwable}
+     */
+    private function timedCall(callable $fn): array
+    {
+        $result = null;
+        $seconds = $this->elapsed(function () use ($fn, &$result) {
+            $result = $fn();
+        });
+
+        return [$seconds, $result, $this->lastError()];
+    }
+
+    private function assertReadFailed(?\Throwable $thrown, mixed $result, string $what): void
+    {
+        $this->assertTrue($thrown !== null || $result === null, "$what returned ".json_encode($result).' instead of failing');
+    }
+
+    private function assertWriteFailed(?\Throwable $thrown, mixed $result, string $what): void
+    {
+        $this->assertTrue($thrown !== null || $result === false, "$what returned ".json_encode($result).' instead of throwing or returning false');
+    }
+
+    private function assertLockFailed(?\Throwable $thrown, mixed $result, string $what): void
+    {
+        $this->assertTrue($thrown !== null || $result === false, "$what returned ".json_encode($result).': the lock must not be granted, it must throw or return false');
+    }
+
     public function test_an_unreachable_host_fails_within_the_time_limit_and_does_not_hang(): void
     {
         $this->bootWithEnv($this->prod(['REDIS_HOST' => 'tarpit.test']));
 
-        $elapsed = $this->elapsed(fn () => Cache::get('anything'));
+        [$elapsed, $result, $thrown] = $this->timedCall(fn () => Cache::get('anything'));
         $this->timing(__FUNCTION__.' elapsed', $elapsed);
         $this->assertLessThan(8.0, $elapsed, sprintf('a cache read took %.1fs against a host that never answers', $elapsed));
+        $this->assertReadFailed($thrown, $result, 'a cache read against a host that never answers');
 
-        $elapsed = $this->elapsed(fn () => Cache::put('anything', 1, 60));
+        [$elapsed, $result, $thrown] = $this->timedCall(fn () => Cache::put('anything', 1, 60));
         $this->timing(__FUNCTION__.' elapsed', $elapsed);
         $this->assertLessThan(8.0, $elapsed, sprintf('a cache write took %.1fs against a host that never answers', $elapsed));
+        $this->assertWriteFailed($thrown, $result, 'a cache write against a host that never answers');
 
-        $elapsed = $this->elapsed(fn () => Cache::lock('x', 10)->get());
+        [$elapsed, $result, $thrown] = $this->timedCall(fn () => Cache::lock('x', 10)->get());
         $this->timing(__FUNCTION__.' elapsed', $elapsed);
         $this->assertLessThan(8.0, $elapsed, sprintf('taking a lock took %.1fs against a host that never answers', $elapsed));
+        $this->assertLockFailed($thrown, $result, 'taking a lock against a host that never answers');
     }
 
     public function test_a_node_that_stops_answering_is_given_up_on_within_the_time_limit(): void
@@ -300,24 +334,27 @@ class ValkeyCacheHiddenTest extends TestCase
         $this->assertTrue($lock->get());
         $lock->release();
 
-        [$proc, $pipes] = $this->blockServer(12);
+        // Each call gets its own blocked node: a slow call must not use up the block and leave the next one a free server.
+        $blocked = function (callable $fn, string $label) {
+            [$proc, $pipes] = $this->blockServer(10);
+            $outcome = $this->timedCall($fn);
+            $this->timing(__FUNCTION__." $label", $outcome[0]);
+            proc_close($proc); // waits for the sleep to end, so the server is free for the next call
 
-        $read = $this->elapsed(fn () => Cache::get('warm'));
-        $this->timing(__FUNCTION__.' read', $read);
-        $readError = $this->lastError();
-        $write = $this->elapsed(fn () => Cache::put('warm', 'again', 60));
-        $this->timing(__FUNCTION__.' write', $write);
-        $writeError = $this->lastError();
-        $locked = $this->elapsed(fn () => Cache::lock('other-lock', 10)->get());
-        $this->timing(__FUNCTION__.' locked', $locked);
-
-        proc_close($proc); // waits for the sleep to end, so the server is free for the next test
+            return $outcome;
+        };
+        [$read, $readResult, $readError] = $blocked(fn () => Cache::get('warm'), 'read');
+        [$write, $writeResult, $writeError] = $blocked(fn () => Cache::put('warm', 'again', 60), 'write');
+        [$locked, $lockResult, $lockError] = $blocked(fn () => Cache::lock('other-lock', 10)->get(), 'locked');
 
         $this->assertLessThan(8.0, $read, sprintf('a cache read waited %.1fs on a blocked node', $read));
         $this->assertNotNull($readError, 'the read cannot succeed while the node is blocked');
+        $this->assertReadFailed($readError, $readResult, 'a cache read on a blocked node');
         $this->assertLessThan(8.0, $write, sprintf('a cache write waited %.1fs on a blocked node', $write));
         $this->assertNotNull($writeError);
+        $this->assertWriteFailed($writeError, $writeResult, 'a cache write on a blocked node');
         $this->assertLessThan(8.0, $locked, sprintf('taking a lock waited %.1fs on a blocked node', $locked));
+        $this->assertLockFailed($lockError, $lockResult, 'taking a lock on a blocked node');
     }
 
     public function test_tls_host_name_verification_stays_on(): void
