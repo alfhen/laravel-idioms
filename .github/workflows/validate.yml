@@ -80,3 +80,9 @@ jobs:
               --builds $p/builds.json --hidden $p/hidden.json \
               | diff -u $p/$run/tables.md -
           done
+          v=eval/results/redis-round
+          for run in round1/rep1 round2/rep1 round2/rep2 round3/rep1 round3/rep2; do
+            python3 eval/aggregate.py --judgements $v/$run/judgements.json --mapping $v/$run/mapping.json \
+              --builds $v/builds.json --hidden $v/hidden.json \
+              | diff -u $v/$run/tables.md -
+          done

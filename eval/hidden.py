@@ -7,13 +7,17 @@ as tests passed / tests run, pooled over replicates. A build whose run produced 
 hidden test as failed (a missing class or a fatal error is a real failure of the brief's pinned interface).
 """
 import argparse
+import contextlib
 import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
+import threading
+import uuid
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
@@ -23,6 +27,17 @@ REPO = Path(__file__).resolve().parent.parent
 WORK = Path(os.environ.get('WORK', REPO / 'eval' / '.work'))
 TASKS = json.loads((REPO / 'eval' / 'tasks.json').read_text())
 TIMEOUT = 900  # seconds per build's hidden test run
+# Valkey runs: the script's cross-process lock wait + stack start + reset (up to 600 s) plus the test run (840 s inside the container).
+VALKEY_TIMEOUT = 840 + 600
+INFRA_EXIT = 3  # run-hidden.sh: Docker down, image build or Valkey reset failed. The test never ran.
+VALKEY_RUNNER = REPO / 'eval' / 'valkey' / 'run-hidden.sh'
+VALKEY_LOCK = threading.Lock()  # tasks with "hidden_runner": "valkey" share one server, so they run one at a time
+
+
+class InfraError(RuntimeError):
+    """The test infrastructure failed, so the run says nothing about the build. Never scored as failed tests."""
+
+
 BUILD = re.compile(r'^(?P<task>.+)-(?P<arm>[a-z]+)(?:-(?P<run>\d+))?$')
 
 
@@ -71,6 +86,28 @@ def summarise(results):
     return table
 
 
+def run_command(command, cwd, timeout, container=None, env=None):
+    """Runs command in its own process group; on timeout kills the whole group and removes the named container.
+    Returns (exit code or None on timeout, output)."""
+    proc = subprocess.Popen(command, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True, env=env)
+    try:
+        out, err = proc.communicate(timeout=timeout)
+        return proc.returncode, (out or '') + (err or '')
+    except subprocess.TimeoutExpired:
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.killpg(proc.pid, signal.SIGKILL)
+        if container:
+            subprocess.run(['docker', 'rm', '-f', container], capture_output=True)
+        try:
+            out, err = proc.communicate(timeout=10)
+        except subprocess.TimeoutExpired:
+            out, err = '', ''
+        return None, f'timed out after {timeout}s\n{out or ""}{err or ""}'
+    finally:
+        if container:
+            subprocess.run(['docker', 'rm', '-f', container], capture_output=True)
+
+
 def run_hidden(build_dir, task_key):
     hidden = REPO / TASKS[task_key]['hidden']
     with tempfile.TemporaryDirectory(prefix='hidden-') as tmp:
@@ -83,13 +120,17 @@ def run_hidden(build_dir, task_key):
         shutil.copy(hidden, target / hidden.name)
         runner = 'vendor/bin/pest' if (copy / 'vendor/bin/pest').exists() else 'vendor/bin/phpunit'
         report = Path(tmp) / 'junit.xml'
-        try:
-            proc = subprocess.run([runner, f'tests/Hidden/{hidden.name}', '--log-junit', str(report)], cwd=copy,
-                                  capture_output=True, text=True, timeout=TIMEOUT)
-            exit_code, output = proc.returncode, proc.stdout + proc.stderr
-        except subprocess.TimeoutExpired as e:
-            partial = ''.join(x.decode(errors='replace') if isinstance(x, bytes) else x for x in (e.stdout, e.stderr) if x)
-            exit_code, output = None, f'timed out after {e.timeout}s\n{partial}'
+        # "hidden_runner": "valkey" runs the test in a PHP container next to a real Valkey (see eval/valkey/README.md).
+        valkey = TASKS[task_key].get('hidden_runner') == 'valkey'
+        container = f'valkey-hidden-{uuid.uuid4().hex[:12]}' if valkey else None
+        command, cwd = ([runner, f'tests/Hidden/{hidden.name}', '--log-junit', str(report)], copy) if not valkey else (
+            [str(VALKEY_RUNNER), str(copy), hidden.name, str(report)], None)
+        env = {**os.environ, 'VALKEY_CONTAINER_NAME': container} if valkey else None
+        # In-process lock so the timeout below starts when this run's turn comes; run-hidden.sh serialises across processes.
+        with VALKEY_LOCK if valkey else contextlib.nullcontext():
+            exit_code, output = run_command(command, cwd, VALKEY_TIMEOUT if valkey else TIMEOUT, container, env)
+        if valkey and exit_code == INFRA_EXIT:
+            raise InfraError(f'{build_dir.name}: the Valkey stack failed, the test did not run:\n{output[-2000:]}')
         tests = {}
         # A run that timed out may have left a partial report, which could still count some passes.
         if exit_code is not None and report.exists() and report.stat().st_size:
@@ -124,15 +165,30 @@ def main():
     out = WORK / 'hidden-results.json'
     results = json.loads(out.read_text()) if out.exists() else {}
 
+    stop = threading.Event()
+
     def work(job):
         build_dir, task, arm, run = job
-        return build_dir.name, {'task': task, 'arm': arm, 'run': run, **run_hidden(build_dir, task)}
+        if stop.is_set():
+            return build_dir.name, None
+        try:
+            return build_dir.name, {'task': task, 'arm': arm, 'run': run, **run_hidden(build_dir, task)}
+        except InfraError as e:
+            stop.set()
+            return build_dir.name, e
 
+    failure = None
     with ThreadPoolExecutor(args.parallel) as pool:
         for name, row in pool.map(work, jobs):
-            results[name] = row
-            print(f"{name}: {sum(row['tests'].values())}/{len(row['tests'])}", flush=True)
+            if isinstance(row, InfraError):
+                failure = failure or row
+            elif row is not None:
+                results[name] = row
+                print(f"{name}: {sum(row['tests'].values())}/{len(row['tests'])}", flush=True)
+    # Rows from runs that completed are kept; the failed and skipped builds keep their earlier rows untouched.
     out.write_text(json.dumps(results, indent=1))
+    if failure:
+        sys.exit(f'hidden.py: stopped on an infrastructure failure, not scored: {failure}')
     print_table(results)
 
 

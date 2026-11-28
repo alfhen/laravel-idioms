@@ -1,0 +1,3 @@
+user default off
+user admin on >adminpass ~* &* +@all
+user shop on >shoppass ~shop:* resetchannels &shop:* +@all -@dangerous -function -script -scan -randomkey -client|tracking +info

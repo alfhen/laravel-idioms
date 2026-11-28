@@ -473,5 +473,72 @@
     "focus": "A small internal read-only page for admins only: correct, tested, fast as the team grows, and proportionate to the need",
     "text": "Add an internal page at `GET /admin/roles`, a plain server-rendered Blade page that lists every user of the app with their name and the names of their roles, sorted by name. A user can have several roles or none; show nothing (or a dash) for a user without a role. We use spatie/laravel-permission for roles: it is installed and its config and migration are published, but nothing in the app uses it yet. Roles are `admin` and `member` on the `web` guard; operations create them and give users roles with the package's standard methods on the user model (for example `$user->assignRole('admin')`), and our tests do the same. Only users with the `admin` role may see the page; any other signed-in user gets 403. Guests must not see it: send them to `/login` (another team is building the login page there). There are about 60 users today and the company is growing, so the page should stay quick as the list gets longer. Tests run on SQLite; production is MySQL 8.",
     "round": "packages-trust"
+  },
+  "orders-today": {
+    "base": "base-api",
+    "pest": true,
+    "set": "probe",
+    "hidden": "eval/hidden/OrdersTodayHiddenTest.php",
+    "skip_dimensions": [
+      "validation_form_requests"
+    ],
+    "focus": "A small cached stats endpoint: correct, tested and proportionate to the need",
+    "text": "The app already uses Redis for its cache in production (`CACHE_STORE=redis` is set there). The cache configuration is done and works, and nothing about Redis needs changing. Add an `App\\Models\\Order` model (table `orders`: `id`, `total_cents` integer, `placed_at` datetime, timestamps) with a factory, and `GET /api/stats/orders-today` (Sanctum authentication, installed) returning `{\"count\": N, \"total_cents\": M}` for the orders placed today (UTC day). The dashboard polls this endpoint every few seconds, so cache the result for 60 seconds. Add tests.",
+    "round": "redis"
+  },
+  "valkey-queue": {
+    "base": "base-pest",
+    "pest": true,
+    "set": "holdout",
+    "hidden": "eval/hidden/ValkeyQueueHiddenTest.php",
+    "hidden_runner": "valkey",
+    "skip_dimensions": [
+      "thin_controllers",
+      "validation_form_requests"
+    ],
+    "focus": "A queue moved to a shared, access-restricted Valkey node with a worker dashboard: everything the queue and the dashboard write stays inside the app's allowed keys, jobs and delayed jobs are picked up promptly, no call hangs or times out, the app still boots without Redis settings, and the tests run without Valkey",
+    "text": "The shop's queue runs on the `database` connection today. Move it to our Valkey node and add Laravel Horizon (`laravel/horizon`, install it with Composer) to run and monitor the workers. Production facts: Redis is an AWS ElastiCache Valkey 8 node, cluster mode disabled, in-transit encryption required (TLS only). The node is shared with other apps. Our ACL user `shop` can only read and write keys whose names start with `shop:` and cannot run FLUSHDB, FLUSHALL, KEYS, SCAN or CLIENT. Production sets exactly these env vars: QUEUE_CONNECTION=redis, CACHE_STORE=database (the cache stays on the database for now), REDIS_HOST=<the primary endpoint name>, REDIS_PORT=6379, REDIS_USERNAME=shop, REDIS_PASSWORD=<secret>, REDIS_SCHEME=tls. Everything else the app needs must work from defaults in config/; a value only in .env does not exist in production. phpredis 6.3 is installed in production. There is no Valkey in this environment, so the app's own tests use the array store. With no REDIS_* env at all (local development, CI) the app must still boot. Add a job `App\\Jobs\\SendInvoiceReminder`: the constructor takes an int invoice id, and handle() inserts a row into a new `reminders` table (columns `invoice_id` and timestamps) with that id. Workers should pick up a new job within a few seconds of dispatch. Add tests, and tell me what to run on the servers.",
+    "round": "redis"
+  },
+  "valkey-cache": {
+    "base": "base-pest",
+    "pest": true,
+    "set": "target",
+    "hidden": "eval/hidden/ValkeyCacheHiddenTest.php",
+    "hidden_runner": "valkey",
+    "skip_dimensions": [
+      "thin_controllers",
+      "validation_form_requests"
+    ],
+    "focus": "Moving the cache and its locks to a shared, TLS-only, prefix-restricted Valkey node: every key and lock lands under the allowed prefix, the connection works from production env alone, a stalled or unreachable node fails fast within the stated limit instead of hanging, local development still works, and the cutover plan is safe for a rolling deploy with web, queue workers and the scheduler",
+    "text": "Our cache and cache locks run on the `database` store, and the `cache` table has grown past a million rows. It slows the database that also serves sign-in. Move the cache store, including its locks, to our Valkey node. Production facts: the node is AWS ElastiCache Valkey 8 with cluster mode disabled and in-transit encryption required (TLS only). It is shared with other apps. Our ACL user `shop` can only read and write keys whose names start with `shop:`, and cannot run FLUSHDB, FLUSHALL, KEYS, SCAN or CLIENT. Production sets exactly these env vars: CACHE_STORE=redis, REDIS_HOST=<the primary endpoint name>, REDIS_PORT=6379, REDIS_USERNAME=shop, REDIS_PASSWORD=<secret>, REDIS_SCHEME=tls. Everything else the app needs must work from defaults in config/; a value that lives only in .env does not exist in production. Keep using phpredis, which is installed in production. A request must never wait more than 5 seconds on the cache. If the node stops answering, a cache call must fail within 5 seconds and never hang, whether it is the first call of the request or a later one, and whether it reads, writes or takes a lock. Local development has no Valkey and sets none of these variables, and must keep working. There is no Valkey in this environment, so the app's own tests use the array store. Also write `docs/valkey-cutover.md`: the steps to switch production from the database store to Valkey. The app is deployed by a rolling update, so for a while old and new web processes run side by side, and so do queue workers and the scheduler.",
+    "round": "redis"
+  },
+  "persistent-valkey": {
+    "base": "base-redis-shop",
+    "pest": true,
+    "set": "target",
+    "hidden": "eval/hidden/PersistentValkeyHiddenTest.php",
+    "hidden_runner": "valkey",
+    "skip_dimensions": [
+      "thin_controllers",
+      "validation_form_requests"
+    ],
+    "focus": "Web processes that keep their Valkey connections between requests, switched on by a production env var and off by default: connections are reused across requests, locks and cache entries stay where they were, and the app recovers by itself when Valkey drops connections or fails over",
+    "text": "Our shop app already runs against the Valkey node. In production it runs under Apache with mod_php (prefork): up to 20 Apache children per container, 6 containers, PHP 8.3, phpredis 6.3, and 0.5 vCPU per container. Today every request opens new TLS connections to Valkey. When a container is short on CPU the TLS handshakes time out (`Redis::connect(): SSL: Handshake timed out`), and then sign-in token checks (`POST /api/token-checks`) answer 500. Make each Apache child reuse its Valkey connections across requests. Production turns this on with a new env var, REDIS_PERSISTENT=true, which is added to the production env list; with it unset the app must behave as it does today. Production facts: Redis is an AWS ElastiCache Valkey 8 node, cluster mode disabled, in-transit encryption required (TLS only). The node is shared with other apps. Our ACL user `shop` can only read and write keys whose names start with `shop:` and cannot run FLUSHDB, FLUSHALL, KEYS, SCAN or CLIENT. Production sets exactly these env vars: CACHE_STORE=redis, REDIS_HOST=<the primary endpoint name>, REDIS_PORT=6379, REDIS_USERNAME=shop, REDIS_PASSWORD=<secret>, REDIS_SCHEME=tls, and now REDIS_PERSISTENT=true. Everything else the app needs must work from defaults in config/; a value only in .env does not exist in production. Requirements: the cache locks (the `payouts:run` command takes one) must keep working exactly as before across all containers, so a payout run never starts while another one is running anywhere. The app must also recover by itself, with no restart or deploy, after Valkey drops its connections (an idle reaper, a restart) and after an ElastiCache failover, where the primary endpoint name moves to another node and the old node, which keeps its client connections open for a while, becomes a read-only replica. There is no Valkey in this environment, so the app's own tests use the array store. Add tests where they can prove something, and tell me what to set and check in production.",
+    "round": "redis"
+  },
+  "valkey-outage": {
+    "base": "base-redis-shop",
+    "pest": true,
+    "set": "target",
+    "hidden": "eval/hidden/ValkeyOutageHiddenTest.php",
+    "hidden_runner": "valkey",
+    "skip_dimensions": [
+      "validation_form_requests"
+    ],
+    "focus": "A cache outage must not take sign-in down: token checks keep answering correctly and within a few seconds while Valkey is refusing or silent, the payouts run still refuses to run without its shared lock and fails visibly, ops can see the outage, and caching resumes when Valkey is back",
+    "text": "Last week Valkey was unreachable for three minutes and every sign-in token check (`POST /api/token-checks`) answered 500, so nobody could sign in. Make token checks keep working while Valkey is unreachable. Slower is fine, but every token check must still answer within 6 seconds, whether Valkey refuses connections or accepts them and never answers (connection attempts to Valkey time out after 2 seconds). While Valkey is down the answers must still be correct, so the identity provider's keys have to come from the identity provider. When Valkey is back, caching must resume without a deploy or a restart. Do not weaken the payouts run: `payouts:run` must never run twice at the same time across our containers, so when it cannot get its lock it must pay nobody, leave every balance as it was, and exit with a failure code. Ops must be able to see that Valkey is failing, in the logs or error reports they already watch. Production facts: Redis is an AWS ElastiCache Valkey 8 node, cluster mode disabled, in-transit encryption required (TLS only). The node is shared with other apps. Our ACL user `shop` can only read and write keys whose names start with `shop:` and cannot run FLUSHDB, FLUSHALL, KEYS, SCAN or CLIENT. Production sets exactly these env vars: CACHE_STORE=redis, REDIS_HOST=<the primary endpoint name>, REDIS_PORT=6379, REDIS_USERNAME=shop, REDIS_PASSWORD=<secret>, REDIS_SCHEME=tls. Everything else the app needs must work from defaults in config/; a value only in .env does not exist in production. phpredis 6.3 is installed in production. There is no Valkey in this environment, so the app's own tests use the array store. Add tests that prove the behaviour, and tell me how ops will notice an outage.",
+    "round": "redis"
   }
 }

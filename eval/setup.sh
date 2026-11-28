@@ -4,7 +4,7 @@
 #           base-api (base-pest + Sanctum), base-api-phpunit (base + Sanctum), base-orders-schema (+ fixtures/orders-schema),
 #           base-livewire (base-pest + Livewire 4), base-inertia (base-pest + inertia-laravel 3, server side only),
 #           base-spatie (base-api + spatie permission, query-builder, data, model-states, medialibrary),
-#           base-inertia-projects (+ fixtures/inertia-projects)
+#           base-inertia-projects (+ fixtures/inertia-projects), base-redis-shop (base-pest + fixtures/redis-shop)
 #   arms:   plain, skill, boost, both, augment  ×  each base
 # ARMS and BASES (space-separated) limit what is built. The arm "prev" holds the skill as it was at the git ref
 # $PREV_REF (default: the latest v* tag), for comparing a change against the released skill.
@@ -14,7 +14,7 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="${WORK:-$REPO/eval/.work}"
 LARAVEL="${LARAVEL:-laravel/laravel:^13.0}"
 SKILL="$REPO/resources/boost/skills/laravel-idioms"
-read -r -a BASES <<< "${BASES:-base base-pest base-filament base-queue-bugfix base-api base-api-phpunit base-orders-schema base-livewire base-inertia base-inertia-projects base-spatie}"
+read -r -a BASES <<< "${BASES:-base base-pest base-filament base-queue-bugfix base-api base-api-phpunit base-orders-schema base-livewire base-inertia base-inertia-projects base-spatie base-redis-shop}"
 read -r -a ARMS <<< "${ARMS:-plain skill boost both augment}"
 
 wants() { [[ " ${ARMS[*]} " == *" $1 "* ]]; }
@@ -52,6 +52,12 @@ if wants_base base-queue-bugfix && [ ! -d base-queue-bugfix ]; then
     cp -R base-pest base-queue-bugfix
     rsync -a "$REPO/eval/fixtures/queue-bugfix/" base-queue-bugfix/
     (cd base-queue-bugfix && composer dump-autoload -q && php artisan test >/dev/null)
+fi
+
+if wants_base base-redis-shop && [ ! -d base-redis-shop ]; then
+    cp -R base-pest base-redis-shop
+    rsync -a "$REPO/eval/fixtures/redis-shop/" base-redis-shop/
+    (cd base-redis-shop && composer dump-autoload -q && php artisan test >/dev/null) || { rm -rf base-redis-shop; exit 1; }
 fi
 
 # Sanctum pre-installed (install:api + HasApiTokens), so API tasks start equal in every arm.

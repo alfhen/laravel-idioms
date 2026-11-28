@@ -1,0 +1,158 @@
+/*
+ * Paste this trait into a hidden test file, between the `use` imports and the test class, then
+ * `use ValkeyEnv;` inside the class. It needs the ext-redis extension and the Valkey stack in eval/valkey/.
+ * Everything is fully qualified, so it adds no imports. Keep this file the single source: re-paste after edits.
+ *
+ * Env caveats (checked against Illuminate\Support\Env in Laravel 13):
+ *  - Env::getRepository() is a static, but it caches only the adapter list, not values. Every env() call
+ *    reads $_ENV, then $_SERVER, then getenv() (first hit wins). So a value must be set in all three and
+ *    cleared from all three. A var left in only one of them still shadows the default.
+ *  - phpunit.xml sets CACHE_STORE=array, DB_DATABASE=:memory: and others in all three. Clearing a var must
+ *    restore that value, not unset it. bootWithEnv() does this.
+ *  - config() is read once per application. Env changes only reach config after $this->refreshApplication(),
+ *    which bootWithEnv() calls. Do not call config() before it for values you want from env.
+ *  - refreshApplication() builds a new app, so an in-memory SQLite database from RefreshDatabase is gone.
+ *    Call bootWithEnv() before touching the database, or run migrations again afterwards.
+ *  - There is no .env file: run-hidden.sh deletes it. The app runs from config defaults plus these vars.
+ *  - tearDownValkeyEnv() runs through Laravel's trait teardown hook and restores the original env.
+ */
+trait ValkeyEnv
+{
+    /** Production-like env for the restricted `shop` user. Merge your own vars over it. */
+    public const SHOP_ENV = [
+        'CACHE_STORE' => 'redis',
+        'REDIS_HOST' => 'valkey.test',
+        'REDIS_PORT' => '6379',
+        'REDIS_USERNAME' => 'shop',
+        'REDIS_PASSWORD' => 'shoppass',
+        'REDIS_SCHEME' => 'tls',
+    ];
+
+    /** @var array<string, array{env: mixed, server: mixed, put: string|false, had_env: bool, had_server: bool}> */
+    private array $valkeyEnvBackup = [];
+
+    /** @var list<\Redis> */
+    private array $valkeyAdmins = [];
+
+    /** Sets env vars (null unsets), undoes the previous call's changes, then rebuilds the application. */
+    protected function bootWithEnv(array $env): void
+    {
+        $this->restoreValkeyEnv();
+
+        foreach ($env as $name => $value) {
+            $name = (string) $name;
+            $this->valkeyEnvBackup[$name] = [
+                'env' => $_ENV[$name] ?? null,
+                'server' => $_SERVER[$name] ?? null,
+                'put' => getenv($name),
+                'had_env' => array_key_exists($name, $_ENV),
+                'had_server' => array_key_exists($name, $_SERVER),
+            ];
+
+            if ($value === null) {
+                unset($_ENV[$name], $_SERVER[$name]);
+                putenv($name);
+            } else {
+                $_ENV[$name] = $_SERVER[$name] = (string) $value;
+                putenv($name.'='.$value);
+            }
+        }
+
+        $this->refreshApplication();
+    }
+
+    private function restoreValkeyEnv(): void
+    {
+        foreach ($this->valkeyEnvBackup as $name => $old) {
+            if ($old['had_env']) {
+                $_ENV[$name] = $old['env'];
+            } else {
+                unset($_ENV[$name]);
+            }
+            if ($old['had_server']) {
+                $_SERVER[$name] = $old['server'];
+            } else {
+                unset($_SERVER[$name]);
+            }
+            $old['put'] === false ? putenv($name) : putenv($name.'='.$old['put']);
+        }
+
+        $this->valkeyEnvBackup = [];
+    }
+
+    protected function tearDownValkeyEnv(): void
+    {
+        $this->restoreValkeyEnv();
+
+        foreach ($this->valkeyAdmins as $admin) {
+            try {
+                $admin->close();
+            } catch (\Throwable) {
+            }
+        }
+        $this->valkeyAdmins = [];
+    }
+
+    /** A phpredis client on valkey.test:6379 over TLS as admin, with $db selected. The CA comes from openssl.cafile. */
+    protected function admin(int $db = 0): \Redis
+    {
+        $redis = new \Redis;
+        $redis->connect('tls://valkey.test', 6379, 5.0);
+        $redis->auth(['admin', 'adminpass']);
+        $redis->select($db);
+
+        return $this->valkeyAdmins[] = $redis;
+    }
+
+    /** Empties every database. The harness flushes once per run, so call this in setUp() for a clean slate per test. */
+    protected function flushValkey(): void
+    {
+        $this->admin()->flushAll();
+    }
+
+    /** Every key in a database, sorted, found with SCAN as admin. Keys are raw: no client prefix is applied. */
+    protected function keysIn(int $db): array
+    {
+        $redis = $this->admin($db);
+        $redis->setOption(\Redis::OPT_SCAN, \Redis::SCAN_RETRY);
+        $keys = [];
+        $cursor = null;
+        while (($batch = $redis->scan($cursor, '*', 100)) !== false) {
+            array_push($keys, ...$batch);
+            if ($cursor === 0) {
+                break;
+            }
+        }
+        sort($keys);
+
+        return $keys;
+    }
+
+    /** Drops every connection of an ACL user, as a failover or an idle reaper would. Returns how many were killed. */
+    protected function killClientsOf(string $user): int
+    {
+        return (int) $this->admin()->rawCommand('CLIENT', 'KILL', 'USER', $user);
+    }
+
+    private ?\Throwable $valkeyLastError = null;
+
+    /** Seconds the callable takes. A Throwable is caught, not rethrown: read it with lastError(). */
+    protected function elapsed(callable $fn): float
+    {
+        $this->valkeyLastError = null;
+        $start = hrtime(true);
+        try {
+            $fn();
+        } catch (\Throwable $e) {
+            $this->valkeyLastError = $e;
+        }
+
+        return (hrtime(true) - $start) / 1e9;
+    }
+
+    /** The Throwable the last elapsed() call caught, or null. */
+    protected function lastError(): ?\Throwable
+    {
+        return $this->valkeyLastError;
+    }
+}

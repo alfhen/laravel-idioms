@@ -1,0 +1,2038 @@
+[
+ {
+  "key": "caching",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 8,
+     "validation_form_requests": 6,
+     "eloquent_idioms": 8,
+     "architecture_fit": 7,
+     "modern_laravel": 8,
+     "focus_area": 7,
+     "tests": 7,
+     "correctness": 7,
+     "simplicity": 6
+    },
+    "overall": 7,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "app/Http/Requests/ExchangeRatesRequest.php:19 regex '/^[A-Z]{3}$/' lets a trailing newline through ($ matches before \\n). GET /api/exchange-rates/EUR%0A returns 200 and calls the API with base='EUR\\n', using a separate cache key. Confirmed with a probe.",
+     "app/Observers/InvalidatesTeamDashboard.php:20,24 implements ShouldHandleEventsAfterCommit but reads getOriginal('team_id'/'project_id') in saved(). Inside a real DB transaction the handler runs after syncOriginal(), so the old team is never invalidated when a project or task moves teams. Confirmed with a probe: the old team still shows the moved project until the cache entry expires.",
+     "The dashboard never serves stale data while it recomputes (no Cache::flexible). After every invalidation, readers block on the lock for up to 10s. The task explicitly allowed up to 5 minutes of staleness for this case."
+    ],
+    "antipatterns": [
+     "app/Models/Team.php:28-44 cache versioning logic (touchDashboard/dashboardVersionKey) is static and lives on the model, not with the TeamDashboard service that owns the key.",
+     "app/Observers/InvalidatesTeamDashboard.php:35 one observer for three model types, branched with instanceof/match. Per-model observers would be clearer.",
+     "app/Services/TeamDashboard.php:27-37 hand-rolled lock plus remember where Cache::flexible fits the stated stale-while-revalidate requirement.",
+     "app/Services/ExchangeRates.php:26,43,81 cache key string repeated three times with no key helper.",
+     "tests/Feature/ExchangeRatesTest.php:10-20 stateful static-closure helper to swap Http::fake handlers; Http::sequence or re-faking would be clearer.",
+     "tests/Feature/ExchangeRatesTest.php:118-133 the 'concurrent misses' test is sequential and only proves the cache works. It does not exercise the lock.",
+     "tests/Feature/DashboardTest.php:160-161 the 'user switches team' test does not check team A's dashboard through the endpoint."
+    ],
+    "strengths": [
+     "Single-flight lock protects the dashboard recompute, with a fallback when the lock times out.",
+     "Versioned per-team keys. Invalidation covers projects, tasks and users (member count), including moves between teams outside transactions.",
+     "Http client uses timeout(3) and connectTimeout(3), base URL comes from config/services.php, and the response is checked with throw() plus a payload sanity check.",
+     "Failure cooldown key stops waiting requests from retrying a dead API. A long-lived last-known key backs the stale fallback.",
+     "Modern attributes: #[Scope], #[ObservedBy], #[Fillable]. Enum cast for status, and withCount with a constrained scope.",
+     "Thorough dashboard tests: 7-day boundary with freezeTime, tie-breaking, query-log cache check, cross-team isolation."
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 9,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 7,
+     "architecture_fit": 7,
+     "modern_laravel": 8,
+     "focus_area": 5,
+     "tests": 6,
+     "correctness": 6,
+     "simplicity": 8
+    },
+    "overall": 6,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "app/Actions/BuildDashboard.php:18 plain Cache::remember with no lock and no Cache::flexible. The endpoint is expensive and hit constantly, so every invalidation lets all concurrent requests recompute at once (stampede). It also never serves the allowed stale data while recomputing.",
+     "app/Observers/ProjectObserver.php:16-17 and TaskObserver.php:17-18 use ShouldHandleEventsAfterCommit but read wasChanged/getOriginal after syncOriginal. Inside a real DB transaction the old team is never invalidated on a move. Confirmed with a probe.",
+     "Users have no observer, so member_count stays stale for up to 5 minutes after someone joins or leaves the team. Confirmed with a probe. This is within the stated 5-minute tolerance but differs from the other counts.",
+     "routes/api.php:7-10 puts /exchange-rates behind auth:sanctum. The task did not ask for this, and it changes the public contract."
+    ],
+    "antipatterns": [
+     "app/Models/Team.php:28-31 tasks() HasManyThrough is defined but never used. BuildDashboard.php:35 builds the same thing by hand with whereIn and clone.",
+     "app/Services/ExchangeRates.php:62 API URL is hardcoded instead of coming from config/services.php.",
+     "app/Actions/BuildDashboard.php:21-31 static forget() on an action class used as cache-key owner. This mixes the action role with the cache-key repository role.",
+     "tests/Feature/ExchangeRatesTest.php:118-129 the 'waited on the lock' test acquires and releases the lock before the request, so it only tests a cache hit.",
+     "tests/Feature/ExchangeRatesTest.php:131-142 relies on a real 4-second block() wait, which slows the suite.",
+     "tests/Feature/DashboardTest.php:98 uses the DB facade without importing it, relying on the global alias."
+    ],
+    "strengths": [
+     "Very thin controllers. RatesUnavailable is a renderable, ShouldntReport exception, raised with throw_if.",
+     "Validation 'alpha:ascii','size:3' after upper-casing is correct and rejects newline and unicode tricks.",
+     "Single-flight lock for exchange rates that rechecks the cache inside the lock, plus a failure backoff key and a long-lived last-good key.",
+     "Separate per-model observers with typed signatures are easy to read.",
+     "Tests use Http::failedConnection, travel() for TTL checks, a describe block for invalidation scenarios, and document the model-event bypass case."
+    ]
+   },
+   "rationale": "Both suites pass: impl-1 runs 28 tests and impl-2 runs 31. Both share two gaps. Neither uses Cache::flexible for the allowed stale-while-recompute, and both miss old-team invalidation when a project or task moves inside a real transaction, because their after-commit observers read getOriginal too late.\n\nImpl-1 ranks first. It handles the harder dashboard requirement properly: a single-flight lock around the recompute, versioned per-team keys, and invalidation that also covers member changes. Its exchange-rate service has a timeout, config-based URL, cooldown and last-known fallback. Its one real bug is the regex `$` that accepts a trailing newline in the currency code. Its concurrency test also proves less than it claims.\n\nImpl-2 is simpler and has cleaner touches: a renderable exception, alpha:ascii plus size:3 validation, and per-model observers. But its dashboard is a bare Cache::remember on an expensive, constantly hit endpoint, so every invalidation causes a stampede. It also leaves member_count stale, hardcodes the API URL, puts exchange rates behind auth without being asked, and includes a lock test that tests nothing plus a slow real-wait test. On the task's focus, caching under load, impl-1 is stronger."
+  },
+  "cost_usd": 0.6401742
+ },
+ {
+  "key": "caching",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 7,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 6,
+     "modern_laravel": 8,
+     "focus_area": 6,
+     "tests": 7,
+     "correctness": 7,
+     "simplicity": 5
+    },
+    "overall": 6.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Every User save, even a name or remember_token update, bumps the team dashboard version twice (app/Observers/InvalidatesTeamDashboard.php:19-20 calls touchDashboard on getOriginal('team_id') whether or not team_id changed, and touch() runs too). A probe showed the version going from 2 to 4 after a rename, so the hot cached dashboard is thrown away on routine user writes.",
+     "Does not use Cache::flexible, although the task allows up to 5 minutes of stale data. A miss after invalidation always recomputes synchronously while the caller waits on a 10-second block (app/Services/TeamDashboard.php:33)."
+    ],
+    "antipatterns": [
+     "app/Services/TeamDashboard.php:24-40: hand-built versioned keys, a lock and Cache::remember nested inside lock->block. Plain forget plus Cache::flexible covers this with less code.",
+     "app/Models/Team.php:28-44: cache-version logic placed on the Eloquent model as static helpers.",
+     "app/Observers/InvalidatesTeamDashboard.php:35-38: one generic observer switches on model type with instanceof and match. Separate observers per model would be clearer.",
+     "app/Http/Controllers/ExchangeRatesController.php:15-17: the service returns null as a sentinel and the controller builds the 503 response. A renderable exception would keep the controller thin.",
+     "app/Http/Controllers/DashboardController.php:13-15: reads $request->user()->team twice.",
+     "app/Models/User.php:14-15: imports are not sorted (Pint would flag this).",
+     "tests/Feature/ExchangeRatesTest.php:10-20: a static-variable trick to swap Http::fake handlers adds ceremony.",
+     "tests/Feature/ExchangeRatesTest.php:118-133: the 'concurrent misses' test is sequential cache hits and never tests the lock."
+    ],
+    "strengths": [
+     "Invalidates member changes as well, including a user moving teams, and handles a project moving teams (old and new team).",
+     "Has stampede protection on the dashboard recompute.",
+     "Extracts the rates base URL to config/services.php.",
+     "Uses #[Scope] attributes, a forTeam scope with whereRelation, #[ObservedBy] and ShouldHandleEventsAfterCommit.",
+     "Good dashboard tests: exact 7-day boundary with freezeTime, tie-break ordering, per-team isolation, a sweep of invalidation cases. Uses a failure-cooldown key to stop every request hitting a failing API."
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 8,
+     "focus_area": 7,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 7.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "member_count is not invalidated when users join or leave a team. A probe showed it stays stale for up to the 5-minute TTL. The task only names projects and tasks, so this is minor.",
+     "Does not use Cache::flexible, although the task allows serving stale data for up to 5 minutes. A plain Cache::remember gives no stampede protection when many requests miss the dashboard after invalidation (app/Actions/BuildDashboard.php:18)."
+    ],
+    "antipatterns": [
+     "app/Actions/BuildDashboard.php:18: Cache::remember where Cache::flexible([N, 300]) matches the 'stale for up to 5 minutes' requirement.",
+     "app/Actions/BuildDashboard.php:35,40-41: clones a base query with (clone $tasks). A hasManyThrough or a scope per call would read better. Team::tasks() hasManyThrough is defined but never used.",
+     "app/Services/ExchangeRates.php:33-34: waiters block for up to 4 s, so a request can wait longer than the 3-second budget before it gets stale data.",
+     "tests/Feature/DashboardTest.php:77: the test name 'reflects changes within the same request cycle' does not describe what the test asserts (the TTL fallback for writes that skip model events)."
+    ],
+    "strengths": [
+     "The RatesUnavailable exception renders its own 503 and implements ShouldntReport, which keeps the controller to one line.",
+     "Clear single-flight: lock->block re-checks the cache, catches LockTimeoutException and falls back to last-good. A failure backoff key stops queued waiters from calling the API again.",
+     "Separate small observers with ShouldHandleEventsAfterCommit. They handle tasks moving between projects and projects moving between teams.",
+     "The FormRequest normalizes the route parameter in prepareForValidation and validates it with alpha:ascii and size:3.",
+     "Tests cover the lock held by another request, a waiter reusing fresh rates, outage single-call, a malformed body, timeout-as-outage, cache isolation per team, the 1-hour TTL with travel(), and Http::preventStrayRequests globally."
+    ]
+   },
+   "rationale": "Both suites pass (impl-2: 31 tests, impl-1: 28). Both have the same core design: an observer-based forget, a lock, a last-good key and a failure cooldown. Neither uses Cache::flexible. impl-2 ranks first because it is simpler and fits Laravel better: one-line controllers, a renderable exception for the 503, separate observers, and tests that actually exercise the held lock. impl-1 adds versioned keys, a dashboard lock and a polymorphic observer. A probe showed the observer bumps the cache version on every User save, such as a rename, which throws away the hot dashboard cache for no reason. Its 'concurrent' test does not test the lock. impl-1 does invalidate member counts, which impl-2 misses, but the task only asked for project and task changes."
+  },
+  "cost_usd": 0.5454239999999999
+ },
+ {
+  "key": "carrier-quote",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "validation_form_requests": 9,
+     "eloquent_idioms": 7,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 9
+    },
+    "overall": 8.3,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Services/CarrierClient.php:55 - the client calls report() itself and builds two CarrierUnavailable instances, one to report and one to throw. Reporting is the caller's job, and this side effect is hidden inside the HTTP client.",
+     "app/Services/CarrierClient.php:48 - a 403, 400 or other non-404 4xx, and a 200 with no rates list (line 40), fall back to the estimate without being reported, so a broken contract or a revoked key that returns 403 never raises an alert.",
+     "app/Http/Controllers/ShippingQuoteController.php:18 - fallback_cents goes out without an (int) cast and relies only on the cast in config.",
+     "tests/Feature/ShippingQuoteTest.php:148 - the budget test only checks the sleeps, not the timeout or connect_timeout actually sent, and uses fully-qualified Sleep calls instead of an import."
+    ],
+    "strengths": [
+     "Domain exceptions (UnknownPostcode renders 422 and implements ShouldntReport; CarrierUnavailable) give the client a clean boundary, so the controller never sees HTTP client exceptions.",
+     "The retry when-callback retries only connection errors and 5xx. 401 and 404 stop at once (probe: a 503 then a 401 gives 2 calls and 1 report).",
+     "Timeout 1.4 s, connect timeout 1 s and a 100 ms backoff, with the 5 s budget worked out in a comment.",
+     "The postcode() accessor on the FormRequest. preventStrayRequests and Sleep::fake are set globally in Pest.php.",
+     "Dataset-driven Pest tests cover mixed failure sequences, the count of reports and the configured fallback price."
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 7,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 9,
+     "correctness": 9,
+     "simplicity": 7
+    },
+    "overall": 8.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Services/CarrierClient.php:29 - ->throw() after retry() is redundant, because retry() already throws on the final failure by default.",
+     "app/Services/BuildShippingQuotes.php - an extra invokable service layer for a three-branch try/catch adds some ceremony.",
+     "app/Services/BuildShippingQuotes.php:20 - CarrierClient's failure contract is the raw Illuminate RequestException and ConnectionException, so HTTP status logic is split across two classes (both check serverError and tooManyRequests).",
+     "app/Services/CarrierClient.php:46 - 429 is retried with a fixed 100 ms backoff and Retry-After is ignored. That rarely helps within the budget, though it does not break it."
+    ],
+    "strengths": [
+     "Clear reporting rules: 401 and any unexpected 4xx are reported, and so is a 200 without a rates list. 5xx and connection failures after retries fall back silently. Probes confirmed that 403 and a non-JSON 200 are reported once.",
+     "UnknownPostcode renders 422 with a message that includes the postcode, implements ShouldntReport and is never retried. A 500 then a 404 still gives 422.",
+     "Same bounded timeouts as impl-1 (1.4 s per attempt, 1 s connect, 100 ms backoff, at most 3 attempts).",
+     "The budget test reads the actual Guzzle timeout and connect_timeout options from the fake and adds up the worst case. A direct unit test covers CarrierClient::quote. The test that the URL does not leak the key is a nice touch.",
+     "Thin controller using $request->validated('postcode'). The fallback casts fallback_cents to int."
+    ]
+   },
+   "rationale": "I rank impl-2 first by a small margin. Both pass their suites (21 tests for impl-1, 24 for impl-2). Both use the same core setup: Http client with timeout 1.4 s, connectTimeout 1 s and retry(3, 100) gated on connection errors and 5xx, an UnknownPostcode exception that renders 422 and implements ShouldntReport, and preventStrayRequests plus Sleep::fake. Probes gave the same results on both: a 5xx then a 401 is reported once with 2 calls, a 5xx then a 404 returns 422, TrimStrings normalises padded postcodes, and an empty rates list counts as a real quote. Neither has a real bug.\n\nimpl-1 is simpler, and its domain exceptions keep HTTP details inside the client. But it calls report() from inside the client, and it falls back silently on a 403 or other 4xx and on a malformed 200. That is weaker alerting than the task's intent of getting notified.\n\nimpl-2 maps errors more completely: unexpected 4xx and contract breaches are reported, and only transient failures fall back quietly. Its tests are stronger: the budget test checks the real timeout options, and there is a direct test of CarrierClient. It loses some simplicity points for the extra BuildShippingQuotes layer, the redundant ->throw(), and passing raw HTTP exceptions across the class boundary."
+  },
+  "cost_usd": 0.38066
+ },
+ {
+  "key": "carrier-quote",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 7,
+     "architecture_fit": 8,
+     "modern_laravel": 8,
+     "focus_area": 7,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 7.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Other 4xx (403, 400) and a 200 with a malformed or non-JSON body fall back silently with nothing reported. A changed carrier contract or a revoked permission goes unnoticed (found by probe: 403 and HTML 200 gave reported=0).",
+     "The controller's fallback price is not cast to int (app/Http/Controllers/ShippingQuoteController.php:18). If fallback_cents comes in as a string, the API returns \"1250\" instead of 1250 (found by probe). services.php casts env values, so this only matters for runtime config overrides."
+    ],
+    "antipatterns": [
+     "app/Services/CarrierClient.php:52-58: builds two near-identical CarrierUnavailable exceptions, one to report and one to throw. Reporting is a side effect hidden inside a mapping helper.",
+     "app/Http/Controllers/ShippingQuoteController.php:14-20: fallback business logic sits in the controller.",
+     "app/Http/Requests/ShippingQuoteRequest.php:16: a postcode() accessor that only wraps validated('postcode') adds little."
+    ],
+    "strengths": [
+     "The client maps all carrier failures to domain exceptions: UnknownPostcode (renders 422, ShouldntReport) and CarrierUnavailable. The controller only catches one type.",
+     "Bounded time: timeout 1.4s and connectTimeout 1s, 3 tries, 100ms sleeps. Retries only on ConnectionException or 5xx, so 401 and 404 are not retried.",
+     "Tests are compact Pest tests using datasets for mixed failure sequences, Sleep::assertSequence, preventStrayRequests and Exceptions::fake."
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 7,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 9,
+     "correctness": 9,
+     "simplicity": 7
+    },
+    "overall": 8.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Services/BuildShippingQuotes.php: an extra invokable action class just to wrap the fallback. It is mild ceremony for a few lines, though it keeps the controller thin.",
+     "app/Services/CarrierClient.php:29: calls ->throw() after retry(), which is redundant because retry already throws by default. It does make the intent explicit.",
+     "app/Services/CarrierClient.php: quote() lets raw Http-client exceptions (RequestException, ConnectionException) leak to the caller instead of mapping them to a domain exception. Error classification is split between the client and BuildShippingQuotes (status checks in two places)."
+    ],
+    "strengths": [
+     "Reporting is precise. 401 and other unexpected 4xx are reported, and so is a 200 without a rates list. 5xx, 429 and connection failures are expected outcomes: they are retried and not reported. Probes confirmed 403 and HTML 200 are reported once.",
+     "Bounded time: 1.4s timeout, 1s connect timeout, 3 tries, 100ms sleeps. 429 is retried, which makes sense. The fallback price is cast to int.",
+     "UnknownPostcode implements ShouldntReport and renders a 422 whose message includes the postcode.",
+     "The tests are thorough. They cover a wide validation dataset, check that the key is sent only in the header, verify the timeout budget through the faked request options, test CarrierClient::quote directly, check that a 401 is reported only once, and use preventStrayRequests and Sleep::fake globally."
+    ]
+   },
+   "rationale": "I ranked impl-2 first. Both implementations pass their suites (24 and 21 tests) and meet the core requirements. Both retry 5xx and connection failures, stay within 3 calls and a 4.4s worst case, never retry 401 or 404, report a 401 once and serve the fallback, and return 422 with a message for a 404. My probes ran 403, HTML 200, 500 then 401, 500 then 404, string fallback config, 429 and Arabic-Indic digits against both. impl-1 swallowed carrier contract breaks (403, non-JSON 200) with no report, and it returns fallback_cents uncast. impl-2 reported those cases correctly, retries 429 and casts the fallback. impl-1 maps errors to domain exceptions more neatly and uses one fewer class, but it hides reporting inside a mapping helper. impl-2's tests are broader, including a timeout-budget assertion on the request options. impl-2's extra action class is slight ceremony, but impl-1's silent failure modes count for more."
+  },
+  "cost_usd": 0.3143324
+ },
+ {
+  "key": "coupon-redeem",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 7,
+     "correctness": 9,
+     "simplicity": 7
+    },
+    "overall": 8.3,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Actions/RedeemCoupon.php:17 returns a positional array tuple [CouponRedemption, int] instead of a typed result or the redemption with its coupon relation set",
+     "tests/Feature/CouponRedemptionTest.php:110 test named as a mid-request race but only covers a pre-existing redemption; no real concurrency exercised",
+     "database/factories/CouponFactory.php:21 usedUp() state defined but unused (tests use forceFill instead)",
+     "tests/Feature/CouponRedemptionTest.php:133 FQCN inline instead of an import"
+    ],
+    "strengths": [
+     "Row lock on coupon (lockForUpdate) inside DB::transaction with deadlock retries serialises same-coupon requests across servers; unique (coupon_id,user_id) index as backstop",
+     "Event dispatched only when wasRecentlyCreated and only after the transaction commits, inside the action so every caller gets it",
+     "Domain exception CouponExhausted renders its own 409 JSON and implements ShouldntReport",
+     "Thin invokable controller, route model binding by {coupon:code} giving 404, #[Fillable] attribute and casts() method",
+     "Tests cover guest 401 with/without JSON header, 404, 201+event, 200 repeat without event, 409 without side effects, holder repeat after exhaustion, DB-level uniqueness"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 8,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 9,
+     "architecture_fit": 7,
+     "modern_laravel": 8,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 9
+    },
+    "overall": 8.1,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Models/Coupon.php:46 throws Symfony ConflictHttpException from the model, mixing HTTP concerns into the domain layer",
+     "app/Http/Controllers/RedeemCouponController.php:16-18 event dispatch lives in the controller, so other callers of Coupon::redeemFor() would skip the side effect",
+     "app/Events/CouponRedeemed.php:11 SerializesModels on a non-queued event is unneeded ceremony",
+     "app/Events/CouponRedeemed.php:13 empty constructor body on separate lines rather than {}"
+    ],
+    "strengths": [
+     "Same correct concurrency design: lockForUpdate on coupon row in a retried transaction plus unique (coupon_id,user_id) index",
+     "Event fires only for wasRecentlyCreated and after commit",
+     "setRelation('coupon', $coupon) returns the locked/incremented coupon with the redemption, avoiding a tuple return",
+     "Least ceremony: model method + invokable controller, no extra classes",
+     "Tests are slightly broader: exact 409 message, count growth across users, last-slot boundary, holder repeat after exhaustion with exact JSON and no event, assertConflict/assertDatabaseCount helpers"
+    ]
+   },
+   "rationale": "Both implementations use essentially the same, correct concurrency strategy: a coupon row lock inside DB::transaction with 3 attempts, then firstOrNew, a cap check, save and increment, plus a unique (coupon_id, user_id) index. Both dispatch CouponRedeemed only on wasRecentlyCreated, after commit. Both suites pass (11/11), and all five probes passed on both: 409 without an Accept header still returns JSON with the message, max_redemptions=0 returns 409, the listener runs outside the transaction, a failing listener leaves the redemption committed and returns 500, and code lookup is case-sensitive. No real bugs in either. impl-1 ranks first narrowly on architecture. Redemption and its side effect live together in an action, and a domain exception renders its own 409 and implements ShouldntReport. impl-2 throws an HTTP exception from the model and leaves the event dispatch to the controller, so the rule and its side effect are split. impl-2 is simpler and has slightly stronger tests. impl-1 loses some points for its tuple return, a mislabeled race test and an unused factory state."
+  },
+  "cost_usd": 0.45162520000000006
+ },
+ {
+  "key": "coupon-redeem",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 7,
+     "eloquent_idioms": 8,
+     "architecture_fit": 7,
+     "modern_laravel": 8,
+     "focus_area": 9,
+     "tests": 7,
+     "correctness": 9,
+     "simplicity": 6
+    },
+    "overall": 7.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Actions/RedeemCoupon.php:17 returns a positional array tuple [redemption, count]. Callers have to destructure it. Setting the coupon relation on the redemption, or returning a small DTO, would be clearer.",
+     "tests/Feature/CouponRedemptionTest.php:110 test name and comment say it covers a competing redemption created mid-request. It only seeds an existing redemption before the request, so it is a plain repeat test.",
+     "database/factories/CouponFactory.php:21 usedUp() state is defined but never used. Tests at :69-71 set the count by hand with forceFill instead.",
+     "tests/Feature/CouponRedemptionTest.php:133 uses an inline FQCN instead of an import.",
+     "Three extra types (action class, custom exception, tuple contract) for a single-endpoint flow is more ceremony than the task needs."
+    ],
+    "strengths": [
+     "The redemption logic is correct. It takes a lockForUpdate on the coupon row inside DB::transaction (3 attempts), then runs firstOrNew. The cap check and increment are serialized across servers, and the unique (coupon_id, user_id) index backs the once-per-user rule.",
+     "The event is dispatched only when wasRecentlyCreated is true, and only after the transaction commits.",
+     "CouponExhausted is a domain exception with render() and ShouldntReport. HTTP concerns stay out of the model.",
+     "The controller is thin and the action is injected. It uses the modern #[Fillable] attribute and casts() method.",
+     "test_never_exceeds_max_redemptions checks the status sequence across 4 users with a collection map."
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 8,
+     "validation_form_requests": 7,
+     "eloquent_idioms": 9,
+     "architecture_fit": 7,
+     "modern_laravel": 8,
+     "focus_area": 9,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 9
+    },
+    "overall": 8,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Models/Coupon.php:46 the model throws the HTTP-layer ConflictHttpException. The Eloquent model now depends on the transport layer. A domain exception with render() would keep them apart.",
+     "app/Http/Controllers/RedeemCouponController.php:16-17 the controller decides whether to dispatch the domain event. If redeemFor() is reused elsewhere, the side effect can be forgotten.",
+     "app/Events/CouponRedeemed.php:7 SerializesModels is unnecessary on a synchronous event (harmless)."
+    ],
+    "strengths": [
+     "Same correct concurrency design as impl-1. It locks the coupon row (lockForUpdate) inside DB::transaction(\u2026, 3), then calls firstOrNew. Under the lock it checks the cap and increments, and the unique (coupon_id, user_id) index adds a database-level guarantee.",
+     "It returns the redemption with the locked coupon set as a relation via setRelation. That avoids the tuple and gives an accurate redeemed_count without an extra query.",
+     "wasRecentlyCreated drives both the 201/200 status and the single event dispatch, after the commit.",
+     "It is the smallest solution: one model method, a thin invokable controller, and route model binding on {coupon:code}.",
+     "The tests cover more: exact 404 body, taking the last slot then 409, a coupon seeded as used up, the earlier holder getting 200 after exhaustion, a DB unique constraint test, and assertDispatchedTimes."
+    ]
+   },
+   "rationale": "I ranked impl-2 first by a small margin. Neither implementation has a bug I could find. The two are almost the same at the core: lock the coupon row, firstOrNew the redemption, check the cap, save and increment inside a transaction with retries, then dispatch the event only when wasRecentlyCreated is true, after the commit. Both suites pass (11 tests each). My probes behaved the same on both: max_redemptions=0 returns 409 JSON even without an Accept header, a holder still gets 200 after the cap is lowered below the count, the code lookup is case-sensitive (a lowercase code gets 404), GET returns 405, and when a listener throws, the redemption row stays. impl-2 is simpler. It returns the redemption with the locked coupon set as a relation, where impl-1 returns an array tuple. Its tests are a little richer and named accurately, while impl-1 has a misleadingly named 'competing mid-request' test and a factory state it never uses. impl-2's main weakness is throwing ConflictHttpException from the model. impl-1 has the cleaner domain exception and keeps the event inside the action, but pays for it with extra ceremony."
+  },
+  "cost_usd": 0.3394804
+ },
+ {
+  "key": "orders-today",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 6,
+     "eloquent_idioms": 6,
+     "architecture_fit": 6,
+     "modern_laravel": 7,
+     "focus_area": 7,
+     "tests": 7,
+     "correctness": 6,
+     "simplicity": 8
+    },
+    "overall": 6.5,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "A guest GET /api/stats/orders-today without an `Accept: application/json` header returns 500 (RouteNotFoundException: Route [login] not defined), not 401. Base bootstrap/app.php has no redirectGuestsTo, and impl-1 did not add one. The test only covers getJson, so it misses this. Probe confirmed."
+    ],
+    "antipatterns": [
+     "app/Models/Order.php:10 #[UseFactory(OrderFactory::class)] is redundant with HasFactory's naming convention, and the factory also sets $model (database/factories/OrderFactory.php:13). That is three ways of saying the same thing.",
+     "app/Http/Controllers/Api/OrderStatsController.php:17-32 Query and cache logic live inline in the controller. The date range is an inline where pair rather than a model scope.",
+     "app/Http/Controllers/Api/OrderStatsController.php:21-25 hydrates an Order model for an aggregate row (->first() without toBase()), so it reads the Order's cast attributes for count/sum.",
+     "app/Models/Order.php:16 uses a protected $fillable array where the impl-2/3 #[Fillable] attribute is the newer style.",
+     "tests/Feature/OrdersTodayTest.php:9 adds uses(RefreshDatabase::class) per file instead of enabling it in Pest.php.",
+     "No test checks that the cached value is dropped at the UTC day boundary, although the code handles this through a date-keyed cache key."
+    ],
+    "strengths": [
+     "Single aggregate query with coalesce. The UTC date in the cache key prevents stale data across midnight.",
+     "Smallest, most proportionate change. No extra layers.",
+     "Tests use travel() to check the 59s/61s TTL boundary, plus inclusive and exclusive day edges, with assertExactJson.",
+     "Indexed placed_at column."
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 9,
+     "eloquent_idioms": 9,
+     "architecture_fit": 7,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 7,
+     "correctness": 9,
+     "simplicity": 6
+    },
+    "overall": 7.8,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "tests/Feature/OrdersTodayTest.php:59-66 The guest test calls forgetGuards() plus refreshApplication() to undo the actingAs in beforeEach. That is brittle test plumbing. Logging in per test, or only in tests that need it, would be cleaner.",
+     "routes/api.php:10 references the controller by an inline FQCN instead of a use import.",
+     "app/Stats/BuildOrdersTodayStats.php puts a single-use invokable class in a new ad-hoc App\\Stats namespace. That is extra ceremony for a one-line controller.",
+     "app/Http/Controllers/Api/Stats/OrdersTodayController.php nests namespaces three deep for one endpoint.",
+     "bootstrap/app.php:16 The redirectGuestsTo change is a reasonable fix but was not asked for. It sits outside the task's stated scope."
+    ],
+    "strengths": [
+     "Single aggregate query with toBase(), which avoids model hydration for the aggregate row.",
+     "#[Scope] placedBetween with a half-open [from, to) range. #[Fillable] attribute. Both are modern Laravel 12/13 idioms.",
+     "Fixes the guest non-JSON 500 by returning null from redirectGuestsTo for api/*. Tested with both get and getJson.",
+     "Midnight-rollover test proves the date-keyed cache key works. Also tests the 59s/61s TTL boundary.",
+     "RefreshDatabase enabled globally in Pest.php."
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 9,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 9,
+     "correctness": 9,
+     "simplicity": 7
+    },
+    "overall": 8.2,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Actions/BuildOrdersTodayStats.php:21-22 runs two queries (count and sum) where one aggregate select would do. The result is cached for 60s, so the cost is minor.",
+     "app/Actions/BuildOrdersTodayStats.php adds an Action class for a single small endpoint. That is mild over-structuring, though the class is concise.",
+     "bootstrap/app.php:16 The redirectGuestsTo change is outside the stated scope, but it fixes a real 500."
+    ],
+    "strengths": [
+     "Readable cache closure using the builder's count() and sum() with a #[Scope] placedBetween over a half-open range on immutable dates.",
+     "Thin invokable controller with a clean route import.",
+     "Guest non-JSON 500 fixed. The test asserts 401 for both get and getJson with no test hacks.",
+     "Most complete and cleanest Pest suite: guest, zeros, inclusive/exclusive day edges, 59s/61s TTL boundary, and the midnight cache rollover.",
+     "Modern idioms: #[Fillable], #[Scope], RefreshDatabase in Pest.php."
+    ]
+   },
+   "rationale": "All three suites pass. All three meet the core requirements: UTC day range, a 60s cache keyed by date so it rolls over at midnight, and Sanctum auth. Probes covered a guest plain GET, query count when the cache is hit, a 23:59:59 order, and file-store serialization. In impl-1, a guest request without a JSON Accept header returns 500 (Route [login] not defined). impl-2 and impl-3 fixed this in bootstrap/app.php and test it. impl-2 and impl-3 share almost the same design: a #[Scope], #[Fillable], an invokable controller and a small action class. impl-2 uses a better single toBase() aggregate query. impl-3 has the cleaner test suite and route file. impl-2's guest test needs a refreshApplication/forgetGuards hack, and its route uses an inline FQCN. impl-3's two queries are a small cost behind a 60s cache, so it ranks first. impl-1 is the most proportionate but ranks last because of the 500 bug, redundant factory wiring and a fatter controller."
+  },
+  "cost_usd": 0.4786500000000001
+ },
+ {
+  "key": "orders-today",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 5,
+     "eloquent_idioms": 6,
+     "architecture_fit": 6,
+     "modern_laravel": 5,
+     "focus_area": 7,
+     "tests": 6,
+     "correctness": 7,
+     "simplicity": 8
+    },
+    "overall": 6,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "A guest request without an Accept: application/json header returns 500 (RouteNotFoundException: Route [login] not defined) instead of 401. The probe confirmed it. Unlike impl-2/3, it never set redirectGuestsTo for api/*. The bug already existed in the base app, but this endpoint inherits it."
+    ],
+    "antipatterns": [
+     "app/Models/Order.php:10 #[UseFactory(OrderFactory::class)] is redundant: HasFactory already resolves the factory by naming convention",
+     "database/factories/OrderFactory.php:13 protected $model is redundant ceremony, on top of the UseFactory attribute",
+     "app/Models/Order.php:16 uses protected $fillable where the rest of the codebase (Laravel 13) uses the #[Fillable] attribute",
+     "app/Http/Controllers/Api/OrderStatsController.php:12-34 puts the query, the caching and the result shaping all inside the controller action. The date range is inline where a model scope would be clearer",
+     "app/Http/Controllers/Api/OrderStatsController.php:21-25 selectRaw + first() hydrates an Order model just to read aggregate columns. It should use toBase()",
+     "tests/Feature/OrdersTodayTest.php:9 adds an in-file uses(RefreshDatabase::class) instead of enabling it in Pest.php",
+     "The day key already guards midnight rollover, but no test covers it"
+    ],
+    "strengths": [
+     "Smallest diff, proportionate to the task",
+     "A single aggregate query with coalesce handles the empty case",
+     "The cache key includes the UTC date, so no stale value survives past midnight",
+     "The 59s/61s cache TTL test uses time travel correctly",
+     "Adds an index on placed_at"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "eloquent_idioms": 9,
+     "architecture_fit": 7,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 7,
+     "correctness": 9,
+     "simplicity": 7
+    },
+    "overall": 7.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "tests/Feature/OrdersTodayTest.php:60-62 runs forgetGuards() plus refreshApplication() to undo the Sanctum::actingAs in beforeEach. This is a hack. The guest test should simply not authenticate, with actingAs moved into the tests that need it",
+     "app/Stats/BuildOrdersTodayStats.php:8 puts the class in a non-standard App\\Stats namespace. App\\Actions is the common convention",
+     "app/Http/Controllers/Api/Stats/OrdersTodayController.php:3 nests namespaces two levels deep for a single controller",
+     "bootstrap/app.php:16 redirectGuestsTo still falls back to route('login'), which does not exist. Harmless for API-only use"
+    ],
+    "strengths": [
+     "Single aggregate query via toBase()->first() with coalesce, so no model hydration",
+     "The #[Scope] placedBetween uses a half-open [from, to) range and is index-friendly",
+     "Modern Laravel 13 features: #[Fillable] and #[Scope] attributes, casts() method, typed array shape docblock",
+     "Invokable controller that only delegates",
+     "The UTC date in the cache key prevents stale values past midnight, and a test covers it",
+     "The redirectGuestsTo fix makes a non-JSON guest request return 401. Probe confirmed",
+     "Tests cover empty, boundary seconds, the 60s TTL, midnight rollover and guests"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Actions/BuildOrdersTodayStats.php:21-22 runs two queries (count, then sum) where one aggregate select would do. Negligible behind a 60s cache, but less tight than impl-2",
+     "bootstrap/app.php:16 redirectGuestsTo still falls back to route('login'), which does not exist. Harmless for API-only use",
+     "app/Models/Order.php:19 casts() lacks a return type docblock (minor)"
+    ],
+    "strengths": [
+     "Readable action using the immutable start/end date pair and the Eloquent count()/sum() helpers, with an int cast on sum",
+     "The #[Scope] placedBetween uses a half-open range. Uses the #[Fillable] attribute and an indexed placed_at column",
+     "Thin invokable controller in the standard App\\Http\\Controllers location. Conventional App\\Actions namespace",
+     "The UTC date in the cache key prevents stale values past midnight, and a test covers it",
+     "Cleanest tests: the guest test simply doesn't authenticate and checks both JSON and plain GET return 401; covers boundaries both sides, the 59s/61s TTL and midnight",
+     "The redirectGuestsTo fix makes a non-JSON guest request return 401. Probe confirmed"
+    ]
+   },
+   "rationale": "All three suites pass. Probes run against every implementation: file cache store round-trip and query count, non-JSON guest request, invalid token, and large totals as ints. impl-2 and impl-3 are near-identical in design: an action class, a #[Scope] with a half-open range, a cache key that includes the UTC date, and redirectGuestsTo so API guests get 401. impl-2 has the tighter query, one aggregate via toBase(). Its guest test hacks around beforeEach auth with refreshApplication()/forgetGuards(), and its App\\\\Stats namespace and two-level controller nesting are less conventional. impl-3 costs two queries per cache miss, which doesn't matter at one miss per 60s. In return its tests are cleaner and its layout is conventional, so it ranks first. impl-1 is the most compact but puts all logic in the controller. It adds redundant factory wiring (UseFactory + $model), uses the older $fillable property and hydrates a model for an aggregate. It has no midnight-rollover test, and a non-JSON guest request returns 500 (Route [login] not defined) because the redirect was never configured."
+  },
+  "cost_usd": 0.4685538
+ },
+ {
+  "key": "persistent-valkey",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 6,
+     "eloquent_idioms": 6,
+     "architecture_fit": 5,
+     "modern_laravel": 6,
+     "focus_area": 4,
+     "tests": 6,
+     "correctness": 5,
+     "simplicity": 6
+    },
+    "overall": 5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "No persistent_id on either connection: probe showed default (db 0, locks) and cache (db 1) both pconnect with persistent_id=null to the same host:port, so they share one phpredis pool key; locks/cache isolation then depends on phpredis pooling internals and Laravel re-SELECTing every connect",
+     "config/database.php:168,184 forces max_retries=0 whenever REDIS_PERSISTENT is set, on a false premise (phpredis re-AUTHs and re-SELECTs on its own reconnect). This removes phpredis's transparent reconnect-with-backoff for non-retryable commands (lock SET NX, release EVAL) on a reaped pooled socket, weakening recovery",
+     "REDIS_MAX_RETRIES is silently ignored when REDIS_PERSISTENT=true (probe: REDIS_MAX_RETRIES=5 -> 0)"
+    ],
+    "antipatterns": [
+     "config/database.php:168 env() ternary coupling two unrelated settings; overriding an existing env var instead of a separate default",
+     "app/Auth/TokenVerifier.php:14-30 hand-rolled try/get/verify/rescue(put) replacing Cache::remember; scope creep beyond the connection change",
+     "app/Auth/JwksClient.php:19-33 same hand-rolled remember with catch(Throwable) + report",
+     "tests/Feature/ValkeyConnectionsTest.php:33 global ThrowingStore class with 13 methods declared in a Pest file; Mockery/fake store would do",
+     "tests/Feature/ValkeyConnectionsTest.php:89 test asserts max_retries=0, pinning the incorrect design"
+    ],
+    "strengths": [
+     "Tests re-evaluate config/database.php under a controlled env repository, proving the off-by-default behaviour",
+     "Token checks degrade gracefully when Valkey is down (the reported 500), with tests for read-failure and READONLY write-failure",
+     "Payouts test proves no payout runs when the lock store is down",
+     "No custom connector classes; leaves READONLY/lost-connection handling to the framework"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 5,
+     "eloquent_idioms": 5,
+     "architecture_fit": 4,
+     "modern_laravel": 5,
+     "focus_area": 4,
+     "tests": 6,
+     "correctness": 3,
+     "simplicity": 2
+    },
+    "overall": 3,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "command_retries=1 (config/database.php:168,188) replays every command after a lost connection, overriding the framework's deliberate non-retry of SET-with-options and non-idempotent writes. Probe: INCRBY applied twice (counter 2 after one call)",
+     "Probe: lock SET NX that succeeded server-side but lost its reply is retried and returns false. payouts:run skips and the lock is held by nobody for 600s",
+     "Generation counter is a static (ResilientPhpRedisConnector.php:20), reset every request under mod_php. Next request reuses the base persistent_id, so it protects nothing across requests; within a request it opens extra persistent pools ('shop-default.1') that stay open in the child on a shared node"
+    ],
+    "antipatterns": [
+     "app/Redis/ResilientPhpRedisConnector.php:44-56 copies the parent connect() body just to swap the connection class",
+     "app/Redis/ResilientPhpRedisConnector.php:20-39 mutable static process state with a test-only reset()",
+     "app/Redis/ResilientPhpRedisConnection.php overrides protected rebuildClient(), coupling to framework internals",
+     "config/database.php:168 nested env() default inside env() plus a new undocumented REDIS_COMMAND_RETRIES var",
+     "tests/Feature/PersistentRedisTest.php:9-60 several global fake classes and putenv juggling in a Pest file"
+    ],
+    "strengths": [
+     "Distinct persistent_id per connection (shop-default / shop-cache)",
+     "Tests assert no 'name' key (CLIENT SETNAME is denied by the ACL) and that locks stay on the default connection",
+     "Tests cover READONLY, read-error and non-matching NOPERM error paths"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 7,
+     "architecture_fit": 9,
+     "modern_laravel": 8,
+     "focus_area": 8,
+     "tests": 7,
+     "correctness": 8,
+     "simplicity": 9
+    },
+    "overall": 8,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "tests/Feature/RedisPersistentTest.php:15-35 manual $_ENV/$_SERVER save/restore instead of Env::getRepository()",
+     "tests/Feature/RedisPersistentTest.php:153-224 last two tests mostly pin framework PhpRedisConnection behaviour rather than app code",
+     "tests/Feature/RedisPersistentTest.php:7 global RedisException shim declared in a test file"
+    ],
+    "strengths": [
+     "Minimal correct change: per-connection, per-db persistent_id (config/database.php:168,185); everything else reuses existing options.persistent and the framework's READONLY/lost-connection rebuild",
+     "Keeps phpredis max_retries and the framework's idempotency rules, so lock SET NX is never replayed blindly (test proves it, probe confirmed INCRBY not double-applied)",
+     "Tests evaluate config with only the production env vars and prove pconnect plus tls:// host plus distinct ids, and connect when unset",
+     "Test proves the lock connection, db and prefix don't move when persistence is switched on",
+     "Documents REDIS_PERSISTENT in .env.example"
+    ]
+   },
+   "rationale": "The base app already wires REDIS_PERSISTENT into options.persistent, and the installed framework closes and rebuilds the client on lost connections and READONLY replies. The remaining work was to give each connection its own persistent_id and keep the retry rules safe. impl-3 does exactly that with minimal config and sound tests. impl-1 omits persistent_id (probe: both connections pconnect with a null id to the same host) and sets phpredis max_retries to 0 on a false premise, which weakens recovery and ignores REDIS_MAX_RETRIES. Its token-check fallback is useful but out of scope. impl-2 adds custom connector and connection classes with a static generation counter that doesn't work across mod_php requests. Its command_retries=1 replays non-idempotent writes: probes showed INCRBY applied twice and a payout lock that blocks itself for 600s after a lost reply."
+  },
+  "cost_usd": 0.9509206000000001
+ },
+ {
+  "key": "persistent-valkey",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 6,
+     "eloquent_idioms": 6,
+     "architecture_fit": 4,
+     "modern_laravel": 5,
+     "focus_area": 4,
+     "tests": 6,
+     "correctness": 6,
+     "simplicity": 5
+    },
+    "overall": 5,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "No per-connection persistent_id (config/database.php): default (db 0) and cache (db 1) share one phpredis pool key. It works only because Laravel re-SELECTs on every connect.",
+     "max_retries is forced to 0 when REDIS_PERSISTENT=true (config/database.php:168,184), based on a doubtful claim that phpredis does not re-SELECT on reconnect. This silently ignores REDIS_MAX_RETRIES and removes phpredis' own reconnect/backoff.",
+     "Probe: while Valkey is down, every token check fetches JWKS from the IdP again (5 requests, 5 HTTP calls). There is no fallback memoization, so a cache outage multiplies load on the identity provider.",
+     "Scope creep into domain code (app/Auth/TokenVerifier.php, app/Auth/JwksClient.php) to work around connection failures, rather than fixing reconnection at the connection layer."
+    ],
+    "antipatterns": [
+     "app/Auth/TokenVerifier.php:14-30: replaces the Cache::remember idiom with manual get/try/catch(Throwable)/put",
+     "app/Auth/JwksClient.php:20-33: the same hand-rolled remember with catch(Throwable) swallowing every error, including programming errors",
+     "tests/Feature/ValkeyConnectionsTest.php:33-63: global ThrowingStore class with 13 one-line stub methods that do not follow Pint style; a Mockery mock or Cache::spy would do",
+     "tests/Feature/ValkeyConnectionsTest.php:17: config-evaluation helper mutates the global Env repository"
+    ],
+    "strengths": [
+     "Feature tests hit the real HTTP endpoint and the payouts:run command under a broken store",
+     "Payout lock fails closed: proven that no payout runs when the lock store is down",
+     "Off-by-default behaviour is verified"
+    ],
+    "rationale_unused": ""
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 6,
+     "eloquent_idioms": 6,
+     "architecture_fit": 5,
+     "modern_laravel": 6,
+     "focus_area": 7,
+     "tests": 7,
+     "correctness": 7,
+     "simplicity": 3
+    },
+    "overall": 6,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "command_retries=1 for every command when persistent (config/database.php:168,188) replays non-idempotent commands. Probe: incr after a lost reply ran twice. The framework already retries idempotent commands only, and the app does not use INCR today, but this is a trap for later code.",
+     "The generation-bump persistent_id scheme rests on the premise that close() may not drop a persistent socket. phpredis 6.3 close() does close it, and the framework's rebuildClient already calls close(). Static per-process state grows a new pool key on every rebuild."
+    ],
+    "antipatterns": [
+     "app/Redis/ResilientPhpRedisConnector.php:45-58: copies the parent connect() only to swap the connection class",
+     "app/Redis/ResilientPhpRedisConnector.php:19-39: mutable static generation counters plus a public reset() that exists for tests",
+     "app/Providers/AppServiceProvider.php:16-18: overrides the built-in phpredis driver through extend(), so a framework upgrade can silently diverge",
+     "config/database.php:168: nested env() inside env() default",
+     "tests/Feature/PersistentRedisTest.php:13-62: global FakeSocketClient, FlakyClient and TestConnector classes declared in the test file; redisConfigWithEnv uses putenv"
+    ],
+    "strengths": [
+     "Distinct persistent_id per connection",
+     "Avoids the one-off 500 after failover by retrying the failed write on the new primary",
+     "Tests cover READONLY failover with lock acquire, release after a dropped connection, off-by-default with no retries, NOPERM not hidden, and no CLIENT SETNAME (ACL)"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 7,
+     "architecture_fit": 9,
+     "modern_laravel": 8,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 10
+    },
+    "overall": 8,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "After a failover, the first non-retryable write per child per connection (setex from Cache::remember) throws READONLY before the framework rebuilds the client. Probe confirmed: one throw, then success. So each Apache child can return one 500 on POST /api/token-checks before recovering. It recovers by itself, but this is not zero-error."
+    ],
+    "antipatterns": [
+     "tests/Feature/RedisPersistentTest.php:14-37: config re-evaluation by hand-mutating $_ENV/$_SERVER (acceptable but clunky)",
+     "tests/Feature/RedisPersistentTest.php:6-8: polyfills the global RedisException in the test file"
+    ],
+    "strengths": [
+     "Smallest correct change: only a per-connection, per-database persistent_id in config, with REDIS_PERSISTENT off by default",
+     "Relies on the framework's own lost-connection and READONLY rebuild (close and reconnect) instead of reinventing it",
+     "Deliberately does not replay a lock acquire, and the test documents that",
+     "Tests use anonymous classes and assert pconnect args (tls:// host, persistent_id), off-by-default connect, lock key space unchanged, and production-only env defaults",
+     "Documents the env var in .env.example"
+    ]
+   },
+   "rationale": "impl-3 ranks first. It makes the smallest change that works: a per-connection, per-database persistent_id on top of the existing REDIS_PERSISTENT option. It relies on Laravel's built-in READONLY and lost-connection handling, which closes the client and reconnects, and its tests are clean and targeted. Its only gap is one error per Apache child on the first cache write after a failover. impl-2 ranks second. It is functionally sound and removes that one-off error by retrying commands, but it over-engineers: it copies the parent connector, keeps static generation counters on the doubtful premise that close() keeps the socket, overrides the driver, and applies command_retries to non-idempotent commands (the probe showed incr replayed). impl-1 ranks third. It sets no persistent_id, disables phpredis max_retries on a doubtful premise, and moves the fix into domain code with catch(Throwable) around the cache. The probe showed that during an outage every token check calls the identity provider. Its tests carry heavy global-class ceremony. All suites pass (impl-2: 23, impl-3: 20, impl-1: 19), and all probe files were deleted."
+  },
+  "cost_usd": 0.8009098
+ },
+ {
+  "key": "sales-report",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 9,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "An invalid or array `from` with a valid `to` also adds a spurious 'to must be after or equal to from' error (app/Http/Requests/SalesReportRequest.php:23). It still returns 422, so this is cosmetic."
+    ],
+    "antipatterns": [
+     "app/Providers/AppServiceProvider.php:23 adds Model::shouldBeStrict app-wide. Good practice, but outside the task scope.",
+     "app/Reports/BuildSalesReport.php:43-80 hydrates Order models from grouped aggregate rows (selectRaw on Order::query()). A toBase() call or plain query rows would be lighter.",
+     "app/Reports/BuildSalesReport.php:30 uses DB::raw inside sum() while the LINE_TOTAL constant elsewhere includes sum(). The expression is duplicated in a slightly different form."
+    ],
+    "strengths": [
+     "Invokable controller with one line, a FormRequest with a filters() method that returns typed values, and a single-purpose report class",
+     "Uses the #[Scope] and #[Fillable] attributes, an enum cast, Rule::enum and Number::currency (current Laravel conventions)",
+     "Columns are qualified in scopes, so they survive joins. Tie-break ordering is deterministic. Average rounds half up with integer math.",
+     "Thorough tests: a data provider of 12 invalid inputs, an assertExactJson empty response, date boundary seconds, thousands separators, config currency switch, ties, combined filters and empty query strings",
+     "Order fillable leaves out foreign keys. Factory states plus a placedAt helper."
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 9,
+     "validation_form_requests": 7,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 7
+    },
+    "overall": 8,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "A non-date string in `from` with a valid `to` still adds a spurious after_or_equal error on `to`. The conditional rule only prevents this for an array or empty `from` (app/Http/Requests/SalesReportRequest.php:23). It still returns 422, so this is cosmetic."
+    ],
+    "antipatterns": [
+     "app/Http/Requests/SalesReportRequest.php:21-25 builds the `to` rule imperatively, which is extra ceremony for a small gain",
+     "app/Reports/BuildSalesReport.php:22-31 repeats the same three-scope chain in the $orders and $items closures instead of reusing one",
+     "app/Http/Requests/SalesReportRequest.php:47 together with BuildSalesReport.php:39 turns `to` into an exclusive next-day bound, then subtracts a day to echo it back. The round trip is awkward.",
+     "app/Models/Order.php:16 and OrderItem.php:11 make foreign keys mass-assignable",
+     "tests/Feature/SalesReportTest.php:18 calls a factory state by dynamic method name from a string ($state())",
+     "app/Models/Order.php:43,50-51 uses unqualified column names in scopes. Safe today only because they run inside whereHas subqueries."
+    ],
+    "strengths": [
+     "Same thin invokable controller, FormRequest filters() and report-class structure",
+     "whereHas EXISTS subqueries reuse the Order scopes for item aggregates, so multi-item orders are never double counted",
+     "The exclusive upper bound on dates avoids fractional-second edge cases. Forcing the 'en' locale makes currency formatting deterministic.",
+     "Tests cover array params, multi-item orders, tie-breaks on product id and responses without an Accept header"
+    ]
+   },
+   "rationale": "The two implementations are nearly identical in structure: an invokable controller, a FormRequest with filters(), a BuildSalesReport class, #[Scope]/#[Fillable] attributes, an enum cast and Number::currency. Both pass their suites (32 and 16 tests). Probes (array/bogus from with to, whitespace country, uppercase status, empty from, to-day boundary at 23:59:59, multi-item orders) gave matching results, apart from one cosmetic difference: both can add a spurious extra `to` error on 422 responses. impl-1 ranks first. Its tests are noticeably stronger (data-provider validation matrix, exact JSON for the empty case, formatting and config checks, combined filters). Its rules are simpler and declarative, and its scopes use qualified columns. impl-2 adds imperative rule building, duplicates the scope chain, mass-assigns foreign keys and round-trips the `to` date. These are small idiom points, not real bugs."
+  },
+  "cost_usd": 0.5816756000000001
+ },
+ {
+  "key": "sales-report",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 10,
+     "validation_form_requests": 9,
+     "eloquent_idioms": 9,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 9,
+     "correctness": 9,
+     "simplicity": 9
+    },
+    "overall": 8.8,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Providers/AppServiceProvider.php:23 adds Model::shouldBeStrict, which the task did not ask for (a good habit, but scope creep)",
+     "app/Http/Requests/SalesReportRequest.php:42 OrderStatus::tryFrom($data['status'] ?? '') ?? Paid hides the default in a clever fallback. A plain filled() check would read more clearly",
+     "app/Reports/BuildSalesReport.php:76 'id' => $row->id is not cast to int, unlike the money and unit fields",
+     "app/Reports/BuildSalesReport.php:46,55,70 orderByRaw repeats the aggregate expression instead of ordering by the selected alias"
+    ],
+    "strengths": [
+     "Invokable controller is one line. The FormRequest normalises input into typed filters with filters()",
+     "Scopes use the #[Scope] attribute and qualified column names (orders.placed_at, orders.status), so they still work after the joins",
+     "One query base ($orders, then $lines join) feeds every aggregate: simple and consistent",
+     "Uses the #[Fillable] attribute, an enum cast with Rule::enum, Number::currency, and money kept as integer cents with half-up rounding via intdiv",
+     "Validation rule for 'to' stays static (after_or_equal:from) and handles empty or missing from correctly (verified)",
+     "32 tests with a data provider for invalid params: arrays, impossible dates, time parts, combined filters, ties, currency config, thousands separators, and a JSON 422 even without an Accept header",
+     "Factory states like placedAt and fromCountry make tests readable"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 10,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.2,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Http/Requests/SalesReportRequest.php:21-25 adds after_or_equal:from only when 'from' is a non-empty string. This is needless conditional rule building: the static rule behaves the same (verified with from=abc and with an empty from)",
+     "app/Reports/BuildSalesReport.php:22-31 repeats the same three-scope chain in the $orders and $items closures instead of sharing one constraint closure",
+     "app/Reports/BuildSalesReport.php:46-48,71-73 joins orders and customers on top of a whereHas('order') EXISTS subquery. The orders table is queried twice per aggregate",
+     "app/Models/Order.php:43 unqualified 'status'/'placed_at' columns. This works only because the scopes run inside whereHas subqueries, so the scopes break if reused on a join",
+     "app/Reports/BuildSalesReport.php:39 to is stored as an exclusive next-day bound and turned back with subDay() for output. This off-by-one round trip is easy to get wrong"
+    ],
+    "strengths": [
+     "Invokable controller is one line. FormRequest has prepareForValidation country normalisation and a typed filters() method",
+     "Uses #[Scope] attribute scopes, the #[Fillable] attribute, an enum cast, Rule::enum and Number::currency with an explicit locale",
+     "Half-open date range [from, next day) is precise and documented",
+     "Explicit FK delete behaviour (restrictOnDelete/cascadeOnDelete) in migrations",
+     "Tests cover the default status, inclusive date edges, case-insensitive country, the top-5 and top-3 caps with tie-breaks, item price versus product price, an order with no items, a multi-item order counted once, and array params returning 422"
+    ]
+   },
+   "rationale": "The two implementations are almost structurally identical: an invokable controller, a FormRequest with a filters() method, a BuildSalesReport invokable, #[Scope] attribute scopes, and enum, Fillable and Number::currency usage. Both pass their suites (impl-2: 16 tests, impl-1: 32). Probes gave identical results in both: invalid from with a valid to, padded lowercase country, to-only end-of-day boundary, uppercase status returning 422, and an empty to. Neither has a functional bug. impl-1 ranks first. Its validation is simpler (a static after_or_equal rule, which I verified handles an empty or missing from, while impl-2's conditional rule buys nothing). Its scopes qualify their columns and survive joins, and one $orders->join base feeds every aggregate. impl-2 duplicates the scope chain and stacks joins on top of whereHas EXISTS subqueries. impl-1's tests are also clearly broader: a data provider for invalid input, combined filters, ties, and currency config and formatting. impl-1's minor negatives are the unrequested shouldBeStrict change and the tryFrom fallback trick."
+  },
+  "cost_usd": 0.5166938
+ },
+ {
+  "key": "scheduled-reports",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 7.8,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "app/Console/Commands/PruneAbandonedCarts.php:25-26: the cutoff is evaluated again for every batch, and the DELETE by id does not re-check updated_at. A cart touched between the pluck and the delete is still deleted. The comment 'safe because rows only get older' misses this race.",
+     ".env.example: CACHE_STORE stays 'database' and SCHEDULE_CACHE_STORE=redis is only a commented hint. Locks work only if every server shares the DB. The task says Redis is the shared store, so the production default is left implicit."
+    ],
+    "antipatterns": [
+     "config/warehouse.php:9: 'unshipped_after_hours' config key for a fixed business rule adds indirection nobody asked for",
+     "tests/Feature/SyncSupplierStockTest.php:40-49: 'dispatched to the long connection' only reads the #[Connection] attribute via reflection after Queue::fake. It does not show that the dispatch is routed there.",
+     "tests/Feature/ScheduleTest.php:12: instanceof CallbackEvent branching in the finder helper. A simpler command/description match would do.",
+     "routes/console.php:15: weeklyOn(1,'07:30') uses a magic number and has a formatting slip. Schedule::MONDAY would be clearer."
+    ],
+    "strengths": [
+     "Every task is onOneServer, and the commands use withoutOverlapping with short explicit expiries (10 and 120 minutes), so a killed server never blocks the next run for a day",
+     "The job's limits nest correctly: Timeout 2700 < retry_after 3000 < UniqueFor 3300 < 1 hour, with Tries(1) and FailOnTimeout, on a dedicated redis_long connection",
+     "Uses modern attributes: #[Signature], #[Description], #[Scope], #[Fillable] and the queue attributes",
+     "Schedule tests check isDue in winter and summer (DST), on both DST change nights, and against a UTC wall-clock time",
+     "Test that runs schedule:run three times in the same minute and asserts the job is queued once, directly modelling the three-server problem",
+     "Prune test covers more than one batch (5001 rows) using a bulk insert"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.2,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Console/Commands/PruneAbandonedCarts.php:25: assignment inside the while condition is dense. A do/while or chunkById-style loop reads more clearly.",
+     "app/Jobs/SyncSupplierStock.php:24: #[Queue('long')] repeats the queue the redis-long connection already defaults to",
+     "tests/Feature/SyncSupplierStockTest.php:17-18: fully qualified attribute class names inline instead of imports, and ReflectionClass built twice",
+     "tests/Feature/ReportUnshippedOrdersTest.php:14: the 48-hour boundary test does not freeze time. It passes only because the clock moves forward between factory and command.",
+     "tests/Feature/ScheduleTest.php: no test of several schedule:run calls in the same minute, so the onOneServer behaviour is only asserted as a flag"
+    ],
+    "strengths": [
+     "Schedule::onOneServer()->timezone('Europe/Copenhagen')->group(...) puts the shared guards in one place, and the probe confirmed the job event inherits both",
+     "Prune fixes the cutoff once and re-checks updated_at in the DELETE, so a cart touched mid-run is never removed. It uses ordered id batches of 1000.",
+     "The job's limits nest correctly: Timeout < retry_after (3000) < UniqueFor (3300) < 1 hour, with Tries(1), FailOnTimeout, a dedicated connection and a stable uniqueId",
+     "Tests run real dispatches through the database queue: the second dispatch is dropped while one is pending, and the lock is released after queue:work --once",
+     "The schedule test helper uses collection sole(), and the tests check expression, timezone, onOneServer, withoutOverlapping and expiresAt plus DST isDue checks",
+     "Sets CACHE_STORE=redis and QUEUE_CONNECTION=redis in .env.example, and comments that the scheduler locks need a shared store",
+     "Uses Scheduler::MONDAY, #[WithoutTimestamps] on Order, and HasFactory generics docblocks"
+    ]
+   },
+   "rationale": "Both implementations pass all 20 tests and are close. Both put every task on onOneServer with Copenhagen time, give the commands short withoutOverlapping expiries, and make SyncSupplierStock a unique job with correctly nested timeout < retry_after < UniqueFor < 1 hour on a dedicated Redis connection. My probes confirmed that both send the job to the 'long' queue, that a second dispatch is deduplicated, and that the hourly job event carries the Copenhagen timezone and onOneServer. Two probes (three schedule:run calls sending the report once, and a crashed run's lock expiring) failed in both implementations the same way, so I treat them as artefacts of my test setup, not evidence either way. impl-2 ranks first on the cleanup and on clarity. Its prune fixes the cutoff once and re-checks updated_at in the DELETE, while impl-1 can delete a cart touched between select and delete. It groups the shared schedule guards with Schedule::group, sets Redis as the cache and queue default, and tests real unique dispatch and lock release through the database queue. impl-1 has the stronger schedule tests: three schedule:run calls in the same minute, and both DST change nights. Its connection test only uses reflection, and it adds a config value nobody asked for. The edge goes to impl-2 for the race-free prune and its tests of real dispatch."
+  },
+  "cost_usd": 0.5566743999999999
+ },
+ {
+  "key": "scheduled-reports",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 7,
+     "architecture_fit": 8,
+     "modern_laravel": 8,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 7,
+     "simplicity": 8
+    },
+    "overall": 7.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "app/Console/Commands/PruneAbandonedCarts.php:25-26 deletes by plucked ids without re-checking updated_at, so a cart touched between select and delete is deleted anyway (small race on a live table); cutoff also moves per batch via now() inside the scope (app/Models/Cart.php:20)"
+    ],
+    "antipatterns": [
+     "routes/console.php:18 weeklyOn(1,'07:30'): magic day number and missing space; Schedule::MONDAY constant is clearer",
+     "routes/console.php:16-35 timezone()/onOneServer() repeated on every event instead of a Schedule group",
+     "tests/Pest.php:18 mis-indented ->use(RefreshDatabase::class)",
+     "app/Models/Cart.php:20 now() inside the scope couples the scope to the clock; passing a cutoff is more testable",
+     "tests/Feature/ScheduleTest.php:63-72 the three-server test uses Queue::fake, so it doesn't test the real dispatch path",
+     "database/migrations/2026_11_28_000001_create_orders_table.php:15 adds timestamps() the task didn't ask for (harmless)",
+     ".env.example: leaves CACHE_STORE=database and only comments SCHEDULE_CACHE_STORE, which is weak for a three-server setup"
+    ],
+    "strengths": [
+     "Correct lock nesting: Timeout 45m < retry_after 50m < UniqueFor 55m < 1h, Tries(1), FailOnTimeout",
+     "onOneServer on every event; withoutOverlapping with explicit short expiries so a crash can't block for a day",
+     "03:00 Copenhagen avoids the daylight-saving change hour; tests cover both DST nights and a UTC negative case",
+     "Precise boundary tests (exact 48h and 30d edges with startOfSecond freezing)",
+     "Modern attributes (#[Signature], #[Scope], queue attributes, #[Fillable])",
+     "Batched id deletes keep memory flat; index on updated_at"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Console/Commands/PruneAbandonedCarts.php:25 dense while-with-assignment condition; a do/while or chunkById/lazyById would read more clearly",
+     "tests/Feature/SyncSupplierStockTest.php:17-18 fully qualified attribute classes via reflection inline rather than imports",
+     "tests/Feature/ScheduleTest.php:46-47 the prune schedule test checks only one ordinary night, not the DST change nights",
+     "routes/console.php:7-8 aliasing the Schedule class as Scheduler only to reach the MONDAY constant is slightly awkward"
+    ],
+    "strengths": [
+     "Schedule::onOneServer()->timezone()->group() removes repetition across the three tasks",
+     "Prune fixes the cutoff once and re-checks updated_at in the DELETE, which is race-safe, ordered and memory-flat",
+     "Correct lock nesting (Timeout < retry_after < UniqueFor < 1h) with Tries(1) and FailOnTimeout, documented in the class",
+     "Tests the uniqueness path for real on the database driver, including lock release after queue:work",
+     "Model scopes take a cutoff parameter (testable); Order uses #[WithoutTimestamps]",
+     "03:30 Copenhagen avoids the DST window; winter and summer due checks; .env.example sets redis for cache and queue",
+     "Validates the warehouse email (null and empty) and exits with a failure code"
+    ]
+   },
+   "rationale": "The two are nearly identical in design: same lock nesting, a ShouldBeUnique job on a dedicated long Redis connection, onOneServer plus a short withoutOverlapping expiry on the commands, and batched id deletes. Both pass their suites and my probes: a crashed job's lock expires before the next hour, three schedule:run calls produce one real dispatch, the prune runs once on the DST fall-back night, and late-shipped orders are not counted. impl-2 is ahead for three reasons. Its prune uses a fixed cutoff and re-checks updated_at in the DELETE, while impl-1 can delete a cart touched between select and delete. It uses a schedule group instead of repeating timezone/onOneServer. It tests job uniqueness through the real database driver, where impl-1 relies on Queue::fake. impl-1 has the stronger time-boundary and DST tests but small style issues (magic day number, indentation) and a weaker .env.example for three servers."
+  },
+  "cost_usd": 0.4914926
+ },
+ {
+  "key": "shipment-sync",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 7,
+     "architecture_fit": 6,
+     "modern_laravel": 8,
+     "focus_area": 7,
+     "tests": 8,
+     "correctness": 7,
+     "simplicity": 6
+    },
+    "overall": 7,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Order cancelled (soft-deleted) while the POST is in flight: the partner creates the shipment, but the reference update at app/Jobs/SendOrderToWarehouse.php:141 goes through the SoftDeletes scope and changes 0 rows. The reference is lost and shipment_status stays pending even though a shipment exists (confirmed by probe)."
+    ],
+    "antipatterns": [
+     "app/Jobs/SendOrderToWarehouse.php:40 uses InteractsWithQueue, which Foundation\\Queue\\Queueable already includes",
+     "app/Jobs/SendOrderToWarehouse.php:213 toException() only wraps `new RequestException($response)`. Use $response->toException() or ->throw() instead",
+     "app/Jobs/SendOrderToWarehouse.php:57-217 is a 217-line job that mixes the HTTP client, status mapping, failure bookkeeping and mail claim/compensation",
+     "app/Jobs/SendOrderToWarehouse.php:179-186 sends mail synchronously inside the job with manual claim rollback in a catch, where Mail::queue inside a transaction would be simpler",
+     "app/Jobs/SendOrderToWarehouse.php:61 calls fresh() again on a model that SerializesModels has just reloaded",
+     "tests/Feature/OrderShipmentTest.php:320 reflects on class attributes to test configuration, which is brittle",
+     "tests/Feature/OrderShipmentTest.php:244-250 swaps Mail facade mocks by hand"
+    ],
+    "strengths": [
+     "Conditional update in markAsPaid claims the pending-to-paid change, respects soft deletes, and dispatches afterCommit",
+     "Global RateLimited middleware plus 429 release using Retry-After clamped to 1-120 s",
+     "Idempotency-Key header and first-writer-wins conditional updates prevent duplicate shipments",
+     "failed() keeps the last real error when retries run out, so ops see why",
+     "Uses current attributes (Backoff, MaxExceptions, Timeout, DeleteWhenMissingModels, Fillable), with timeouts kept below retry_after",
+     "Thorough Pest suite: 422, 429 with and without header, 5xx then success, connection failure, 401, missing id, mail-failure retry, rate-limit behaviour"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 7
+    },
+    "overall": 8,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "The handle() guard checks shipment_reference === null instead of shipment_status, so a job that runs again for an order whose shipment already failed (status failed, no reference) calls the partner again (app/Jobs/SendOrderToWarehouse.php:56). Minor, since markAsPaid prevents duplicate jobs.",
+     "When retries run out on the time limit, failed() records only the generic 'attempted too many times' message and loses the last real error (app/Jobs/SendOrderToWarehouse.php:86-88)"
+    ],
+    "antipatterns": [
+     "app/Exceptions/WarehouseRateLimited.php uses an exception as control flow for a 429 that is always caught one frame up. ShouldntReport adds nothing there",
+     "app/Services/WarehouseClient.php plus two custom exceptions add a layer for a single endpoint, a little ceremonial",
+     "app/Models/Order.php:42-45,75 uses explicit ->value on enums in builder updates, which Laravel casts on its own",
+     "app/Services/WarehouseClient.php:11-12 has unsorted imports"
+    ],
+    "strengths": [
+     "Stores the reference with withTrashed when the order is cancelled during the call, so an existing shipment is never lost",
+     "WithoutOverlapping per order, placed before RateLimited so a waiting duplicate does not use a rate-limit slot",
+     "Mail claim and Mail::queue inside one DB transaction give exactly-once email without manual compensation",
+     "Clean HTTP status mapping in a thin client: 201 returns the reference, 429 releases with Retry-After (numeric or fallback), 4xx fails without retry, 5xx/408 throw",
+     "Modern attribute-based config on the class: RetryFor, MaxExceptions, Backoff, Timeout, DeleteWhenMissingModels, WithoutRelations",
+     "markShipmentFailed never overwrites a created shipment and skips cancelled orders",
+     "Tests include a Retry-After dataset (seconds, cap, HTTP date), end-to-end sync-queue 422 failure, the shared rate-limit key, and mail rendering"
+    ]
+   },
+   "rationale": "Both implementations are strong and close. Both claim the pending-to-paid change with a conditional update, dispatch afterCommit, use a global 5/s RateLimited middleware, honour Retry-After on 429, fail 422 without retrying, use idempotency keys, and claim the email exactly once through shipment_notified_at. impl-2 ranks first. It handles the race where an order is cancelled during the HTTP call (withTrashed update keeps the created shipment's reference), which impl-1 gets wrong (probe confirmed the reference is lost and status stays pending). impl-2 also adds WithoutOverlapping and queues the mail inside the claim transaction instead of sending synchronously with manual rollback. Its client/job split is easier to read than impl-1's 217-line job. impl-1 is better in two places: failed() keeps the last real error when retries run out, and its status guard skips orders whose shipment already failed. Those are smaller issues than losing a real shipment's reference."
+  },
+  "cost_usd": 0.6658314000000001
+ },
+ {
+  "key": "shipment-sync",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 7,
+     "architecture_fit": 7,
+     "modern_laravel": 7,
+     "focus_area": 7,
+     "tests": 8,
+     "correctness": 7,
+     "simplicity": 7
+    },
+    "overall": 7,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "app/Jobs/SendOrderToWarehouse.php:141-148: the success write uses Order::query(), which has the SoftDeletes scope. If the order is cancelled while the HTTP call is in flight, the partner has created the shipment but shipment_reference is never stored and shipment_status stays pending. A probe confirmed this: reference null, status pending. Ops can't see the shipment that exists.",
+     "app/Jobs/SendOrderToWarehouse.php:128: a 429 without a Retry-After header releases after only 1 second. During a minute or two of 429s, every backed-up job retries about once a second. The global limiter caps this, but it is close to hammering the partner."
+    ],
+    "antipatterns": [
+     "app/Jobs/SendOrderToWarehouse.php:40: `use InteractsWithQueue, Queueable`. Foundation\\Queue\\Queueable already includes InteractsWithQueue.",
+     "app/Jobs/SendOrderToWarehouse.php:52-55: a retryUntil() method while the other policy uses attributes. #[RetryFor] exists in the installed version and would be consistent.",
+     "app/Jobs/SendOrderToWarehouse.php:213-216: toException() is a one-line wrapper around `new RequestException($response)`. It adds nothing.",
+     "app/Jobs/SendOrderToWarehouse.php:61: re-fetches the order with fresh() even though SerializesModels already restored it.",
+     "app/Jobs/SendOrderToWarehouse.php:100-217: the HTTP client, status mapping and persistence all sit in the job. The bool return of createShipment mixes 'released' and 'failed'.",
+     "app/Models/Order.php:15-23: #[Fillable] includes status, shipment_status, shipment_reference and shipment_failure_reason. That opens state fields to mass assignment.",
+     "No WithoutOverlapping. Two copies of the job (for example a manual re-dispatch) can both call the partner. Only the Idempotency-Key header guards against a duplicate."
+    ],
+    "strengths": [
+     "recordAttemptFailure stores the last transient error. failed() keeps that reason on MaxAttemptsExceededException, so ops see '503 ...' instead of 'attempted too many times'.",
+     "A 422 marks the shipment failed in place without throwing. Other 4xx call fail() so failed() records the reason. 408 is treated as transient.",
+     "Exactly-once email uses a conditional claim on shipment_notified_at and releases the claim if sending fails. A test fakes an SMTP failure to cover it.",
+     "markAsPaid does a conditional update in a transaction and dispatches afterCommit. A repeated call or a cancelled order queues nothing.",
+     "Global 5/s RateLimited middleware plus retry bounded by time and MaxExceptions. The Timeout is below retry_after.",
+     "Thorough tests: sequence 5xx then success, the 401 path, rate-limit behavior across 7 jobs, a Pest dataset for skip cases, and a test that the retry keeps the last error."
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 7
+    },
+    "overall": 8.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "app/Jobs/SendOrderToWarehouse.php:86-88: when retries run out because of RetryFor or MaxExceptions, the stored reason is the generic 'has been attempted too many times' message, not the last 5xx or timeout. Ops see failed but not the real cause. This is minor."
+    ],
+    "antipatterns": [
+     "app/Jobs/SendOrderToWarehouse.php:100-109: Mail::queue runs inside DB::transaction. With a non-database queue, a push followed by a failed commit could send the email twice. This is an edge case.",
+     "app/Models/Order.php:55-59: forceFill plus syncOriginalAttributes to mirror a query-builder update is ceremony. It could use refresh().",
+     "app/Services/WarehouseClient.php:12: import order (Str after RuntimeException). Cosmetic.",
+     "Two custom exception classes plus a service class is a little more structure than the task needs, though each one has a clear purpose."
+    ],
+    "strengths": [
+     "A WarehouseClient service maps statuses to typed exceptions: WarehouseRateLimited carries retryAfter, ShipmentRejected is ShouldntReport. The job stays thin and readable.",
+     "Uses the full set of modern queue attributes, all of which exist in the installed vendor: #[RetryFor], #[MaxExceptions], #[Backoff], #[Timeout], #[DeleteWhenMissingModels], #[WithoutRelations]. A comment explains how the timeouts relate.",
+     "WithoutOverlapping runs before RateLimited, so a twin waiting on the lock doesn't spend one of the 5/s slots. Plus Idempotency-Key and a unique index on shipment_reference.",
+     "Handles the cancel-during-call race. withTrashed stores the reference so ops can see the orphaned shipment; a probe confirmed it. Cancelled orders before the call are skipped by an explicit trashed() check, with a correct comment about SerializesModels.",
+     "Retry-After is parsed, capped at 120 s, and defaults to 5 s for non-numeric values (HTTP-date). A 422 goes through fail() to failed(), and failed() never overwrites a shipment that exists.",
+     "Tests include an end-to-end sync dispatch on 422, a Retry-After dataset, a shared rate-limit bucket (empty key), the 6th job released by the limiter, and the mail rendering. preventStrayRequests runs globally."
+    ]
+   },
+   "rationale": "Both suites pass, 27 tests each. Both implementations are strong and close on retry policy, exactly-once email, afterCommit dispatch and the global 5/s limiter. impl-2 ranks first for three reasons. It keeps HTTP handling in a WarehouseClient with typed exceptions, so the job stays clean. It adds WithoutOverlapping, ordered so a waiting twin doesn't use up rate-limit slots, and a unique index on shipment_reference. It also handles an order cancelled during the HTTP call: a probe showed impl-2 stores SHP-X, while impl-1 loses the reference and leaves the order pending with an orphaned shipment at the partner. impl-1 does better at keeping the last real error for ops when retries run out, and it has slightly richer tests (5xx then success, an SMTP failure). Against that, it has a redundant InteractsWithQueue, a retryUntil() method next to attribute-based config, a trivial toException wrapper, state fields open to mass assignment, a 1-second default release on 429, and the race bug."
+  },
+  "cost_usd": 0.5250958
+ },
+ {
+  "key": "token-login",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 7,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "Email lookup is case-sensitive (User::where('email', ...)), while the rate limiter lowercases the email. A user who types A@example.com with the right password gets 401. impl-2 has the same issue, so it doesn't affect the ranking."
+    ],
+    "antipatterns": [
+     "tests/Feature/TokenAuthTest.php:5 imports RateLimiter but never uses it",
+     "tests/Feature/TokenAuthTest.php:9 calls Http::preventStrayRequests() although nothing makes HTTP calls",
+     "tests/Feature/TokenAuthTest.php:28-31: the test is named 'without an Accept header' but sends Accept: application/json, so it doesn't test what its name says",
+     "tests/Feature/TokenAuthTest.php:98 has a stray `[], )` argument"
+    ],
+    "strengths": [
+     "TokenController.php:20 hashes a dummy value when the user doesn't exist, so response time doesn't show which emails are registered",
+     "Named RateLimiter keyed by lowercased email plus IP. The is_string guard stops array input from breaking the key.",
+     "Uses a FormRequest, validated(), createToken()->plainTextToken, currentAccessToken()->delete(), noContent() and an invokable MeController",
+     "Thorough tests: case-insensitive throttle, separate counts per IP and per email, reset after the window, revoking only the current token, the full login/me/logout flow, and exact JSON bodies"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "validation_form_requests": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.2,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Email lookup is case-sensitive, while the limiter key is lowercased, so a correct password with a different-case email returns 401. impl-1 has the same issue."
+    ],
+    "antipatterns": [
+     "TokenController.php:19 runs Hash::check only when the user exists. Unknown emails return faster, so timing can show which emails are registered.",
+     "AppServiceProvider.php:28 calls trim() even though the global TrimStrings middleware already trims input",
+     "tests/Feature/TokenAuthTest.php:4 imports RateLimiter but never uses it"
+    ],
+    "strengths": [
+     "Same clean structure: FormRequest, named throttle limiter keyed by email and IP, Sanctum token create and revoke, 204 via noContent()",
+     "Clean Pest tests: shared fixture, spread-based credentials() helper, collect()->except() for missing fields, a dataset covering both protected routes with and without an Accept header, a garbage-token check, and window reset via travel",
+     "Revocation test checks by token id that the other token survives"
+    ]
+   },
+   "rationale": "The two are almost identical: same routes, FormRequest rules, named 'token-login' limiter (lowercased email plus IP), Sanctum issue and revoke, and invokable MeController. Both pass their suites (20 and 19 tests). The probes behave the same in both. Without an Accept header, validation errors, 401s and 429s still come back as JSON. Email variants that differ by case or whitespace share one limiter bucket, so the sixth attempt gets 429. The token response contains only the token. Shared flaw: the email lookup is case-sensitive, but the limiter isn't. The deciding difference is in the focus area. impl-1 runs a dummy hash for unknown emails so response time doesn't reveal which accounts exist, while impl-2 returns early. impl-2's tests are a bit cleaner. impl-1's tests have a misnamed Accept-header test, an unused import, a needless Http::preventStrayRequests() and a stray argument. The security point outweighs the test polish, so impl-1 ranks first by a small margin."
+  },
+  "cost_usd": 0.31339140000000004
+ },
+ {
+  "key": "token-login",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 8,
+     "validation_form_requests": 9,
+     "eloquent_idioms": 8,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 7,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.2,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "Minor, shared with impl-2: the throttle key lowercases the email but the lookup (User::where('email', ...)) is case-sensitive on SQLite, so JANE@example.com gets 401 for a user registered as jane@example.com. The two behaviours are inconsistent, but it fails safe."
+    ],
+    "antipatterns": [
+     "tests/Feature/TokenAuthTest.php:28-32 test is named 'works for guests without an Accept header' but sends Accept: application/json, so it does not test what its name says",
+     "tests/Feature/TokenAuthTest.php:5 unused RateLimiter import; tests/Feature/TokenAuthTest.php:9 Http::preventStrayRequests() does nothing here because no HTTP calls are made",
+     "tests/Feature/TokenAuthTest.php:98 stray `[], )` argument noise",
+     "app/Http/Controllers/Auth/TokenController.php:27 long one-liner that builds the token inside response()->json"
+    ],
+    "strengths": [
+     "Hashes a dummy password when the user is missing (TokenController.php:19-20), so response time does not reveal which emails exist",
+     "Named RateLimiter keyed on lowercased email plus IP, with a non-string guard, so array input cannot break the key",
+     "Form request with string/email rules: non-string input gets 422 instead of a 500",
+     "currentAccessToken()->delete() revokes only the current token, 204 via noContent()",
+     "Tests cover case-insensitive throttling, per-IP isolation, window expiry, revoking only the current token, the full login\u2192me\u2192logout flow, and 401 without an Accept header"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "validation_form_requests": 9,
+     "eloquent_idioms": 9,
+     "architecture_fit": 9,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 9
+    },
+    "overall": 8,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "Minor, shared with impl-1: the throttle key is case-insensitive but the email lookup is case-sensitive, so a differently-cased correct email gets 401.",
+     "No timing protection: an unknown email returns without hashing, so response time can reveal whether an account exists. This is a user-enumeration side channel, which matters for this task's focus."
+    ],
+    "antipatterns": [
+     "tests/Feature/TokenAuthTest.php:4 unused RateLimiter import",
+     "app/Providers/AppServiceProvider.php:28 trim() is redundant because the global TrimStrings middleware already trims input (a probe confirmed that a padded email shares the same bucket)"
+    ],
+    "strengths": [
+     "Clean, minimal controller using User::query() and $request->validated()",
+     "Named RateLimiter keyed on normalized email plus IP, with an is_string guard",
+     "Form request with typed rules; non-string email gets 422",
+     "Well-organized Pest tests: shared credentials() helper with spread overrides, datasets for missing fields and protected routes, exact JSON on 401 and /me, IP and email isolation, window expiry, revoked token rejected, plain requests without Accept get 401"
+    ]
+   },
+   "rationale": "Both implementations are nearly identical: Api or Auth controllers, the same StoreTokenRequest rules, the same named limiter on lowercased email plus IP, and the same route groups. Both suites pass (impl-2: 19 tests, impl-1: 20). Probes showed the same behaviour in both: a padded email shares the same bucket because of TrimStrings, an uppercase email gets 401 because the lookup is case-sensitive, form posts without Accept still get JSON 401 and 422, requests that fail validation count toward the limit, and /me exposes only id, name and email. The deciding difference is impl-1's dummy-hash check for unknown emails. It closes a user-enumeration timing channel, which directly serves the task's focus on brute-force protection and not leaking secrets. impl-2 has slightly cleaner code and better test hygiene. impl-1's tests include a misleadingly named Accept-header test, an unused import, a pointless Http::preventStrayRequests() and stray argument noise. That costs impl-1 some test score but not the ranking."
+  },
+  "cost_usd": 0.31622340000000004
+ },
+ {
+  "key": "valkey-cache",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 7,
+     "architecture_fit": 9,
+     "modern_laravel": 8,
+     "focus_area": 9,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.7,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "Worst-case timeout reasoning is inconsistent: config/database.php:7-10 says 'timeout*2 + read_timeout*2', docs say '3*read + connect', test formula (ValkeyCacheTest.php 'bounds every cache call') omits the second rebuildClient after the retried command fails; defaults (1s/1s) still land at ~4s so no runtime bug"
+    ],
+    "antipatterns": [
+     "docs/valkey-cutover.md Warnings: 'Cache tags need SCAN-free support the node does not give this user' is garbled/inaccurate",
+     "tests/Feature/ValkeyCacheTest.php 'documents the cutover' asserts markdown substrings, low-value ceremony",
+     "tests/Support/dump-cache-config.php uses reflection on RedisManager::parseConnectionConfiguration and RedisStore::lockConnection (protected internals)"
+    ],
+    "strengths": [
+     "Shared $redisConnection array spread into default and cache: DRY, adds missing 'scheme' key so REDIS_SCHEME=tls actually takes effect",
+     "lock_connection defaults to 'cache'; options.prefix defaults to 'shop:' so values and locks land under the ACL prefix with no extra env",
+     "No SELECT sent (REDIS_CACHE_DB null), max_retries 0, 1s connect/read timeouts keep a dead-node call ~4s",
+     "Tests boot the app in a clean subprocess with only the six prod vars (no .env) and assert the formatted host is tls://<host>",
+     "Cutover doc is the safest: ship code first with CACHE_STORE=database, stop scheduler and drain workers (queue:restart while still on old store), roll web, then start workers/scheduler; notes queue:restart signal lives in cache, rate limiter reset, onOneServer/ShouldBeUnique split, cache:clear/optimize:clear FLUSHDB danger, and truncating stale DB tables before a rollback"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 7,
+     "architecture_fit": 8,
+     "modern_laravel": 8,
+     "focus_area": 7,
+     "tests": 7,
+     "correctness": 7,
+     "simplicity": 8
+    },
+    "overall": 7.3,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "docs/valkey-cutover.md 'Before the deploy' step 3 says to smoke-test on the old release ('the old release is fine'), but the old config has no 'scheme' key and prefix 'laravel-database-', so REDIS_SCHEME=tls is ignored and keys fall outside shop:* (plain TCP to a TLS-only node with no timeout, up to 60s hang or NOPERM)",
+     "Keeps 'database' => env('REDIS_CACHE_DB', '1') (config/database.php:189), so every connection sends SELECT 1 and the shared ACL user needs +select; works only if the platform grants it",
+     "Rollback says no data work is needed, but the database store still holds values that were invalidated in Valkey during the cutover, so it serves stale data after a rollback",
+     "Docs claim calls fail within ~3s; the actual worst case with rebuild+retry is ~4s (still under 5)"
+    ],
+    "antipatterns": [
+     "tests/Feature/ValkeyCacheConfigTest.php:5-43 mutates $_ENV/$_SERVER/putenv globally and re-requires config files, which is fragile; global const VALKEY_VARS/PRODUCTION_ENV at file scope",
+     "tests/Feature/ValkeyCacheConfigTest.php dataset 'production' and 'APP_NAME unset' are identical",
+     "Timeout test formula read*2+timeout underestimates the real retry path"
+    ],
+    "strengths": [
+     "Shared $redisConnection spread, with 'scheme' added and a clear comment explaining why",
+     "(float)(env(...) ?: 1.0) guards against empty-string timeouts",
+     "Cutover order is safe: pause scheduler, drain workers, set env, roll web, then start workers/scheduler",
+     "Documents ACL needs, maxmemory-policy eviction risk for locks, and the cache:clear/optimize:clear FLUSHDB hazard",
+     "Fast in-process tests with datasets"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 7,
+     "architecture_fit": 7,
+     "modern_laravel": 8,
+     "focus_area": 7,
+     "tests": 7,
+     "correctness": 7,
+     "simplicity": 7
+    },
+    "overall": 6.9,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "Cutover plan is not fully safe for the rolling deploy: step 4 switches CACHE_STORE and rolls web, workers and scheduler together, and for unique/overlap-protected jobs it says to 'accept that two may run at once' instead of stopping old workers before new ones start",
+     "Rollback ignores stale values left in the database store from before the cutover"
+    ],
+    "antipatterns": [
+     "config/database.php:166-197 duplicates the full connection block for default and cache instead of sharing it (impl-1/2 spread a shared array)",
+     "tests/Feature/ValkeyCacheTest.php bootWithEnv ignores the proc_close exit code and only checks the JSON is non-null",
+     "docs: 'forever keys and locks cannot be evicted under noeviction' is confused wording",
+     "Unnecessary .env.example comment edit"
+    ],
+    "strengths": [
+     "Adds the 'scheme' key, 'shop:' prefix, 1s/1s timeouts, max_retries 0 and no SELECT on both connections; lock_connection is 'cache'",
+     "Two-phase rollout: ship with CACHE_STORE=database and the Valkey vars, verify, then switch",
+     "Correctly notes old workers never see a queue:restart signal sent from the new store, and suggests optimize:clear --except=cache (an option that exists in the installed version)",
+     "Subprocess tests with the six prod vars only, including a timeout-override test"
+    ]
+   },
+   "rationale": "All three end up with nearly the same runtime config. Each adds the missing 'scheme' key so REDIS_SCHEME=tls works and defaults the phpredis prefix to 'shop:'. Each puts locks on the 'cache' connection with 1s connect and read timeouts and max_retries 0, giving a worst case of about 4s per call through Laravel's single rebuild-and-retry. Each keeps the database store locally. Probes confirmed the TLS host formatting, the local default, empty-timeout handling and a scheme given inside REDIS_HOST for all three. impl-1 ranks first. Its cutover plan is the safest and most complete: two-phase, with the scheduler and workers stopped before the switch and a rollback that clears stale tables. It sends no SELECT, its config is DRY, and its subprocess tests check the real formatted host. impl-2 has a safe ordering and the best empty-env handling. But it keeps SELECT 1, and its smoke test tells operators to use the old release, which ignores TLS and the shop: prefix. Its tests change global env. impl-3 avoids SELECT and has decent tests, but it duplicates the connection config and its cutover rolls workers and the scheduler while accepting duplicate unique or overlap jobs. That is the weakest answer on the focus area of a safe rolling cutover."
+  },
+  "cost_usd": 0.9309924
+ },
+ {
+  "key": "valkey-cache",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 7,
+     "architecture_fit": 8,
+     "modern_laravel": 8,
+     "focus_area": 9,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 7
+    },
+    "overall": 8.3,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "config/database.php:19-20: `(float) env('REDIS_TIMEOUT', 1.0)` turns an empty REDIS_TIMEOUT/REDIS_READ_TIMEOUT into 0.0, which means no timeout in phpredis. Probe confirmed t=0, rt=0. Production doesn't set these vars, so impact is latent."
+    ],
+    "antipatterns": [
+     "config/database.php:3: `use Illuminate\\Support\\Str;` left in place although nothing uses Str any more",
+     "config/database.php:7-10 vs docs/valkey-cutover.md (last bullet): the timeout budget formula is stated two ways ('timeout*2 + read_timeout*2' vs '3 * read + connect')",
+     "tests/Support/dump-cache-config.php:18-31: reflection on the protected RedisManager::parseConnectionConfiguration and RedisStore::lockConnection, plus an anonymous connector subclass, couple the test to framework internals",
+     "tests/Feature/ValkeyCacheTest.php (last test): asserts substrings of the markdown doc, which is brittle and not behaviour",
+     "docs/valkey-cutover.md Warnings: the claim that cache tags need SCAN this user lacks is shaky; only prune-stale-tags uses SCAN"
+    ],
+    "strengths": [
+     "Shared $redisConnection array spread into default and cache, so locks and values get the same TLS and timeout settings",
+     "cache connection drops SELECT (database null); lock_connection defaults to cache; prefix 'shop:' comes from config, not env",
+     "Subprocess boot with no .env and only the six production vars proves the config works from production env alone. It checks the real formatted host (tls://...) and the built store's lockConnection",
+     "Safest cutover doc: ship the code with CACHE_STORE=database first; stop the scheduler and drain workers; roll web; then start workers, then the scheduler",
+     "Notes that the queue:restart signal lives in the cache. Rollback uses the same order and truncates stale tables before switching back. Warns about cache:clear and optimize:clear",
+     "Pest describe/beforeEach grouping keeps the production-env assertions readable"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 7,
+     "architecture_fit": 8,
+     "modern_laravel": 8,
+     "focus_area": 7,
+     "tests": 6,
+     "correctness": 7,
+     "simplicity": 8
+    },
+    "overall": 7,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "docs/valkey-cutover.md 'Before the deploy' step 3: says to smoke-test Cache::store('redis') from the old release. The old config ignores REDIS_SCHEME, uses the 'laravel-database-' prefix and has no read timeout. Against the TLS-only, prefix-restricted node the smoke test fails with NOPERM or stalls on plain TCP. The doc's own diagnosis then points at the wrong cause.",
+     "docs/valkey-cutover.md Cutover step 3: production env vars, including CACHE_STORE=redis, go on every host before the code roll. Any old process that restarts mid-roll (FPM recycle, a crashed worker) then runs the old config against Valkey: no TLS, wrong prefix, no timeouts. There is no 'ship code first with CACHE_STORE=database' step.",
+     "tests/Feature/ValkeyCacheConfigTest.php:83-87: dataset row 'APP_NAME unset' is the same as 'production', so it adds no coverage"
+    ],
+    "antipatterns": [
+     "tests/Feature/ValkeyCacheConfigTest.php:5-8,45: global `const` declarations in a Pest test file pollute the global namespace and collide if another file defines the same names",
+     "tests/Feature/ValkeyCacheConfigTest.php:16-43: hand-rolled save/restore of $_ENV, $_SERVER and putenv around `require config_path(...)`. Fragile, and it tests raw config files rather than the booted app",
+     "config/cache.php: keeps SELECT 1 on the cache connection, so the shared ACL user also needs +select. It works and is documented, but adds a permission and a rebuild step for no gain"
+    ],
+    "strengths": [
+     "Shared $redisConnection array with spread, and removal of the now-unused Str import",
+     "`(float) (env('REDIS_TIMEOUT') ?: 1.0)` handles empty env values. It is the only implementation where an empty REDIS_TIMEOUT can't turn into 'no timeout', and it has a test for that",
+     "max_retries 0 with 1s connect and 1s read timeouts, and the budget reasoning is documented next to the config",
+     "Cutover order (pause scheduler, drain workers, roll web, start workers and scheduler after) is safe for locks; ACL and maxmemory-policy prerequisites are listed",
+     "Concise, focused config diff"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 7,
+     "architecture_fit": 7,
+     "modern_laravel": 8,
+     "focus_area": 8,
+     "tests": 7,
+     "correctness": 8,
+     "simplicity": 7
+    },
+    "overall": 7.6,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "config/database.php:175-176,190-191: `(float) env('REDIS_TIMEOUT', 1.0)` makes an empty REDIS_TIMEOUT/REDIS_READ_TIMEOUT 0.0 (no timeout). Probe confirmed. Latent, since production doesn't set them.",
+     "docs/valkey-cutover.md Step 4: rolls web, queue workers and the scheduler together with old and new side by side. Overlapping workers then hold locks in different stores, and the doc only says to 'pause or avoid unique jobs ... or accept that two may run at once' instead of requiring workers to be drained before new ones start"
+    ],
+    "antipatterns": [
+     "config/database.php:166-197: default and cache blocks are copy-pasted, so the timeout, scheme and retry settings are duplicated and can drift, which a shared array would avoid",
+     "config/database.php:3: unused `use Illuminate\\Support\\Str;` left behind",
+     "config/database.php:174: also changes the `default` connection's database to null without need",
+     "tests/Feature/ValkeyCacheTest.php:7-24: proc_open without checking the exit code; failures surface only as a null-JSON assertion"
+    ],
+    "strengths": [
+     "Subprocess boot with no .env checks that production works from env alone, including an override test for REDIS_TIMEOUT and REDIS_READ_TIMEOUT",
+     "No SELECT; lock_connection on cache; 'shop:' prefix in config; 1s timeouts with max_retries 0; tested 2*(timeout+read_timeout) <= 5",
+     "Doc ships the code with CACHE_STORE=database first and verifies against Valkey before switching. Notes the queue:restart signal lives in the cache, config:cache timing, and `optimize:clear --except=cache` (verified to exist)",
+     "Clear explanation of what is not shared during the overlap"
+    ]
+   },
+   "rationale": "I ran `php artisan test` in all three (all pass). I ran probes in each: a subprocess boot with only the six production vars, the same with empty timeout vars and APP_NAME set, a config:cache round-trip, and a throwaway Mockery test proving values and locks both go to the `cache` connection. The config is close to the same in all three. In each: 'shop:' prefix from config, lock_connection=cache, REDIS_SCHEME wired so the host becomes tls://..., 1s connect and 1s read timeouts, and max_retries 0. Under the installed framework, which rebuilds the client and retries once on a lost connection, the worst case stays under 5s for all three. The ranking comes from the cutover doc and the tests. impl-1 has the safest rolling plan: ship the code with CACHE_STORE=database first, stop the scheduler, drain workers, roll web, then start workers and scheduler. It covers queue:restart and runs rollback in the same order. Its tests check real resolution (formatted TLS host, the built store's lock connection), though they lean on reflection and include a brittle doc-content test. impl-3 also ships the code first and has good doc insights. It loses points for copy-pasted connection blocks and for letting workers and the scheduler overlap across stores. impl-2 has the neatest config: shared array, `?:` for empty timeouts, dead import removed. But its doc tells you to smoke-test from the old release, which can't work against a TLS-only, prefix-restricted node. It also sets CACHE_STORE=redis before the code ships, and one test dataset row duplicates another. impl-1 and impl-3 share a latent bug: an empty REDIS_TIMEOUT casts to 0, which means no timeout."
+  },
+  "cost_usd": 0.9439966000000001
+ },
+ {
+  "key": "valkey-outage",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 9,
+     "eloquent_idioms": 8,
+     "architecture_fit": 7,
+     "modern_laravel": 7,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 7
+    },
+    "overall": 7.8,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Auth/TokenVerifier.php:14-24 and app/Auth/JwksClient.php:20-35: the Cache::remember idiom is replaced by a hand-written get / is_bool / put sequence in two places, where one resilient remember() helper would do",
+     "config/database.php:162-164,178-180: lowers the connect and read timeouts to 1s, against the stated production fact of 2s, and changes the scheme default to 'tcp' for no reason. Leaves max_retries at 3 (phpredis reconnect retries)",
+     "tests/Feature/ValkeyOutageTest.php:140-148: the test is named 'over TLS' but asserts scheme 'tcp', and it asserts username === env(), which proves nothing",
+     "app/Support/ValkeyGuard.php:21: the generic attempt(callable, fallback) wrapper reports the raw RedisException with no Valkey-specific message or type, so ops have no clear outage signal to search for"
+    ],
+    "strengths": [
+     "Circuit breaker is a container singleton with a 30s cooldown. One Valkey timeout per process per outage window, and it resumes automatically. Probe: silent store (2s) plus slow IdP (2.5s) finished in 4.6s with 1 store call",
+     "Payouts fail closed: lock acquisition errors are reported and return FAILURE, a held lock returns FAILURE, and the existing test was updated. Release is wrapped in rescue()",
+     "Type-checks cached values (is_bool, is_array), so a corrupt cache entry falls through to the source",
+     "Tests cover outage correctness, one store call per outage, reporting, resume after cooldown via travel(), lock store down, and the payouts run succeeding again once the lock store is back"
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 9,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 8,
+     "tests": 8,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 8.2,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Support/ResilientCache.php:44,51: tracking the failed request by identity (=== request()) is redundant with #[Scoped], which already resets the instance per request or job",
+     "app/Support/ResilientCache.php:52: reports the raw store exception with no Valkey-specific type or message, so ops have a weaker signal to search for",
+     "app/Support/ResilientCache.php:21: the per-request breaker means a long-lived Octane or queue process pays one 2s timeout per request or job during an outage. Acceptable within the budget, but a short cooldown would cost less"
+    ],
+    "strengths": [
+     "ResilientCache::remember() keeps the call sites almost identical to Cache::remember, so the diff in TokenVerifier and JwksClient is minimal",
+     "Uses the modern #[Scoped] container attribute (exists in Laravel 13.44) instead of provider registration",
+     "Sets max_retries to 0 in the config defaults and keeps the 2s timeouts as given. The worst case is about 2s for Valkey plus 3s for HTTP. Probe measured 4.59s with a silent store and a slow IdP",
+     "Payouts fail closed in both cases (store error and lock held), release failures are reported, and the existing held-lock test was changed to assertFailed",
+     "Tests cover correctness during the outage, keys fetched from the IdP, a single store touch, reporting, resume on the next request, the lock store down, and the config budget"
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 9,
+     "eloquent_idioms": 8,
+     "architecture_fit": 7,
+     "modern_laravel": 7,
+     "focus_area": 6,
+     "tests": 6,
+     "correctness": 4,
+     "simplicity": 7
+    },
+    "overall": 5.5,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "app/Console/Commands/RunPayouts.php:33-36: when another run holds the lock, the command still returns SUCCESS. The task requires a failure exit code whenever the lock cannot be taken. A probe with the lock held got exit code 0, and the original 'does nothing and succeeds' test in tests/Feature/PayoutsRunTest.php:24 was left unchanged"
+    ],
+    "antipatterns": [
+     "app/Providers/AppServiceProvider.php:14: inline FQCN \\App\\Support\\ResilientCache::class instead of an import or a #[Singleton] attribute",
+     "tests/Feature/ValkeyOutageTest.php:42: Cache::swap(new CacheManager(app())) is heavy setup. The resume test switches to the array store instead of bringing the same store back up",
+     "config/database.php: keeps the HTTP timeout(3) with no connectTimeout. Fine in total, but the budget is not documented in the test"
+    ],
+    "strengths": [
+     "The ValkeyUnavailable exception with the message 'Valkey is failing...' gives ops a clear, searchable signal in logs and the error tracker",
+     "Singleton breaker with a 10s cooldown resumes caching automatically. Probe: silent store plus slow IdP finished in 4.69s with 1 store call",
+     "Store errors during lock acquisition fail closed and are reported, and release failures are reported",
+     "The typed remember() helper keeps the call sites minimal"
+    ]
+   },
+   "rationale": "I ranked impl-2 first, impl-1 second and impl-3 third. impl-3 is last because of a real bug that breaks a stated requirement. impl-1 and impl-2 meet every requirement, and impl-2 wins on idiom.\n\n**Method.** All three suites pass (20, 20 and 19 tests). I ran four throwaway probe tests against each implementation, then deleted them:\n- **Silent Valkey plus slow identity provider (IdP):** a store that sleeps 2s and then throws, combined with an IdP that takes 2.5s to answer. All three answered correctly in about 4.6s and touched the store once.\n- **Lock already held:** impl-3 exits with code 0. The other two exit with a failure code and pay nobody.\n- **Cached `false` result:** all three serve a cached `false` correctly.\n- **Use outside HTTP:** calling the verifier from the console also costs a single timeout in all three.\n\n**impl-3: the bug.** It still returns SUCCESS when another run holds the payouts lock. The task requires a failure exit code whenever the lock cannot be taken, and impl-3 left the old test that asserts success. It does have the best ops signal: a dedicated ValkeyUnavailable exception with a searchable message.\n\n**impl-1 vs impl-2.** impl-2 wraps the fallback logic in a remember() helper and uses the #[Scoped] attribute, so the call sites barely change. It keeps the stated 2s timeouts and sets max_retries to 0. impl-1 rewrites the cache calls by hand in both classes, lowers the timeouts to 1s against the stated production fact, and changes the scheme default to 'tcp' for no reason. Its config test is misnamed (\"over TLS\" but it asserts tcp). impl-1's 30s cooldown does cost less in long-lived processes, and its tests are slightly richer (it also checks payouts work again once the lock store is back). Overall, impl-2's cleaner, more modern design edges it."
+  },
+  "cost_usd": 0.8645364
+ },
+ {
+  "key": "valkey-outage",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 8,
+     "eloquent_idioms": 7,
+     "architecture_fit": 7,
+     "modern_laravel": 7,
+     "focus_area": 7,
+     "tests": 8,
+     "correctness": 7,
+     "simplicity": 6
+    },
+    "overall": 7,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "config/database.php:163-164,179-180 lowers connect and read timeouts to 1s, which contradicts the stated production fact that Valkey connection attempts time out after 2s. The 1s read timeout also applies to the payouts lock connection and makes spurious lock failures more likely under load.",
+     "config/database.php:166,182 leaves max_retries at 3 with backoff. phpredis reconnect retries on an already-open client that loses Valkey mid-request are then not bounded by the 6s budget the way the other two implementations bound them."
+    ],
+    "antipatterns": [
+     "app/Auth/TokenVerifier.php:14-24 and app/Auth/JwksClient.php:20-34 rewrite remember() by hand in two places (attempt get, type-check, compute, attempt put). This is duplication; one resilient remember helper would remove it.",
+     "config/database.php:162,178 changes the scheme default to 'tcp' for no benefit, since production sets REDIS_SCHEME=tls.",
+     "tests/Feature/ValkeyOutageTest.php:144-145 asserts scheme === 'tcp' and username === env('REDIS_USERNAME'). These assertions are meaningless, and the comment admits it.",
+     "app/Console/Commands/RunPayouts.php:56 has a trailing inline comment after rescue() and odd spacing."
+    ],
+    "strengths": [
+     "Payouts fail closed in both cases: an unreachable lock store and a lock held by another run. Each returns FAILURE and pays nobody, and the existing test was updated to match.",
+     "ValkeyGuard is a small circuit breaker with a cooldown. It resets on success, and its docblock says plainly that it must never be used for locks.",
+     "rescue() releases the lock and reports a failed release.",
+     "The IdP HTTP timeouts are tightened (connectTimeout 1, timeout 2), so the total stays well inside 6s.",
+     "The tests are the most complete: preventStrayRequests, unknown kid, recovery after the cooldown via travel, and 'pays again once the lock store is back'."
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 8,
+     "thin_controllers": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 9,
+     "focus_area": 9,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 8
+    },
+    "overall": 8.5,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "app/Support/ResilientCache.php:25,44-46 pairs #[Scoped] with tracking the failing Request instance by identity. Scoped already gives one instance per request or job, so the request() comparison is a clever workaround for the test container more than a production need.",
+     "app/Support/ResilientCache.php:51 reports the raw RedisException with no context. Ops see a generic Redis error rather than a named 'cache bypassed' signal.",
+     "tests/Feature/ValkeyOutageTest.php:15 declares the global helper class FlakyStore inside a test file. impl-1 declares a class with the same name, so this is a collision risk if the test suites are merged."
+    ],
+    "strengths": [
+     "The change is the smallest that meets every requirement: a reusable ResilientCache::remember, max_retries 0, and connectTimeout(2) on the IdP call. Worst case is about 2s for Valkey plus 3s for HTTP.",
+     "It uses the Laravel 13 #[Scoped] container attribute instead of a provider binding, so caching resumes on the very next request and no cooldown is needed.",
+     "Payouts return FAILURE both when the lock store is unreachable and when the lock is already held, and they pay nobody. A failed release is reported without masking the payouts that already succeeded.",
+     "The tests prove one store touch per request, that the IdP is queried on every request during an outage (assertSentCount 2), recovery, reporting via Exceptions::fake, the payouts failure path, and the config defaults."
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "thin_controllers": 8,
+     "eloquent_idioms": 7,
+     "architecture_fit": 7,
+     "modern_laravel": 6,
+     "focus_area": 6,
+     "tests": 6,
+     "correctness": 5,
+     "simplicity": 7
+    },
+    "overall": 5.5,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "app/Console/Commands/RunPayouts.php:33-36 still returns SUCCESS when another run holds the lock. The task requires exit with a failure code whenever the lock cannot be obtained; a probe confirmed exit code 0. The original PayoutsRunTest that asserts success was left unchanged."
+    ],
+    "antipatterns": [
+     "app/Providers/AppServiceProvider.php:14 binds the singleton with an inline FQCN instead of an import. A #[Singleton] or #[Scoped] attribute is the modern alternative.",
+     "tests/Feature/ValkeyOutageTest.php:41-48 adds ceremony: Cache::swap(new CacheManager(app())), then extend, then forgetDriver.",
+     "tests/Feature/ValkeyOutageTest.php:17 DownStore implements LockProvider redundantly, since ArrayStore already does, and lock() does not count calls.",
+     "tests/Feature/ValkeyOutageTest.php:51 declares a global function named token(), which is very collision-prone.",
+     "app/Auth/JwksClient.php:19 leaves the IdP call without a separate connectTimeout. It is still inside budget, but this is less explicit than the other two."
+    ],
+    "strengths": [
+     "The named ValkeyUnavailable exception with a 'Valkey is failing' message gives ops a clear string to search for and alert on.",
+     "The ResilientCache remember helper is reused by both callers, and its 10s cooldown skip keeps long-running processes from paying a timeout on every call.",
+     "max_retries is set to 0 on both connections, keeping a single attempt inside the 6s budget.",
+     "Payouts fail closed and report when the lock store is unreachable."
+    ]
+   },
+   "rationale": "I ran the full test suite for each implementation (all pass). Each also got a shared probe suite: a store that throws on get, put, add and lock, used to count Valkey touches per request, check recovery, check payouts while the store is down, and check the exit code when the lock is held. impl-1 also got a probe for a non-boolean cached value.\n\n**impl-2 is best.** It meets every requirement with the least code and has no bugs I could find. It touches Valkey once per request, uses max_retries 0 and an explicit HTTP connect timeout, and resumes caching on the next request via #[Scoped]. Payouts fail closed for both an unreachable and a held lock. Its tests are focused.\n\n**impl-1 is second.** It is also correct on the payouts semantics and has the richest tests. But it duplicates the remember logic in two classes and changes the stated 2s connection timeout to 1s. It also leaves max_retries at 3 and adds a pointless scheme='tcp' default, asserted by a meaningless test.\n\n**impl-3 is last.** When another run holds the lock, payouts:run still exits successfully, which my probe confirmed. That violates the explicit requirement to exit with a failure code whenever the lock cannot be obtained. Its named ValkeyUnavailable exception is the best ops signal of the three, but it does not outweigh a requirement bug, and its tests carry more ceremony."
+  },
+  "cost_usd": 0.7475875999999999
+ },
+ {
+  "key": "valkey-queue",
+  "judge": 1,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 6,
+     "architecture_fit": 7,
+     "modern_laravel": 7,
+     "focus_area": 6,
+     "tests": 7,
+     "correctness": 7,
+     "simplicity": 9
+    },
+    "overall": 6.5,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "No 'timeout' or 'read_timeout' on the Redis connections (config/database.php:156-185). With the production env, phpredis falls back to default_socket_timeout (60s), so an unreachable or black-holed Valkey endpoint stalls dispatches and Horizon calls for up to a minute. The focus area requires that no call hangs."
+    ],
+    "antipatterns": [
+     "app/Jobs/SendInvoiceReminder.php:19 uses a raw DB::table insert and sets created_at/updated_at by hand instead of using a small Eloquent model.",
+     "config/queue.php:72 reads 'block_for' straight from env without an (int) cast, so an env override arrives as a string.",
+     "tests/Feature/ValkeyConfigTest.php:69-77 loops over a collection of environment names with Str::is to test a config wildcard, which is ceremony for a one-key check."
+    ],
+    "strengths": [
+     "Smallest diff that meets the brief. Default and Horizon prefixes are both 'shop:', Horizon uses '*' so any APP_ENV gets workers, and scheme comes from REDIS_SCHEME.",
+     "block_for=5 means workers pick up delayed and new jobs within seconds, and the test checks that Horizon timeout stays below retry_after.",
+     "Config tests load config files through the Env repository with only the production variables set and clear them in finally. This is a clean simulation of production.",
+     "Includes a gate test proving guests cannot open the Horizon dashboard.",
+     "The migration matches the spec exactly and allows repeat reminders for the same invoice."
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 7,
+     "architecture_fit": 6,
+     "modern_laravel": 8,
+     "focus_area": 5,
+     "tests": 5,
+     "correctness": 5,
+     "simplicity": 7
+    },
+    "overall": 5,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "Adds a unique index on reminders.invoice_id (migration line 14) and uses createOrFirst (SendInvoiceReminder.php:20). A second reminder for the same invoice inserts no row, which contradicts 'handle() inserts a row'. Confirmed with a probe: two dispatchSync(5) calls produce 1 row.",
+     "No connect or read timeouts on the Redis connections (config/database.php default/cache). Production falls back to phpredis/default_socket_timeout (60s), so calls can hang against an unreachable node."
+    ],
+    "antipatterns": [
+     "Retry policy is set twice: job attributes #[Tries(3), Backoff([10,60])] and Horizon defaults 'tries' => 3, 'backoff' => [10, 60] (config/horizon.php:205-206).",
+     "tests/Feature/QueueConfigTest.php:50-56 changes process-global env with putenv/$_ENV/$_SERVER instead of using the Env repository.",
+     "tests/Feature/QueueConfigTest.php:82-84 'boots without any REDIS_ env' only asserts app()->isBooted(), which proves nothing.",
+     "tests/Feature/QueueConfigTest.php:37-41 'uses a TLS-capable scheme' only checks that the key exists."
+    ],
+    "strengths": [
+     "Modern Laravel 13 idioms: #[Fillable] model attribute, queue #[Tries]/#[Backoff]/#[Timeout] attributes, and constructor property promotion.",
+     "Horizon prefix 'shop:horizon:' and default prefix 'shop:' keep all keys inside the ACL pattern. Horizon environment '*' does not depend on APP_ENV.",
+     "horizon:snapshot runs ->onOneServer(), which is safe with the database cache store's locks.",
+     "Tests include an idempotency case and assert that the schedule contains horizon:snapshot."
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 8,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 8,
+     "focus_area": 9,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 6
+    },
+    "overall": 8.3,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [],
+    "antipatterns": [
+     "config/database.php:190-206 adds a dedicated 'queue' Redis connection that copies the default block. This is justified because its read_timeout must exceed block_for, but it duplicates config.",
+     "Retry policy is set twice: job attributes #[Tries(3)...] and Horizon 'tries' => 3 (config/horizon.php:207).",
+     "tests/Feature/ValkeyQueueConfigTest.php:16-34 spawns a PHP subprocess with a scrubbed env to evaluate config. It is accurate but heavier than the Env-repository approach.",
+     "database/factories/ReminderFactory.php plus HasFactory is extra scaffolding the task did not need. Also, the global RefreshDatabase change in tests/Pest.php:18 affects every Feature test."
+    ],
+    "strengths": [
+     "The only implementation that addresses 'no call hangs or times out'. It sets 2s connect and read timeouts on default/cache, and the queue connection gets read_timeout 10s, above block_for 5. Without that margin, BLPOP would time out before it returns.",
+     "With the production env and no .env, the app resolves queue=redis on the 'queue' connection, tls scheme, prefix 'shop:' and Horizon prefix 'shop:horizon:'. The Horizon connection inherits the short timeouts.",
+     "Empty env timeout values fall back to the defaults instead of 0, and a test covers this.",
+     "Tests run config in a clean subprocess with exactly the production variables. They cover the no-REDIS boot, read_timeout > block_for, retry_after > Horizon timeout, the snapshot schedule, and an HTTP 403 for guests on /horizon.",
+     "The job test uses Queue::fake()->serializeAndRestore() to prove the payload round-trips. The plain index on invoice_id keeps repeat reminders possible."
+    ]
+   },
+   "rationale": "I rank impl-3 first, impl-1 second and impl-2 third. All three test suites pass (12, 11 and 15 tests).\n\nI loaded each app with only the production env vars and no .env file:\n- **Key prefixes:** all three resolve the default prefix to 'shop:' and Horizon's to 'shop:horizon:', with tls scheme.\n- **Timeouts:** only impl-3 sets connect and read timeouts. impl-1 and impl-2 resolve both to null, so phpredis falls back to the 60s default_socket_timeout. That is a direct miss on \"no call hangs\".\n- **Blocking reads:** impl-3 also gives the queue its own connection with read_timeout 10s, above block_for 5s. That is the detail that makes blocking pops safe with short timeouts.\n\nimpl-1 is lean and correct otherwise: block_for 5 gives prompt pickup, the env-repository config tests are good, and the migration matches the spec. Its weak points are the missing timeouts and a raw DB::table insert.\n\nimpl-2 uses modern attributes but has two problems:\n- It adds a unique constraint and createOrFirst, so a second reminder for the same invoice writes nothing. A probe confirmed 2 dispatches produce 1 row.\n- It also lacks timeouts, and its tests are weaker: one is a trivial isBooted check, and another changes global env with putenv.\n\nimpl-3 loses some simplicity for the duplicated Redis connection block, the subprocess config harness and the unneeded factory. It still has the most complete handling of the focus area and the strongest tests."
+  },
+  "cost_usd": 0.8761128
+ },
+ {
+  "key": "valkey-queue",
+  "judge": 2,
+  "v": {
+   "impl-1": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 5,
+     "architecture_fit": 7,
+     "modern_laravel": 7,
+     "focus_area": 7,
+     "tests": 7,
+     "correctness": 8,
+     "simplicity": 8
+    },
+    "overall": 7,
+    "rank": 2,
+    "tests_pass": true,
+    "bugs": [
+     "config/queue.php:72 `env('REDIS_QUEUE_BLOCK_FOR', 5)` is not cast. Any env override arrives as a string, and REDIS_QUEUE_BLOCK_FOR=0 gives '0', which makes BLPOP block forever. The test's toBeInt() only passes on the default.",
+     "config/database.php: no connect `timeout` or `read_timeout` on the Redis connections. phpredis falls back to default_socket_timeout (60s), so a dispatch from a web request can hang for up to a minute if the node is unreachable."
+    ],
+    "antipatterns": [
+     "app/Jobs/SendInvoiceReminder.php:19 uses DB::table()->insert with hand-set now() timestamps instead of a Reminder model, so Eloquent handles nothing.",
+     "app/Jobs/SendInvoiceReminder.php:13-15 has an empty constructor body on separate lines `{\\n}` instead of the current Pint `{}` style.",
+     "routes/console.php:12 schedules horizon:snapshot without onOneServer() even though the comment says it should run on one server."
+    ],
+    "strengths": [
+     "Uses block_for 5, so jobs and delayed jobs are picked up within a few seconds without extra polling.",
+     "horizon.environments has `local` and `*`, ordered so the first Str::is match wins, so production does not depend on APP_ENV. The test checks this by matching production, staging and arbitrary names.",
+     "Both the Horizon prefix (shop:horizon:) and the Redis option prefix (shop:) default inside the ACL.",
+     "ValkeyConfigTest reloads config files through Env::getRepository() set/clear, which tests the production env without touching real Redis.",
+     "Smallest diff of the three. No extra model, factory or connection."
+    ]
+   },
+   "impl-2": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 8,
+     "architecture_fit": 7,
+     "modern_laravel": 8,
+     "focus_area": 6,
+     "tests": 6,
+     "correctness": 6,
+     "simplicity": 8
+    },
+    "overall": 6,
+    "rank": 3,
+    "tests_pass": true,
+    "bugs": [
+     "database/migrations/2026_11_28_131012_create_reminders_table.php:13 puts a unique index on invoice_id, and SendInvoiceReminder:22 uses createOrFirst. A second, legitimate reminder for the same invoice is silently dropped (confirmed: two dispatches leave 1 row). The task asks for handle() to insert a row each time.",
+     "config/database.php: no connect `timeout` or `read_timeout`. phpredis waits up to default_socket_timeout (60s) when the node is unreachable, so dispatches can hang.",
+     "config/queue.php keeps block_for null. Pickup depends on Horizon's 3s worker sleep. That is acceptable, but it was never set on purpose and no test checks it."
+    ],
+    "antipatterns": [
+     "tests/Feature/QueueConfigTest.php:84-86 has a 'boots without any REDIS_ env' test that only asserts app()->isBooted(), which proves nothing.",
+     "tests/Feature/QueueConfigTest.php:38-42 only asserts that a 'scheme' key exists and that username is null. Weak assertions.",
+     "tests/Feature/QueueConfigTest.php:45-60 mutates putenv/$_ENV/$_SERVER by hand instead of using Env::getRepository() or a subprocess.",
+     "tests/Feature/QueueConfigTest.php: config tests and job tests are mixed in one file named QueueConfigTest."
+    ],
+    "strengths": [
+     "Uses an Eloquent Reminder model with the #[Fillable] attribute, and the job uses #[Tries]/#[Backoff]/#[Timeout] attributes. All are current Laravel 13 idioms and exist in the installed 13.44.",
+     "horizon.environments uses '*', so workers start whatever APP_ENV is.",
+     "horizon:snapshot is scheduled with onOneServer().",
+     "Horizon prefix shop:horizon: and Redis prefix shop: both stay inside the ACL. Probe confirmed the derived horizon connection gets the shop:horizon: prefix.",
+     "Includes a test that loads database.php and queue.php under the exact production env vars."
+    ]
+   },
+   "impl-3": {
+    "scores": {
+     "collections_helpers": 7,
+     "eloquent_idioms": 8,
+     "architecture_fit": 8,
+     "modern_laravel": 8,
+     "focus_area": 9,
+     "tests": 8,
+     "correctness": 9,
+     "simplicity": 6
+    },
+    "overall": 8,
+    "rank": 1,
+    "tests_pass": true,
+    "bugs": [
+     "routes/console.php:11 schedules horizon:snapshot without onOneServer(). With several app servers running schedule:run, snapshots are taken more than once. Minor."
+    ],
+    "antipatterns": [
+     "tests/Feature/ValkeyQueueConfigTest.php:13-33 starts a PHP subprocess with a hand-built clean env for every test. It is faithful to production but heavy, and `$clean` is built with two redundant array_map passes.",
+     "tests/Feature/SendInvoiceReminderTest.php:30-36 reads the job's PHP attributes through reflection, which tests implementation details rather than behaviour.",
+     "database/factories/ReminderFactory.php and HasFactory on Reminder are added but never used.",
+     "config/database.php adds a full third 'queue' connection that copies every default key. It is justified, but it is ceremony."
+    ],
+    "strengths": [
+     "Only implementation that bounds every Redis call: connect timeout 2s and read_timeout 2s on default/cache, and a dedicated 'queue' connection with read_timeout 10s, above block_for 5. Nothing can hang, and BLPOP cannot hit the read timeout.",
+     "block_for 5 gives prompt pickup of new and delayed jobs.",
+     "Both prefixes default to shop:, and the empty-string env case is handled with `?:` and tested.",
+     "Its tests evaluate the config in a clean subprocess with only the production env vars, and separately with no REDIS_* env at all. They check that read_timeout > block_for, that retry_after > timeout, and they make a real HTTP request showing /horizon returns 403 for guests.",
+     "Reminder::create inserts one row per run, which matches the spec. Uses the #[Fillable] model attribute and Laravel 13 job attributes."
+    ]
+   },
+   "rationale": "impl-3 ranks first. impl-1 ranks second and impl-2 third. All three pass their suites (impl-1 12, impl-2 11, impl-3 15 tests). All keep the queue and Horizon keys under `shop:`, add the TLS scheme, and boot without any REDIS_* env.\n\n**impl-3 (rank 1):** the only one that covers \"no call hangs or times out\". It sets explicit connect and read timeouts, and gives the queue its own connection whose read_timeout (10s) is above block_for (5s). Its config tests are the most faithful: they run in a clean subprocess with only the production env vars. They also cover the empty-env and no-env cases and the dashboard gate over HTTP. It loses points for ceremony: the subprocess helper, an unused factory, and a test that reads attributes by reflection. It also schedules the snapshot without onOneServer.\n\n**impl-1 (rank 2):** simple and correct. It has the right block_for and `*` Horizon environments, and its Env-repository config tests are good. It sets no Redis timeouts, and its block_for env value is not cast. It uses DB::table instead of a model, which is weaker Eloquent.\n\n**impl-2 (rank 3):** has the most idiomatic model and job code, with onOneServer and `*` environments. But it adds a unique index plus createOrFirst, which silently drops a second reminder for the same invoice. Probes confirmed this; the spec asks for a row on each run. It also sets no Redis timeouts, leaves block_for unset, and has the weakest tests.\n\nLocal probes could not exercise real phpredis connect behaviour because the Redis extension is not installed here."
+  },
+  "cost_usd": 0.6881132000000001
+ }
+]
