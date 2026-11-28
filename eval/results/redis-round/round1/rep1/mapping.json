@@ -1,0 +1,55 @@
+{
+ "valkey-cache": {
+  "impl-1": "prev",
+  "impl-2": "draft",
+  "impl-3": "plain"
+ },
+ "persistent-valkey": {
+  "impl-1": "draft",
+  "impl-2": "plain",
+  "impl-3": "prev"
+ },
+ "valkey-outage": {
+  "impl-1": "draft",
+  "impl-2": "prev",
+  "impl-3": "plain"
+ },
+ "valkey-queue": {
+  "impl-1": "plain",
+  "impl-2": "prev",
+  "impl-3": "draft"
+ },
+ "orders-today": {
+  "impl-1": "plain",
+  "impl-2": "draft",
+  "impl-3": "prev"
+ },
+ "scheduled-reports": {
+  "impl-1": "draft",
+  "impl-2": "prev"
+ },
+ "shipment-sync": {
+  "impl-1": "prev",
+  "impl-2": "draft"
+ },
+ "coupon-redeem": {
+  "impl-1": "draft",
+  "impl-2": "prev"
+ },
+ "carrier-quote": {
+  "impl-1": "prev",
+  "impl-2": "draft"
+ },
+ "token-login": {
+  "impl-1": "draft",
+  "impl-2": "prev"
+ },
+ "caching": {
+  "impl-1": "prev",
+  "impl-2": "draft"
+ },
+ "sales-report": {
+  "impl-1": "draft",
+  "impl-2": "prev"
+ }
+}

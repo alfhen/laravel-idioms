@@ -1,0 +1,1482 @@
+{
+ "carrier-quote-draft-1": {
+  "task": "carrier-quote",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "It returns the carriers rates": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Transient errors are retried": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A carrier that does not answer gets the fallback": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "carrier-quote-draft-2": {
+  "task": "carrier-quote",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "It returns the carriers rates": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Transient errors are retried": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A carrier that does not answer gets the fallback": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "carrier-quote-prev-1": {
+  "task": "carrier-quote",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "It returns the carriers rates": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Transient errors are retried": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A carrier that does not answer gets the fallback": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "carrier-quote-prev-2": {
+  "task": "carrier-quote",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "It returns the carriers rates": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Transient errors are retried": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A carrier that does not answer gets the fallback": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "carrier-quote-skill-1": {
+  "task": "carrier-quote",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "It returns the carriers rates": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Transient errors are retried": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A carrier that does not answer gets the fallback": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "carrier-quote-skill-2": {
+  "task": "carrier-quote",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "It returns the carriers rates": true,
+   "An unknown postcode is a 422 after one call": true,
+   "Transient errors are retried": true,
+   "A carrier that keeps failing gets the fallback after at most 3 calls": true,
+   "A carrier that does not answer gets the fallback": true,
+   "Every attempt has a timeout that fits the 5 second budget": true,
+   "A rejected key is not retried and gets the fallback": true,
+   "An invalid postcode never reaches the carrier": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "coupon-redeem-draft-1": {
+  "task": "coupon-redeem",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "test_redeeming_twice_returns_the_same_redemption_and_dispatches_once": true,
+   "test_a_used_up_coupon_returns_409_and_stays_at_its_cap": true,
+   "test_the_cap_holds_when_another_server_redeems_the_last_one_mid_request": true,
+   "test_a_double_submit_that_lands_mid_request_returns_the_existing_redemption": true,
+   "test_the_database_rejects_a_second_redemption_by_the_same_user": true,
+   "test_guest_without_accept_header_gets_json_401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "coupon-redeem-draft-2": {
+  "task": "coupon-redeem",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "test_redeeming_twice_returns_the_same_redemption_and_dispatches_once": true,
+   "test_a_used_up_coupon_returns_409_and_stays_at_its_cap": true,
+   "test_the_cap_holds_when_another_server_redeems_the_last_one_mid_request": true,
+   "test_a_double_submit_that_lands_mid_request_returns_the_existing_redemption": true,
+   "test_the_database_rejects_a_second_redemption_by_the_same_user": true,
+   "test_guest_without_accept_header_gets_json_401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "coupon-redeem-prev-1": {
+  "task": "coupon-redeem",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "test_redeeming_twice_returns_the_same_redemption_and_dispatches_once": true,
+   "test_a_used_up_coupon_returns_409_and_stays_at_its_cap": true,
+   "test_the_cap_holds_when_another_server_redeems_the_last_one_mid_request": true,
+   "test_a_double_submit_that_lands_mid_request_returns_the_existing_redemption": true,
+   "test_the_database_rejects_a_second_redemption_by_the_same_user": true,
+   "test_guest_without_accept_header_gets_json_401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "coupon-redeem-prev-2": {
+  "task": "coupon-redeem",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "test_redeeming_twice_returns_the_same_redemption_and_dispatches_once": true,
+   "test_a_used_up_coupon_returns_409_and_stays_at_its_cap": true,
+   "test_the_cap_holds_when_another_server_redeems_the_last_one_mid_request": true,
+   "test_a_double_submit_that_lands_mid_request_returns_the_existing_redemption": true,
+   "test_the_database_rejects_a_second_redemption_by_the_same_user": true,
+   "test_guest_without_accept_header_gets_json_401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "coupon-redeem-skill-1": {
+  "task": "coupon-redeem",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "test_redeeming_twice_returns_the_same_redemption_and_dispatches_once": true,
+   "test_a_used_up_coupon_returns_409_and_stays_at_its_cap": true,
+   "test_the_cap_holds_when_another_server_redeems_the_last_one_mid_request": true,
+   "test_a_double_submit_that_lands_mid_request_returns_the_existing_redemption": true,
+   "test_the_database_rejects_a_second_redemption_by_the_same_user": true,
+   "test_guest_without_accept_header_gets_json_401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "coupon-redeem-skill-2": {
+  "task": "coupon-redeem",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "test_redeeming_twice_returns_the_same_redemption_and_dispatches_once": true,
+   "test_a_used_up_coupon_returns_409_and_stays_at_its_cap": true,
+   "test_the_cap_holds_when_another_server_redeems_the_last_one_mid_request": true,
+   "test_a_double_submit_that_lands_mid_request_returns_the_existing_redemption": true,
+   "test_the_database_rejects_a_second_redemption_by_the_same_user": true,
+   "test_guest_without_accept_header_gets_json_401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "orders-today-draft-1": {
+  "task": "orders-today",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "Guest gets json 401": true,
+   "It counts and sums only orders placed today in utc": true,
+   "An empty day returns zeros": true,
+   "The value is cached for sixty seconds": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "orders-today-draft-2": {
+  "task": "orders-today",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "Guest gets json 401": true,
+   "It counts and sums only orders placed today in utc": true,
+   "An empty day returns zeros": true,
+   "The value is cached for sixty seconds": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "orders-today-plain-1": {
+  "task": "orders-today",
+  "arm": "plain",
+  "run": 1,
+  "tests": {
+   "Guest gets json 401": true,
+   "It counts and sums only orders placed today in utc": true,
+   "An empty day returns zeros": true,
+   "The value is cached for sixty seconds": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "orders-today-prev-1": {
+  "task": "orders-today",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "Guest gets json 401": true,
+   "It counts and sums only orders placed today in utc": true,
+   "An empty day returns zeros": true,
+   "The value is cached for sixty seconds": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "orders-today-prev-2": {
+  "task": "orders-today",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "Guest gets json 401": true,
+   "It counts and sums only orders placed today in utc": true,
+   "An empty day returns zeros": true,
+   "The value is cached for sixty seconds": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "orders-today-skill-1": {
+  "task": "orders-today",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "Guest gets json 401": true,
+   "It counts and sums only orders placed today in utc": true,
+   "An empty day returns zeros": true,
+   "The value is cached for sixty seconds": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "orders-today-skill-2": {
+  "task": "orders-today",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "Guest gets json 401": true,
+   "It counts and sums only orders placed today in utc": true,
+   "An empty day returns zeros": true,
+   "The value is cached for sixty seconds": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "persistent-valkey-draft-1": {
+  "task": "persistent-valkey",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "test_persistent_connections_are_reused_across_requests": true,
+   "test_the_app_works_without_the_persistent_switch": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_connection_that_was_idle_in_the_pool_while_only_the_cache_ran_stays_correct": true,
+   "test_payouts_run_after_the_lock_socket_drops_works_or_fails_loudly_and_locks_in_the_right_database": true,
+   "test_a_payouts_lock_taken_after_a_drop_blocks_a_run_in_another_process": true,
+   "test_the_payouts_lock_stays_where_old_containers_look_for_it": true,
+   "test_the_cache_recovers_after_a_failover": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "persistent-valkey-draft-2": {
+  "task": "persistent-valkey",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "test_persistent_connections_are_reused_across_requests": true,
+   "test_the_app_works_without_the_persistent_switch": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_connection_that_was_idle_in_the_pool_while_only_the_cache_ran_stays_correct": true,
+   "test_payouts_run_after_the_lock_socket_drops_works_or_fails_loudly_and_locks_in_the_right_database": true,
+   "test_a_payouts_lock_taken_after_a_drop_blocks_a_run_in_another_process": true,
+   "test_the_payouts_lock_stays_where_old_containers_look_for_it": true,
+   "test_the_cache_recovers_after_a_failover": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "persistent-valkey-draft-3": {
+  "task": "persistent-valkey",
+  "arm": "draft",
+  "run": 3,
+  "tests": {
+   "test_persistent_connections_are_reused_across_requests": true,
+   "test_the_app_works_without_the_persistent_switch": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_connection_that_was_idle_in_the_pool_while_only_the_cache_ran_stays_correct": true,
+   "test_payouts_run_after_the_lock_socket_drops_works_or_fails_loudly_and_locks_in_the_right_database": true,
+   "test_a_payouts_lock_taken_after_a_drop_blocks_a_run_in_another_process": true,
+   "test_the_payouts_lock_stays_where_old_containers_look_for_it": true,
+   "test_the_cache_recovers_after_a_failover": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "persistent-valkey-plain-1": {
+  "task": "persistent-valkey",
+  "arm": "plain",
+  "run": 1,
+  "tests": {
+   "test_persistent_connections_are_reused_across_requests": true,
+   "test_the_app_works_without_the_persistent_switch": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": false,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_connection_that_was_idle_in_the_pool_while_only_the_cache_ran_stays_correct": false,
+   "test_payouts_run_after_the_lock_socket_drops_works_or_fails_loudly_and_locks_in_the_right_database": false,
+   "test_a_payouts_lock_taken_after_a_drop_blocks_a_run_in_another_process": false,
+   "test_the_payouts_lock_stays_where_old_containers_look_for_it": true,
+   "test_the_cache_recovers_after_a_failover": true
+  },
+  "exit_code": 1,
+  "output_tail": "Failed asserting that 1 is identical to 0.\n\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:318\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:461\n\n2) Tests\\Hidden\\PersistentValkeyHiddenTest::test_a_lock_connection_that_was_idle_in_the_pool_while_only_the_cache_ran_stays_correct\npool with an idle cache socket: lock key shop:laravel-cache-leaktest-lock-four is in db 1, the lock connection uses db 0\nFailed asserting that 1 is identical to 0.\n\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:318\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:486\n\n3) Tests\\Hidden\\PersistentValkeyHiddenTest::test_payouts_run_after_the_lock_socket_drops_works_or_fails_loudly_and_locks_in_the_right_database\nduring payouts:run: lock key shop:laravel-cache-payouts:run is in db 1, the lock connection uses db 0\nFailed asserting that 1 is identical to 0.\n\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:318\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:522\n\n4) Tests\\Hidden\\PersistentValkeyHiddenTest::test_a_payouts_lock_taken_after_a_drop_blocks_a_run_in_another_process\npayouts lock after a drop: lock key shop:laravel-cache-payouts:run is in db 1, the lock connection uses db 0\nFailed asserting that 1 is identical to 0.\n\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:318\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:559\n\n\u001b[37;41mFAILURES!\u001b[0m\n\u001b[37;41mTests: 15\u001b[0m\u001b[37;41m, Assertions: 89\u001b[0m\u001b[37;41m, Failures: 4\u001b[0m\u001b[37;41m.\u001b[0m\n Container laravel-idioms-valkey-tarpit-1 Running \n Container laravel-idioms-valkey-closed-1 Running \n Container laravel-idioms-valkey-valkey-1 Running \n Container laravel-idioms-valkey-valkey-1 Waiting \n Container laravel-idioms-valkey-tarpit-1 Waiting \n Container laravel-idioms-valkey-closed-1 Waiting \n Container laravel-idioms-valkey-closed-1 Healthy \n Container laravel-idioms-valkey-valkey-1 Healthy \n Container laravel-idioms-valkey-tarpit-1 Healthy \nOK\nOK\nOK\n Container valkey-hidden-426e6294c278 Creating \n Container valkey-hidden-426e6294c278 Created \n\n"
+ },
+ "persistent-valkey-prev-1": {
+  "task": "persistent-valkey",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "test_persistent_connections_are_reused_across_requests": true,
+   "test_the_app_works_without_the_persistent_switch": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": false,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_connection_that_was_idle_in_the_pool_while_only_the_cache_ran_stays_correct": false,
+   "test_payouts_run_after_the_lock_socket_drops_works_or_fails_loudly_and_locks_in_the_right_database": false,
+   "test_a_payouts_lock_taken_after_a_drop_blocks_a_run_in_another_process": false,
+   "test_the_payouts_lock_stays_where_old_containers_look_for_it": true,
+   "test_the_cache_recovers_after_a_failover": true
+  },
+  "exit_code": 1,
+  "output_tail": "Failed asserting that 1 is identical to 0.\n\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:318\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:461\n\n2) Tests\\Hidden\\PersistentValkeyHiddenTest::test_a_lock_connection_that_was_idle_in_the_pool_while_only_the_cache_ran_stays_correct\npool with an idle cache socket: lock key shop:laravel-cache-leaktest-lock-four is in db 1, the lock connection uses db 0\nFailed asserting that 1 is identical to 0.\n\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:318\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:486\n\n3) Tests\\Hidden\\PersistentValkeyHiddenTest::test_payouts_run_after_the_lock_socket_drops_works_or_fails_loudly_and_locks_in_the_right_database\nduring payouts:run: lock key shop:laravel-cache-payouts:run is in db 1, the lock connection uses db 0\nFailed asserting that 1 is identical to 0.\n\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:318\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:522\n\n4) Tests\\Hidden\\PersistentValkeyHiddenTest::test_a_payouts_lock_taken_after_a_drop_blocks_a_run_in_another_process\npayouts lock after a drop: lock key shop:laravel-cache-payouts:run is in db 1, the lock connection uses db 0\nFailed asserting that 1 is identical to 0.\n\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:318\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:559\n\n\u001b[37;41mFAILURES!\u001b[0m\n\u001b[37;41mTests: 15\u001b[0m\u001b[37;41m, Assertions: 89\u001b[0m\u001b[37;41m, Failures: 4\u001b[0m\u001b[37;41m.\u001b[0m\n Container laravel-idioms-valkey-valkey-1 Running \n Container laravel-idioms-valkey-tarpit-1 Running \n Container laravel-idioms-valkey-closed-1 Running \n Container laravel-idioms-valkey-valkey-1 Waiting \n Container laravel-idioms-valkey-tarpit-1 Waiting \n Container laravel-idioms-valkey-closed-1 Waiting \n Container laravel-idioms-valkey-closed-1 Healthy \n Container laravel-idioms-valkey-tarpit-1 Healthy \n Container laravel-idioms-valkey-valkey-1 Healthy \nOK\nOK\nOK\n Container valkey-hidden-de13a8e1b411 Creating \n Container valkey-hidden-de13a8e1b411 Created \n\n"
+ },
+ "persistent-valkey-prev-2": {
+  "task": "persistent-valkey",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "test_persistent_connections_are_reused_across_requests": true,
+   "test_the_app_works_without_the_persistent_switch": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": false,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_connection_that_was_idle_in_the_pool_while_only_the_cache_ran_stays_correct": false,
+   "test_payouts_run_after_the_lock_socket_drops_works_or_fails_loudly_and_locks_in_the_right_database": false,
+   "test_a_payouts_lock_taken_after_a_drop_blocks_a_run_in_another_process": false,
+   "test_the_payouts_lock_stays_where_old_containers_look_for_it": true,
+   "test_the_cache_recovers_after_a_failover": true
+  },
+  "exit_code": 1,
+  "output_tail": "Failed asserting that 1 is identical to 0.\n\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:318\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:461\n\n2) Tests\\Hidden\\PersistentValkeyHiddenTest::test_a_lock_connection_that_was_idle_in_the_pool_while_only_the_cache_ran_stays_correct\npool with an idle cache socket: lock key shop:laravel-cache-leaktest-lock-four is in db 1, the lock connection uses db 0\nFailed asserting that 1 is identical to 0.\n\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:318\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:486\n\n3) Tests\\Hidden\\PersistentValkeyHiddenTest::test_payouts_run_after_the_lock_socket_drops_works_or_fails_loudly_and_locks_in_the_right_database\nduring payouts:run: lock key shop:laravel-cache-payouts:run is in db 1, the lock connection uses db 0\nFailed asserting that 1 is identical to 0.\n\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:318\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:522\n\n4) Tests\\Hidden\\PersistentValkeyHiddenTest::test_a_payouts_lock_taken_after_a_drop_blocks_a_run_in_another_process\npayouts lock after a drop: lock key shop:laravel-cache-payouts:run is in db 1, the lock connection uses db 0\nFailed asserting that 1 is identical to 0.\n\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:318\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:559\n\n\u001b[37;41mFAILURES!\u001b[0m\n\u001b[37;41mTests: 15\u001b[0m\u001b[37;41m, Assertions: 89\u001b[0m\u001b[37;41m, Failures: 4\u001b[0m\u001b[37;41m.\u001b[0m\n Container laravel-idioms-valkey-tarpit-1 Running \n Container laravel-idioms-valkey-closed-1 Running \n Container laravel-idioms-valkey-valkey-1 Running \n Container laravel-idioms-valkey-tarpit-1 Waiting \n Container laravel-idioms-valkey-closed-1 Waiting \n Container laravel-idioms-valkey-valkey-1 Waiting \n Container laravel-idioms-valkey-closed-1 Healthy \n Container laravel-idioms-valkey-valkey-1 Healthy \n Container laravel-idioms-valkey-tarpit-1 Healthy \nOK\nOK\nOK\n Container valkey-hidden-bc20790adc9d Creating \n Container valkey-hidden-bc20790adc9d Created \n\n"
+ },
+ "persistent-valkey-prev-3": {
+  "task": "persistent-valkey",
+  "arm": "prev",
+  "run": 3,
+  "tests": {
+   "test_persistent_connections_are_reused_across_requests": true,
+   "test_the_app_works_without_the_persistent_switch": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": false,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_connection_that_was_idle_in_the_pool_while_only_the_cache_ran_stays_correct": false,
+   "test_payouts_run_after_the_lock_socket_drops_works_or_fails_loudly_and_locks_in_the_right_database": false,
+   "test_a_payouts_lock_taken_after_a_drop_blocks_a_run_in_another_process": false,
+   "test_the_payouts_lock_stays_where_old_containers_look_for_it": true,
+   "test_the_cache_recovers_after_a_failover": true
+  },
+  "exit_code": 1,
+  "output_tail": "Failed asserting that 1 is identical to 0.\n\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:318\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:461\n\n2) Tests\\Hidden\\PersistentValkeyHiddenTest::test_a_lock_connection_that_was_idle_in_the_pool_while_only_the_cache_ran_stays_correct\npool with an idle cache socket: lock key shop:laravel-cache-leaktest-lock-four is in db 1, the lock connection uses db 0\nFailed asserting that 1 is identical to 0.\n\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:318\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:486\n\n3) Tests\\Hidden\\PersistentValkeyHiddenTest::test_payouts_run_after_the_lock_socket_drops_works_or_fails_loudly_and_locks_in_the_right_database\nduring payouts:run: lock key shop:laravel-cache-payouts:run is in db 1, the lock connection uses db 0\nFailed asserting that 1 is identical to 0.\n\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:318\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:522\n\n4) Tests\\Hidden\\PersistentValkeyHiddenTest::test_a_payouts_lock_taken_after_a_drop_blocks_a_run_in_another_process\npayouts lock after a drop: lock key shop:laravel-cache-payouts:run is in db 1, the lock connection uses db 0\nFailed asserting that 1 is identical to 0.\n\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:318\n/app/tests/Hidden/PersistentValkeyHiddenTest.php:559\n\n\u001b[37;41mFAILURES!\u001b[0m\n\u001b[37;41mTests: 15\u001b[0m\u001b[37;41m, Assertions: 89\u001b[0m\u001b[37;41m, Failures: 4\u001b[0m\u001b[37;41m.\u001b[0m\n Container laravel-idioms-valkey-closed-1 Running \n Container laravel-idioms-valkey-valkey-1 Running \n Container laravel-idioms-valkey-tarpit-1 Running \n Container laravel-idioms-valkey-closed-1 Waiting \n Container laravel-idioms-valkey-valkey-1 Waiting \n Container laravel-idioms-valkey-tarpit-1 Waiting \n Container laravel-idioms-valkey-closed-1 Healthy \n Container laravel-idioms-valkey-valkey-1 Healthy \n Container laravel-idioms-valkey-tarpit-1 Healthy \nOK\nOK\nOK\n Container valkey-hidden-dd971e411204 Creating \n Container valkey-hidden-dd971e411204 Created \n\n"
+ },
+ "persistent-valkey-rev1-1": {
+  "task": "persistent-valkey",
+  "arm": "rev1",
+  "run": 1,
+  "tests": {
+   "test_persistent_connections_are_reused_across_requests": true,
+   "test_the_app_works_without_the_persistent_switch": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_connection_that_was_idle_in_the_pool_while_only_the_cache_ran_stays_correct": true,
+   "test_payouts_run_after_the_lock_socket_drops_works_or_fails_loudly_and_locks_in_the_right_database": true,
+   "test_a_payouts_lock_taken_after_a_drop_blocks_a_run_in_another_process": true,
+   "test_the_payouts_lock_stays_where_old_containers_look_for_it": true,
+   "test_the_cache_recovers_after_a_failover": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "persistent-valkey-rev1-2": {
+  "task": "persistent-valkey",
+  "arm": "rev1",
+  "run": 2,
+  "tests": {
+   "test_persistent_connections_are_reused_across_requests": true,
+   "test_the_app_works_without_the_persistent_switch": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_connection_that_was_idle_in_the_pool_while_only_the_cache_ran_stays_correct": true,
+   "test_payouts_run_after_the_lock_socket_drops_works_or_fails_loudly_and_locks_in_the_right_database": true,
+   "test_a_payouts_lock_taken_after_a_drop_blocks_a_run_in_another_process": true,
+   "test_the_payouts_lock_stays_where_old_containers_look_for_it": true,
+   "test_the_cache_recovers_after_a_failover": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "persistent-valkey-rev1-3": {
+  "task": "persistent-valkey",
+  "arm": "rev1",
+  "run": 3,
+  "tests": {
+   "test_persistent_connections_are_reused_across_requests": true,
+   "test_the_app_works_without_the_persistent_switch": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_connection_that_was_idle_in_the_pool_while_only_the_cache_ran_stays_correct": true,
+   "test_payouts_run_after_the_lock_socket_drops_works_or_fails_loudly_and_locks_in_the_right_database": true,
+   "test_a_payouts_lock_taken_after_a_drop_blocks_a_run_in_another_process": true,
+   "test_the_payouts_lock_stays_where_old_containers_look_for_it": true,
+   "test_the_cache_recovers_after_a_failover": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "persistent-valkey-skill-1": {
+  "task": "persistent-valkey",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "test_persistent_connections_are_reused_across_requests": true,
+   "test_the_app_works_without_the_persistent_switch": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_connection_that_was_idle_in_the_pool_while_only_the_cache_ran_stays_correct": true,
+   "test_payouts_run_after_the_lock_socket_drops_works_or_fails_loudly_and_locks_in_the_right_database": true,
+   "test_a_payouts_lock_taken_after_a_drop_blocks_a_run_in_another_process": true,
+   "test_the_payouts_lock_stays_where_old_containers_look_for_it": true,
+   "test_the_cache_recovers_after_a_failover": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "persistent-valkey-skill-2": {
+  "task": "persistent-valkey",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "test_persistent_connections_are_reused_across_requests": true,
+   "test_the_app_works_without_the_persistent_switch": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_connection_that_was_idle_in_the_pool_while_only_the_cache_ran_stays_correct": true,
+   "test_payouts_run_after_the_lock_socket_drops_works_or_fails_loudly_and_locks_in_the_right_database": true,
+   "test_a_payouts_lock_taken_after_a_drop_blocks_a_run_in_another_process": true,
+   "test_the_payouts_lock_stays_where_old_containers_look_for_it": true,
+   "test_the_cache_recovers_after_a_failover": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "persistent-valkey-skill-3": {
+  "task": "persistent-valkey",
+  "arm": "skill",
+  "run": 3,
+  "tests": {
+   "test_persistent_connections_are_reused_across_requests": true,
+   "test_the_app_works_without_the_persistent_switch": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_between_requests_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"all sockets dropped, cache first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, lock first\"": true,
+   "test_a_lock_taken_after_a_drop_in_the_middle_of_a_request_stays_in_the_lock_database with data set \"only the lock socket dropped, cache first\"": true,
+   "test_a_lock_connection_that_was_idle_in_the_pool_while_only_the_cache_ran_stays_correct": true,
+   "test_payouts_run_after_the_lock_socket_drops_works_or_fails_loudly_and_locks_in_the_right_database": true,
+   "test_a_payouts_lock_taken_after_a_drop_blocks_a_run_in_another_process": true,
+   "test_the_payouts_lock_stays_where_old_containers_look_for_it": true,
+   "test_the_cache_recovers_after_a_failover": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "scheduled-reports-draft-1": {
+  "task": "scheduled-reports",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "The weekly report runs on monday at 0730 copenhagen time in winter and summer": true,
+   "The hourly supplier sync is queued not run inside the scheduler": true,
+   "Every task runs on only one of the servers": true,
+   "A crashed run does not block a task for a day": true,
+   "A slow supplier sync cannot run twice at the same time": true,
+   "Two scheduler runs in the same minute dispatch the hourly sync once": true,
+   "The nightly cleanup runs exactly once a night across daylight saving changes": true,
+   "The cleanup command deletes every abandoned cart and keeps recent ones": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "scheduled-reports-draft-2": {
+  "task": "scheduled-reports",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "The weekly report runs on monday at 0730 copenhagen time in winter and summer": true,
+   "The hourly supplier sync is queued not run inside the scheduler": true,
+   "Every task runs on only one of the servers": true,
+   "A crashed run does not block a task for a day": true,
+   "A slow supplier sync cannot run twice at the same time": true,
+   "Two scheduler runs in the same minute dispatch the hourly sync once": true,
+   "The nightly cleanup runs exactly once a night across daylight saving changes": true,
+   "The cleanup command deletes every abandoned cart and keeps recent ones": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "scheduled-reports-prev-1": {
+  "task": "scheduled-reports",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "The weekly report runs on monday at 0730 copenhagen time in winter and summer": true,
+   "The hourly supplier sync is queued not run inside the scheduler": true,
+   "Every task runs on only one of the servers": true,
+   "A crashed run does not block a task for a day": true,
+   "A slow supplier sync cannot run twice at the same time": true,
+   "Two scheduler runs in the same minute dispatch the hourly sync once": true,
+   "The nightly cleanup runs exactly once a night across daylight saving changes": true,
+   "The cleanup command deletes every abandoned cart and keeps recent ones": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "scheduled-reports-prev-2": {
+  "task": "scheduled-reports",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "The weekly report runs on monday at 0730 copenhagen time in winter and summer": true,
+   "The hourly supplier sync is queued not run inside the scheduler": true,
+   "Every task runs on only one of the servers": true,
+   "A crashed run does not block a task for a day": true,
+   "A slow supplier sync cannot run twice at the same time": true,
+   "Two scheduler runs in the same minute dispatch the hourly sync once": true,
+   "The nightly cleanup runs exactly once a night across daylight saving changes": true,
+   "The cleanup command deletes every abandoned cart and keeps recent ones": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "scheduled-reports-skill-1": {
+  "task": "scheduled-reports",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "The weekly report runs on monday at 0730 copenhagen time in winter and summer": true,
+   "The hourly supplier sync is queued not run inside the scheduler": true,
+   "Every task runs on only one of the servers": true,
+   "A crashed run does not block a task for a day": true,
+   "A slow supplier sync cannot run twice at the same time": true,
+   "Two scheduler runs in the same minute dispatch the hourly sync once": true,
+   "The nightly cleanup runs exactly once a night across daylight saving changes": true,
+   "The cleanup command deletes every abandoned cart and keeps recent ones": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "scheduled-reports-skill-2": {
+  "task": "scheduled-reports",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "The weekly report runs on monday at 0730 copenhagen time in winter and summer": true,
+   "The hourly supplier sync is queued not run inside the scheduler": true,
+   "Every task runs on only one of the servers": true,
+   "A crashed run does not block a task for a day": true,
+   "A slow supplier sync cannot run twice at the same time": true,
+   "Two scheduler runs in the same minute dispatch the hourly sync once": true,
+   "The nightly cleanup runs exactly once a night across daylight saving changes": true,
+   "The cleanup command deletes every abandoned cart and keeps recent ones": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipment-sync-draft-1": {
+  "task": "shipment-sync",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true,
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipment-sync-draft-2": {
+  "task": "shipment-sync",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true,
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipment-sync-prev-1": {
+  "task": "shipment-sync",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true,
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipment-sync-prev-2": {
+  "task": "shipment-sync",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true,
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipment-sync-skill-1": {
+  "task": "shipment-sync",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true,
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "shipment-sync-skill-2": {
+  "task": "shipment-sync",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "Marking an order paid queues one shipment job": true,
+   "Running the job twice creates one shipment and one email": true,
+   "Invalid address marks the shipment failed without retrying": true,
+   "Transient errors are retried not swallowed with data set \"rate limited\"": true,
+   "Transient errors are retried not swallowed with data set \"server error\"": true,
+   "A job that finally fails records failed status and reason": true,
+   "An order cancelled before the job runs is never shipped": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "token-login-draft-1": {
+  "task": "token-login",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true,
+   "A missing field is a 422": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "The limit resets after a minute": true,
+   "Revoking deletes only the token used": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "token-login-draft-2": {
+  "task": "token-login",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true,
+   "A missing field is a 422": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "The limit resets after a minute": true,
+   "Revoking deletes only the token used": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "token-login-prev-1": {
+  "task": "token-login",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true,
+   "A missing field is a 422": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "The limit resets after a minute": true,
+   "Revoking deletes only the token used": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "token-login-prev-2": {
+  "task": "token-login",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true,
+   "A missing field is a 422": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "The limit resets after a minute": true,
+   "Revoking deletes only the token used": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "token-login-skill-1": {
+  "task": "token-login",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true,
+   "A missing field is a 422": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "The limit resets after a minute": true,
+   "Revoking deletes only the token used": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "token-login-skill-2": {
+  "task": "token-login",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "Valid credentials return a working token": true,
+   "Wrong credentials are a 401 with the message": true,
+   "A missing field is a 422": true,
+   "The sixth attempt in a minute is throttled even with the right password": true,
+   "Throttling is per email and ip": true,
+   "The limit resets after a minute": true,
+   "Revoking deletes only the token used": true,
+   "Guest without accept header gets json 401": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-cache-draft-1": {
+  "task": "valkey-cache",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "test_the_cache_round_trips_and_every_key_is_under_the_shop_prefix": true,
+   "test_a_lock_is_taken_held_and_released_under_the_acl": true,
+   "test_an_unreachable_host_fails_within_the_time_limit_and_does_not_hang": true,
+   "test_a_node_that_stops_answering_is_given_up_on_within_the_time_limit": true,
+   "test_tls_host_name_verification_stays_on": true,
+   "test_the_app_still_runs_with_no_redis_or_cache_env_at_all": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-cache-draft-2": {
+  "task": "valkey-cache",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "test_the_cache_round_trips_and_every_key_is_under_the_shop_prefix": true,
+   "test_a_lock_is_taken_held_and_released_under_the_acl": true,
+   "test_an_unreachable_host_fails_within_the_time_limit_and_does_not_hang": true,
+   "test_a_node_that_stops_answering_is_given_up_on_within_the_time_limit": true,
+   "test_tls_host_name_verification_stays_on": true,
+   "test_the_app_still_runs_with_no_redis_or_cache_env_at_all": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-cache-draft-3": {
+  "task": "valkey-cache",
+  "arm": "draft",
+  "run": 3,
+  "tests": {
+   "test_the_cache_round_trips_and_every_key_is_under_the_shop_prefix": true,
+   "test_a_lock_is_taken_held_and_released_under_the_acl": true,
+   "test_an_unreachable_host_fails_within_the_time_limit_and_does_not_hang": true,
+   "test_a_node_that_stops_answering_is_given_up_on_within_the_time_limit": true,
+   "test_tls_host_name_verification_stays_on": true,
+   "test_the_app_still_runs_with_no_redis_or_cache_env_at_all": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-cache-plain-1": {
+  "task": "valkey-cache",
+  "arm": "plain",
+  "run": 1,
+  "tests": {
+   "test_the_cache_round_trips_and_every_key_is_under_the_shop_prefix": true,
+   "test_a_lock_is_taken_held_and_released_under_the_acl": true,
+   "test_an_unreachable_host_fails_within_the_time_limit_and_does_not_hang": true,
+   "test_a_node_that_stops_answering_is_given_up_on_within_the_time_limit": true,
+   "test_tls_host_name_verification_stays_on": true,
+   "test_the_app_still_runs_with_no_redis_or_cache_env_at_all": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-cache-prev-1": {
+  "task": "valkey-cache",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "test_the_cache_round_trips_and_every_key_is_under_the_shop_prefix": true,
+   "test_a_lock_is_taken_held_and_released_under_the_acl": true,
+   "test_an_unreachable_host_fails_within_the_time_limit_and_does_not_hang": true,
+   "test_a_node_that_stops_answering_is_given_up_on_within_the_time_limit": true,
+   "test_tls_host_name_verification_stays_on": true,
+   "test_the_app_still_runs_with_no_redis_or_cache_env_at_all": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-cache-prev-2": {
+  "task": "valkey-cache",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "test_the_cache_round_trips_and_every_key_is_under_the_shop_prefix": true,
+   "test_a_lock_is_taken_held_and_released_under_the_acl": true,
+   "test_an_unreachable_host_fails_within_the_time_limit_and_does_not_hang": true,
+   "test_a_node_that_stops_answering_is_given_up_on_within_the_time_limit": true,
+   "test_tls_host_name_verification_stays_on": true,
+   "test_the_app_still_runs_with_no_redis_or_cache_env_at_all": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-cache-prev-3": {
+  "task": "valkey-cache",
+  "arm": "prev",
+  "run": 3,
+  "tests": {
+   "test_the_cache_round_trips_and_every_key_is_under_the_shop_prefix": true,
+   "test_a_lock_is_taken_held_and_released_under_the_acl": true,
+   "test_an_unreachable_host_fails_within_the_time_limit_and_does_not_hang": true,
+   "test_a_node_that_stops_answering_is_given_up_on_within_the_time_limit": true,
+   "test_tls_host_name_verification_stays_on": true,
+   "test_the_app_still_runs_with_no_redis_or_cache_env_at_all": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-cache-rev1-1": {
+  "task": "valkey-cache",
+  "arm": "rev1",
+  "run": 1,
+  "tests": {
+   "test_the_cache_round_trips_and_every_key_is_under_the_shop_prefix": true,
+   "test_a_lock_is_taken_held_and_released_under_the_acl": true,
+   "test_an_unreachable_host_fails_within_the_time_limit_and_does_not_hang": true,
+   "test_a_node_that_stops_answering_is_given_up_on_within_the_time_limit": true,
+   "test_tls_host_name_verification_stays_on": true,
+   "test_the_app_still_runs_with_no_redis_or_cache_env_at_all": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-cache-rev1-2": {
+  "task": "valkey-cache",
+  "arm": "rev1",
+  "run": 2,
+  "tests": {
+   "test_the_cache_round_trips_and_every_key_is_under_the_shop_prefix": true,
+   "test_a_lock_is_taken_held_and_released_under_the_acl": true,
+   "test_an_unreachable_host_fails_within_the_time_limit_and_does_not_hang": true,
+   "test_a_node_that_stops_answering_is_given_up_on_within_the_time_limit": true,
+   "test_tls_host_name_verification_stays_on": true,
+   "test_the_app_still_runs_with_no_redis_or_cache_env_at_all": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-cache-rev1-3": {
+  "task": "valkey-cache",
+  "arm": "rev1",
+  "run": 3,
+  "tests": {
+   "test_the_cache_round_trips_and_every_key_is_under_the_shop_prefix": true,
+   "test_a_lock_is_taken_held_and_released_under_the_acl": true,
+   "test_an_unreachable_host_fails_within_the_time_limit_and_does_not_hang": true,
+   "test_a_node_that_stops_answering_is_given_up_on_within_the_time_limit": true,
+   "test_tls_host_name_verification_stays_on": true,
+   "test_the_app_still_runs_with_no_redis_or_cache_env_at_all": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-cache-skill-1": {
+  "task": "valkey-cache",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "test_the_cache_round_trips_and_every_key_is_under_the_shop_prefix": true,
+   "test_a_lock_is_taken_held_and_released_under_the_acl": true,
+   "test_an_unreachable_host_fails_within_the_time_limit_and_does_not_hang": true,
+   "test_a_node_that_stops_answering_is_given_up_on_within_the_time_limit": true,
+   "test_tls_host_name_verification_stays_on": true,
+   "test_the_app_still_runs_with_no_redis_or_cache_env_at_all": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-cache-skill-2": {
+  "task": "valkey-cache",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "test_the_cache_round_trips_and_every_key_is_under_the_shop_prefix": true,
+   "test_a_lock_is_taken_held_and_released_under_the_acl": true,
+   "test_an_unreachable_host_fails_within_the_time_limit_and_does_not_hang": true,
+   "test_a_node_that_stops_answering_is_given_up_on_within_the_time_limit": true,
+   "test_tls_host_name_verification_stays_on": true,
+   "test_the_app_still_runs_with_no_redis_or_cache_env_at_all": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-cache-skill-3": {
+  "task": "valkey-cache",
+  "arm": "skill",
+  "run": 3,
+  "tests": {
+   "test_the_cache_round_trips_and_every_key_is_under_the_shop_prefix": true,
+   "test_a_lock_is_taken_held_and_released_under_the_acl": true,
+   "test_an_unreachable_host_fails_within_the_time_limit_and_does_not_hang": true,
+   "test_a_node_that_stops_answering_is_given_up_on_within_the_time_limit": true,
+   "test_tls_host_name_verification_stays_on": true,
+   "test_the_app_still_runs_with_no_redis_or_cache_env_at_all": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-outage-draft-1": {
+  "task": "valkey-outage",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "test_with_valkey_up_the_jwks_is_fetched_once_and_cached_on_the_server": true,
+   "test_with_valkey_up_a_held_payouts_lock_stops_another_run": true,
+   "test_with_valkey_up_payouts_run_pays_every_merchant_once": true,
+   "test_token_checks_answer_correctly_while_valkey_refuses_connections": true,
+   "test_payouts_run_refuses_to_run_while_valkey_refuses_connections": true,
+   "test_a_token_check_answers_within_the_budget_while_valkey_does_not_answer": true,
+   "test_the_jwks_is_cached_again_once_valkey_is_back": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-outage-draft-2": {
+  "task": "valkey-outage",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "test_with_valkey_up_the_jwks_is_fetched_once_and_cached_on_the_server": true,
+   "test_with_valkey_up_a_held_payouts_lock_stops_another_run": true,
+   "test_with_valkey_up_payouts_run_pays_every_merchant_once": true,
+   "test_token_checks_answer_correctly_while_valkey_refuses_connections": true,
+   "test_payouts_run_refuses_to_run_while_valkey_refuses_connections": true,
+   "test_a_token_check_answers_within_the_budget_while_valkey_does_not_answer": true,
+   "test_the_jwks_is_cached_again_once_valkey_is_back": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-outage-draft-3": {
+  "task": "valkey-outage",
+  "arm": "draft",
+  "run": 3,
+  "tests": {
+   "test_with_valkey_up_the_jwks_is_fetched_once_and_cached_on_the_server": true,
+   "test_with_valkey_up_a_held_payouts_lock_stops_another_run": true,
+   "test_with_valkey_up_payouts_run_pays_every_merchant_once": true,
+   "test_token_checks_answer_correctly_while_valkey_refuses_connections": true,
+   "test_payouts_run_refuses_to_run_while_valkey_refuses_connections": true,
+   "test_a_token_check_answers_within_the_budget_while_valkey_does_not_answer": true,
+   "test_the_jwks_is_cached_again_once_valkey_is_back": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-outage-plain-1": {
+  "task": "valkey-outage",
+  "arm": "plain",
+  "run": 1,
+  "tests": {
+   "test_with_valkey_up_the_jwks_is_fetched_once_and_cached_on_the_server": true,
+   "test_with_valkey_up_a_held_payouts_lock_stops_another_run": true,
+   "test_with_valkey_up_payouts_run_pays_every_merchant_once": true,
+   "test_token_checks_answer_correctly_while_valkey_refuses_connections": true,
+   "test_payouts_run_refuses_to_run_while_valkey_refuses_connections": true,
+   "test_a_token_check_answers_within_the_budget_while_valkey_does_not_answer": true,
+   "test_the_jwks_is_cached_again_once_valkey_is_back": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-outage-prev-1": {
+  "task": "valkey-outage",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "test_with_valkey_up_the_jwks_is_fetched_once_and_cached_on_the_server": true,
+   "test_with_valkey_up_a_held_payouts_lock_stops_another_run": true,
+   "test_with_valkey_up_payouts_run_pays_every_merchant_once": true,
+   "test_token_checks_answer_correctly_while_valkey_refuses_connections": true,
+   "test_payouts_run_refuses_to_run_while_valkey_refuses_connections": true,
+   "test_a_token_check_answers_within_the_budget_while_valkey_does_not_answer": true,
+   "test_the_jwks_is_cached_again_once_valkey_is_back": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-outage-prev-2": {
+  "task": "valkey-outage",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "test_with_valkey_up_the_jwks_is_fetched_once_and_cached_on_the_server": true,
+   "test_with_valkey_up_a_held_payouts_lock_stops_another_run": true,
+   "test_with_valkey_up_payouts_run_pays_every_merchant_once": true,
+   "test_token_checks_answer_correctly_while_valkey_refuses_connections": true,
+   "test_payouts_run_refuses_to_run_while_valkey_refuses_connections": true,
+   "test_a_token_check_answers_within_the_budget_while_valkey_does_not_answer": true,
+   "test_the_jwks_is_cached_again_once_valkey_is_back": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-outage-prev-3": {
+  "task": "valkey-outage",
+  "arm": "prev",
+  "run": 3,
+  "tests": {
+   "test_with_valkey_up_the_jwks_is_fetched_once_and_cached_on_the_server": true,
+   "test_with_valkey_up_a_held_payouts_lock_stops_another_run": true,
+   "test_with_valkey_up_payouts_run_pays_every_merchant_once": true,
+   "test_token_checks_answer_correctly_while_valkey_refuses_connections": true,
+   "test_payouts_run_refuses_to_run_while_valkey_refuses_connections": true,
+   "test_a_token_check_answers_within_the_budget_while_valkey_does_not_answer": true,
+   "test_the_jwks_is_cached_again_once_valkey_is_back": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-outage-rev1-1": {
+  "task": "valkey-outage",
+  "arm": "rev1",
+  "run": 1,
+  "tests": {
+   "test_with_valkey_up_the_jwks_is_fetched_once_and_cached_on_the_server": true,
+   "test_with_valkey_up_a_held_payouts_lock_stops_another_run": true,
+   "test_with_valkey_up_payouts_run_pays_every_merchant_once": true,
+   "test_token_checks_answer_correctly_while_valkey_refuses_connections": true,
+   "test_payouts_run_refuses_to_run_while_valkey_refuses_connections": true,
+   "test_a_token_check_answers_within_the_budget_while_valkey_does_not_answer": true,
+   "test_the_jwks_is_cached_again_once_valkey_is_back": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-outage-rev1-2": {
+  "task": "valkey-outage",
+  "arm": "rev1",
+  "run": 2,
+  "tests": {
+   "test_with_valkey_up_the_jwks_is_fetched_once_and_cached_on_the_server": true,
+   "test_with_valkey_up_a_held_payouts_lock_stops_another_run": true,
+   "test_with_valkey_up_payouts_run_pays_every_merchant_once": true,
+   "test_token_checks_answer_correctly_while_valkey_refuses_connections": true,
+   "test_payouts_run_refuses_to_run_while_valkey_refuses_connections": true,
+   "test_a_token_check_answers_within_the_budget_while_valkey_does_not_answer": true,
+   "test_the_jwks_is_cached_again_once_valkey_is_back": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-outage-rev1-3": {
+  "task": "valkey-outage",
+  "arm": "rev1",
+  "run": 3,
+  "tests": {
+   "test_with_valkey_up_the_jwks_is_fetched_once_and_cached_on_the_server": true,
+   "test_with_valkey_up_a_held_payouts_lock_stops_another_run": true,
+   "test_with_valkey_up_payouts_run_pays_every_merchant_once": true,
+   "test_token_checks_answer_correctly_while_valkey_refuses_connections": true,
+   "test_payouts_run_refuses_to_run_while_valkey_refuses_connections": true,
+   "test_a_token_check_answers_within_the_budget_while_valkey_does_not_answer": true,
+   "test_the_jwks_is_cached_again_once_valkey_is_back": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-outage-skill-1": {
+  "task": "valkey-outage",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "test_with_valkey_up_the_jwks_is_fetched_once_and_cached_on_the_server": true,
+   "test_with_valkey_up_a_held_payouts_lock_stops_another_run": true,
+   "test_with_valkey_up_payouts_run_pays_every_merchant_once": true,
+   "test_token_checks_answer_correctly_while_valkey_refuses_connections": true,
+   "test_payouts_run_refuses_to_run_while_valkey_refuses_connections": true,
+   "test_a_token_check_answers_within_the_budget_while_valkey_does_not_answer": true,
+   "test_the_jwks_is_cached_again_once_valkey_is_back": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-outage-skill-2": {
+  "task": "valkey-outage",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "test_with_valkey_up_the_jwks_is_fetched_once_and_cached_on_the_server": true,
+   "test_with_valkey_up_a_held_payouts_lock_stops_another_run": true,
+   "test_with_valkey_up_payouts_run_pays_every_merchant_once": true,
+   "test_token_checks_answer_correctly_while_valkey_refuses_connections": true,
+   "test_payouts_run_refuses_to_run_while_valkey_refuses_connections": true,
+   "test_a_token_check_answers_within_the_budget_while_valkey_does_not_answer": true,
+   "test_the_jwks_is_cached_again_once_valkey_is_back": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-outage-skill-3": {
+  "task": "valkey-outage",
+  "arm": "skill",
+  "run": 3,
+  "tests": {
+   "test_with_valkey_up_the_jwks_is_fetched_once_and_cached_on_the_server": true,
+   "test_with_valkey_up_a_held_payouts_lock_stops_another_run": true,
+   "test_with_valkey_up_payouts_run_pays_every_merchant_once": true,
+   "test_token_checks_answer_correctly_while_valkey_refuses_connections": true,
+   "test_payouts_run_refuses_to_run_while_valkey_refuses_connections": true,
+   "test_a_token_check_answers_within_the_budget_while_valkey_does_not_answer": true,
+   "test_the_jwks_is_cached_again_once_valkey_is_back": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-queue-draft-1": {
+  "task": "valkey-queue",
+  "arm": "draft",
+  "run": 1,
+  "tests": {
+   "test_dispatching_works_as_the_shop_user_and_every_key_stays_under_shop": true,
+   "test_a_worker_processes_the_job_and_horizon_records_it_under_shop": true,
+   "test_a_delayed_job_is_moved_to_the_queue_and_processed_after_its_delay": true,
+   "test_polling_an_empty_queue_with_the_configured_settings_neither_throws_nor_hangs": true,
+   "test_the_app_boots_without_any_redis_env": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-queue-draft-2": {
+  "task": "valkey-queue",
+  "arm": "draft",
+  "run": 2,
+  "tests": {
+   "test_dispatching_works_as_the_shop_user_and_every_key_stays_under_shop": true,
+   "test_a_worker_processes_the_job_and_horizon_records_it_under_shop": true,
+   "test_a_delayed_job_is_moved_to_the_queue_and_processed_after_its_delay": true,
+   "test_polling_an_empty_queue_with_the_configured_settings_neither_throws_nor_hangs": true,
+   "test_the_app_boots_without_any_redis_env": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-queue-draft-3": {
+  "task": "valkey-queue",
+  "arm": "draft",
+  "run": 3,
+  "tests": {
+   "test_dispatching_works_as_the_shop_user_and_every_key_stays_under_shop": true,
+   "test_a_worker_processes_the_job_and_horizon_records_it_under_shop": true,
+   "test_a_delayed_job_is_moved_to_the_queue_and_processed_after_its_delay": true,
+   "test_polling_an_empty_queue_with_the_configured_settings_neither_throws_nor_hangs": true,
+   "test_the_app_boots_without_any_redis_env": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-queue-plain-1": {
+  "task": "valkey-queue",
+  "arm": "plain",
+  "run": 1,
+  "tests": {
+   "test_dispatching_works_as_the_shop_user_and_every_key_stays_under_shop": true,
+   "test_a_worker_processes_the_job_and_horizon_records_it_under_shop": true,
+   "test_a_delayed_job_is_moved_to_the_queue_and_processed_after_its_delay": true,
+   "test_polling_an_empty_queue_with_the_configured_settings_neither_throws_nor_hangs": true,
+   "test_the_app_boots_without_any_redis_env": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-queue-prev-1": {
+  "task": "valkey-queue",
+  "arm": "prev",
+  "run": 1,
+  "tests": {
+   "test_dispatching_works_as_the_shop_user_and_every_key_stays_under_shop": true,
+   "test_a_worker_processes_the_job_and_horizon_records_it_under_shop": true,
+   "test_a_delayed_job_is_moved_to_the_queue_and_processed_after_its_delay": true,
+   "test_polling_an_empty_queue_with_the_configured_settings_neither_throws_nor_hangs": true,
+   "test_the_app_boots_without_any_redis_env": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-queue-prev-2": {
+  "task": "valkey-queue",
+  "arm": "prev",
+  "run": 2,
+  "tests": {
+   "test_dispatching_works_as_the_shop_user_and_every_key_stays_under_shop": true,
+   "test_a_worker_processes_the_job_and_horizon_records_it_under_shop": true,
+   "test_a_delayed_job_is_moved_to_the_queue_and_processed_after_its_delay": true,
+   "test_polling_an_empty_queue_with_the_configured_settings_neither_throws_nor_hangs": true,
+   "test_the_app_boots_without_any_redis_env": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-queue-prev-3": {
+  "task": "valkey-queue",
+  "arm": "prev",
+  "run": 3,
+  "tests": {
+   "test_dispatching_works_as_the_shop_user_and_every_key_stays_under_shop": true,
+   "test_a_worker_processes_the_job_and_horizon_records_it_under_shop": true,
+   "test_a_delayed_job_is_moved_to_the_queue_and_processed_after_its_delay": true,
+   "test_polling_an_empty_queue_with_the_configured_settings_neither_throws_nor_hangs": true,
+   "test_the_app_boots_without_any_redis_env": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-queue-rev1-1": {
+  "task": "valkey-queue",
+  "arm": "rev1",
+  "run": 1,
+  "tests": {
+   "test_dispatching_works_as_the_shop_user_and_every_key_stays_under_shop": true,
+   "test_a_worker_processes_the_job_and_horizon_records_it_under_shop": true,
+   "test_a_delayed_job_is_moved_to_the_queue_and_processed_after_its_delay": true,
+   "test_polling_an_empty_queue_with_the_configured_settings_neither_throws_nor_hangs": true,
+   "test_the_app_boots_without_any_redis_env": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-queue-rev1-2": {
+  "task": "valkey-queue",
+  "arm": "rev1",
+  "run": 2,
+  "tests": {
+   "test_dispatching_works_as_the_shop_user_and_every_key_stays_under_shop": true,
+   "test_a_worker_processes_the_job_and_horizon_records_it_under_shop": true,
+   "test_a_delayed_job_is_moved_to_the_queue_and_processed_after_its_delay": true,
+   "test_polling_an_empty_queue_with_the_configured_settings_neither_throws_nor_hangs": true,
+   "test_the_app_boots_without_any_redis_env": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-queue-rev1-3": {
+  "task": "valkey-queue",
+  "arm": "rev1",
+  "run": 3,
+  "tests": {
+   "test_dispatching_works_as_the_shop_user_and_every_key_stays_under_shop": true,
+   "test_a_worker_processes_the_job_and_horizon_records_it_under_shop": true,
+   "test_a_delayed_job_is_moved_to_the_queue_and_processed_after_its_delay": true,
+   "test_polling_an_empty_queue_with_the_configured_settings_neither_throws_nor_hangs": true,
+   "test_the_app_boots_without_any_redis_env": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-queue-skill-1": {
+  "task": "valkey-queue",
+  "arm": "skill",
+  "run": 1,
+  "tests": {
+   "test_dispatching_works_as_the_shop_user_and_every_key_stays_under_shop": true,
+   "test_a_worker_processes_the_job_and_horizon_records_it_under_shop": true,
+   "test_a_delayed_job_is_moved_to_the_queue_and_processed_after_its_delay": true,
+   "test_polling_an_empty_queue_with_the_configured_settings_neither_throws_nor_hangs": true,
+   "test_the_app_boots_without_any_redis_env": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-queue-skill-2": {
+  "task": "valkey-queue",
+  "arm": "skill",
+  "run": 2,
+  "tests": {
+   "test_dispatching_works_as_the_shop_user_and_every_key_stays_under_shop": true,
+   "test_a_worker_processes_the_job_and_horizon_records_it_under_shop": true,
+   "test_a_delayed_job_is_moved_to_the_queue_and_processed_after_its_delay": true,
+   "test_polling_an_empty_queue_with_the_configured_settings_neither_throws_nor_hangs": true,
+   "test_the_app_boots_without_any_redis_env": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ },
+ "valkey-queue-skill-3": {
+  "task": "valkey-queue",
+  "arm": "skill",
+  "run": 3,
+  "tests": {
+   "test_dispatching_works_as_the_shop_user_and_every_key_stays_under_shop": true,
+   "test_a_worker_processes_the_job_and_horizon_records_it_under_shop": true,
+   "test_a_delayed_job_is_moved_to_the_queue_and_processed_after_its_delay": true,
+   "test_polling_an_empty_queue_with_the_configured_settings_neither_throws_nor_hangs": true,
+   "test_the_app_boots_without_any_redis_env": true
+  },
+  "exit_code": 0,
+  "output_tail": ""
+ }
+}

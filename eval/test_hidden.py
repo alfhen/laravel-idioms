@@ -47,7 +47,7 @@ class HiddenTest(unittest.TestCase):
         self.assertEqual(hidden.summarise(rows)[('a', 'skill')], [3, 4, 2])
 
     def test_a_hung_build_scores_every_hidden_test_as_failed(self):
-        key = next(k for k, t in hidden.TASKS.items() if t.get('hidden'))
+        key = next(k for k, t in hidden.TASKS.items() if t.get('hidden') and not t.get('hidden_runner'))
         with tempfile.TemporaryDirectory() as tmp:
             runner = Path(tmp) / 'app' / 'vendor' / 'bin' / 'phpunit'
             runner.parent.mkdir(parents=True)
@@ -68,7 +68,7 @@ class HiddenTest(unittest.TestCase):
         self.assertIn('timed out after 1s', row['output_tail'])
 
     def test_an_unreadable_report_scores_every_hidden_test_as_failed(self):
-        key = next(k for k, t in hidden.TASKS.items() if t.get('hidden'))
+        key = next(k for k, t in hidden.TASKS.items() if t.get('hidden') and not t.get('hidden_runner'))
         with tempfile.TemporaryDirectory() as tmp:
             runner = Path(tmp) / 'app' / 'vendor' / 'bin' / 'phpunit'
             runner.parent.mkdir(parents=True)
@@ -78,6 +78,74 @@ class HiddenTest(unittest.TestCase):
         self.assertEqual(row['exit_code'], 1)
         self.assertTrue(row['tests'])
         self.assertFalse(any(row['tests'].values()))
+
+    def test_valkey_tasks_run_through_the_container_script_with_the_copied_app(self):
+        key = next(k for k, t in hidden.TASKS.items() if t.get('hidden') and not t.get('hidden_runner'))
+        hidden_file = hidden.REPO / hidden.TASKS[key]['hidden']
+        with tempfile.TemporaryDirectory() as tmp:
+            build = Path(tmp) / 'build'
+            build.mkdir()
+            fake = Path(tmp) / 'run-hidden.sh'
+            passing = ''.join(f'<testcase name="{n}" />' for n in hidden.expected_tests(hidden_file))
+            # Args: app_dir, test file name, junit path. Checks the hidden file is already in the app copy.
+            fake.write_text('#!/bin/sh\n'
+                            f'test -f "$1/tests/Hidden/{hidden_file.name}" || exit 9\n'
+                            f'test "$2" = {hidden_file.name} || exit 8\n'
+                            f"echo '<testsuites><testsuite>{passing}</testsuite></testsuites>' > \"$3\"\n")
+            os.chmod(fake, 0o755)
+            runner, tasks = hidden.VALKEY_RUNNER, hidden.TASKS
+            hidden.VALKEY_RUNNER = fake
+            hidden.TASKS = {**tasks, key: {**tasks[key], 'hidden_runner': 'valkey'}}
+            try:
+                row = hidden.run_hidden(build, key)
+            finally:
+                hidden.VALKEY_RUNNER, hidden.TASKS = runner, tasks
+        self.assertEqual(row['exit_code'], 0)
+        self.assertTrue(all(row['tests'].values()))
+
+    def _valkey_run(self, script_body, timeout=None):
+        key = next(k for k, t in hidden.TASKS.items() if t.get('hidden') and not t.get('hidden_runner'))
+        with tempfile.TemporaryDirectory() as tmp:
+            build = Path(tmp) / 'build'
+            build.mkdir()
+            fake = Path(tmp) / 'run-hidden.sh'
+            fake.write_text('#!/bin/sh\n' + script_body)
+            os.chmod(fake, 0o755)
+            saved = hidden.VALKEY_RUNNER, hidden.TASKS, hidden.VALKEY_TIMEOUT
+            hidden.VALKEY_RUNNER = fake
+            hidden.TASKS = {**saved[1], key: {**saved[1][key], 'hidden_runner': 'valkey'}}
+            if timeout:
+                hidden.VALKEY_TIMEOUT = timeout
+            try:
+                return hidden.run_hidden(build, key)
+            finally:
+                hidden.VALKEY_RUNNER, hidden.TASKS, hidden.VALKEY_TIMEOUT = saved
+
+    def test_an_infrastructure_failure_raises_instead_of_scoring_failed_tests(self):
+        with self.assertRaises(hidden.InfraError):
+            self._valkey_run(f'echo "Valkey reset failed" >&2\nexit {hidden.INFRA_EXIT}\n')
+
+    def test_a_test_runner_failure_code_is_scored_not_raised(self):
+        row = self._valkey_run('exit 2\n')  # PHPUnit exits 2 on errors
+        self.assertEqual(row['exit_code'], 2)
+        self.assertFalse(any(row['tests'].values()))
+
+    def test_a_timed_out_valkey_run_kills_the_whole_process_group(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = Path(tmp) / 'child-survived'
+            # A run that timed out without a report is an infrastructure failure (it may only have waited for the lock).
+            with self.assertRaises(hidden.InfraError):
+                self._valkey_run(f'(sleep 3; touch {marker}) &\nsleep 30\n', timeout=1)
+            import time
+            time.sleep(3.5)
+            self.assertFalse(marker.exists(), 'a child of the runner outlived the timeout')
+
+    def test_a_valkey_container_that_never_started_is_not_scored(self):
+        with self.assertRaises(hidden.InfraError):
+            self._valkey_run('exit 125\n')
+
+    def test_the_valkey_timeout_covers_the_lock_wait_and_setup_on_top_of_the_test_run(self):
+        self.assertGreaterEqual(hidden.VALKEY_TIMEOUT, 840 + 600)
 
     def test_every_hidden_file_exists_and_declares_tests(self):
         tasks = json.loads((REPO / 'eval' / 'tasks.json').read_text())

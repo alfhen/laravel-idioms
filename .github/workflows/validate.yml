@@ -49,6 +49,8 @@ jobs:
         run: python3 eval/test_audit.py
       - name: Trigger eval self-check (no claude)
         run: python3 eval/test_trigger.py
+      - name: Hidden-test runner self-check (no PHP)
+        run: python3 eval/test_hidden.py
       - name: Published tables re-derive from committed results
         run: |
           for run in boost-comparison augment-comparison; do
@@ -79,4 +81,10 @@ jobs:
             python3 eval/aggregate.py --judgements $p/$run/judgements.json --mapping $p/$run/mapping.json \
               --builds $p/builds.json --hidden $p/hidden.json \
               | diff -u $p/$run/tables.md -
+          done
+          v=eval/results/redis-round
+          for run in round1/rep1 round2/rep1 round2/rep2 round3/rep1 round3/rep2; do
+            python3 eval/aggregate.py --judgements $v/$run/judgements.json --mapping $v/$run/mapping.json \
+              --builds $v/builds.json --hidden $v/hidden.json \
+              | diff -u $v/$run/tables.md -
           done

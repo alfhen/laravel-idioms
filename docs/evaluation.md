@@ -1,6 +1,6 @@
 # Evaluation
 
-All evaluations used fresh Laravel 13 apps (13.33 up to round 7, 13.43 in round 8): PHPUnit, Pest 5 and Filament 5 variants, and in round 8 a variant with five Spatie packages. **Claude Sonnet** did the building and **Claude Opus** the blind judging. Judges scored each build from 1 to 10 on:
+All evaluations used fresh Laravel 13 apps (13.33 up to round 7, 13.43 in round 8, 13.44 in round 9): PHPUnit, Pest 5 and Filament 5 variants, and in round 8 a variant with five Spatie packages. **Claude Sonnet** did the building and **Claude Opus** the blind judging. Judges scored each build from 1 to 10 on:
 - collections and helpers
 - thin controllers
 - validation and Form Requests
@@ -61,6 +61,11 @@ All evaluations used fresh Laravel 13 apps (13.33 up to round 7, 13.43 in round 
 | password-reset-links (holdout) | Mailed reset and invite links that a forged `Host` header can't redirect |
 | activity-feed (holdout) | A polymorphic feed with tied timestamps, a type filter and deleted subjects |
 | team-roles-page (probe) | A small admin page of members and roles that tests for over-engineering |
+| valkey-cache | Cache and locks moved to a TLS-only Valkey with an ACL user, a time budget and a cutover plan |
+| persistent-valkey | Persistent connections under mod_php without locks landing in the wrong database |
+| valkey-outage | Sign-in that survives a cache outage, a payouts lock that doesn't |
+| valkey-queue (holdout) | The queue and Horizon on a shared, access-restricted Valkey |
+| orders-today (probe) | A small cached count that tests for over-engineering |
 
 ## Skill vs no skill
 
@@ -333,6 +338,64 @@ Revision 2, from revision 1: "send it after the closure returns" led a payment-s
 **Caveats.** Hidden tests are at the ceiling on nine of ten new tasks, so the evidence is the misses (one pilot, three builds per arm) and judge scores from two replicates, which move by up to 3.5 points on one task between replicates (shipments-api, draft). Six builds were killed by the session (exit 143) and rebuilt once, and their tasks were judged again; that re-judging moved v0.4.0's regression mean by 0.07 / 0.29 through judge variance alone. Replicate N judges build N, so the third build of each target and holdout counts only toward hidden tests and misses. The rubric reflects the conventions the skill teaches.
 
 Raw judgements, mappings, per-build stats, hidden-test results, static and miss counts are in [`eval/results/packages-round/`](../eval/results/packages-round). CI checks that the judge, build and hidden-test tables re-derive from them.
+
+## Redis and Valkey connections (round 9)
+
+This round came from moving a production Laravel 12.73 app (Apache mod_php, phpredis 6.3, 0.5 vCPU tasks) from the `database` cache store to TLS-only ElastiCache Valkey 8 with a per-tenant ACL user. The move hit gaps the skill didn't cover: `REDIS_SCHEME=tls` was silently ignored, unset timeouts let a hung node hold requests for 60 s, per-request TLS handshakes timed out under load, and persistent connections can put a lock in the wrong database. Five researchers read Laravel 11.57, 12.73/12.74 and 13.44, phpredis 6.3.0 and 6.4.0RC1, predis 2.4 and 3.8, Horizon and Octane, and the Redis, Valkey and ElastiCache docs (plan in [docs/plans/redis-connections.md](plans/redis-connections.md)). The changes:
+- **New `references/redis.md`.** Client choice and the config keys that differ between phpredis and predis; the missing `scheme` key, `url` overrides, certificate host names, ACL users and the categories Laravel needs; prefix layering against ACL key patterns; timeouts (unset means `default_socket_timeout`, and on 13.26+ a read against a silent node costs about three timeouts); persistent connections and the phpredis pool (`persistent_id` is ignored by default, and phpredis's own retry can run a db 0 command in db 1, phpredis issue #1920: set `max_retries => 0`); READONLY after a failover per Laravel version; fail-open for speed-up reads only; the `database` store's unpruned rows; store switches in a rolling deploy; eviction; cluster mode; testing without Redis.
+- **`SKILL.md` §8.** Four bullets scoped to tasks that set up or change Redis connections, one checklist line, one References row.
+
+**Method.** Arms `plain`, `prev` (v0.5.1) and the change, on Laravel 13.44. The new tasks' hidden tests run against a real server: a PHP 8.5 + phpredis 6.3.0 container next to a TLS-only Valkey 8 with ACL users (`shop` may touch only `shop:*` keys and no `@dangerous` commands), a host that accepts TCP and never answers, and a host that refuses connections ([eval/valkey/](../eval/valkey)). The build's `.env` is removed first, so it runs from config defaults plus the production env the brief lists. Every hidden test passed two or more correct reference builds and failed the trap on a naive one. The draft was written from the research before any build. An Opus reviewer checked the draft against source and the Valkey stack (20 findings, all fixed before the first skill build), and another checked the tasks for fairness (test-only fixes, no brief changes after the pilot). Two revisions followed, each from defects the judges found in target-task builds only.
+
+There are three targets (valkey-cache: move the cache and locks to the TLS node with an ACL user and a time budget; persistent-valkey: persistent connections under mod_php; valkey-outage: sign-in survives an outage, the payouts lock doesn't), one holdout (valkey-queue: the queue plus Horizon on the same node) and one probe (orders-today: a cached count where Redis is already set up). The regression set is scheduled-reports, shipment-sync, coupon-redeem, carrier-quote, token-login, caching and sales-report. Targets and the holdout have three builds per skill arm and one `plain`; the probe and regression tasks two. Two blind Opus judges per task scored replicates 1 and 2.
+
+**Hidden tests** (the primary measure):
+
+| Task | No skill | v0.5.1 | Draft | This version |
+|---|---|---|---|---|
+| persistent-valkey | 11/15 | 33/45 | **45/45** | **45/45** |
+| valkey-cache | 6/6 | 18/18 | 18/18 | 18/18 |
+| valkey-outage | 7/7 | 21/21 | 21/21 | 21/21 |
+| valkey-queue (holdout) | 5/5 | 15/15 | 15/15 | 15/15 |
+| orders-today (probe) | 4/4 | 8/8 | 8/8 | 8/8 |
+| Regression (5 tasks with hidden tests) | – | 74/74 | 74/74 | 74/74 |
+
+persistent-valkey separates the arms. Every v0.5.1 build and the `plain` build fail the same four lock tests: after a dropped socket, phpredis reconnects without re-selecting db 0, and the `payouts:run` lock lands in the cache's database, where another container doesn't see it. All three v0.5.1 builds gave each connection its own `persistent_id`, which phpredis ignores while pooling is on (the default). All builds of this version set `max_retries => 0` with persistent connections and pass. The other tasks are at the ceiling for every arm: when a brief states TLS, an ACL prefix and a time budget outright, Sonnet already gets the scheme, prefix and timeouts right (the `plain` valkey-cache build even budgets for Laravel 13's retry).
+
+**Judges** (mean overall score, replicates 1 / 2):
+
+| Task set | No skill | v0.5.1 | This version |
+|---|---|---|---|
+| Target (3 tasks) | 5.57 / – | **7.83 / 7.57** | 6.55 / 6.97 |
+| Holdout (1 task) | 7.00 / – | 6.00 / 6.50 | **8.25 / 7.50** |
+| Probe (1 task) | 6.75 / – | 8.10 / 8.35 | 8.15 / 7.90 |
+| Regression (7 tasks) | – | 7.81 / 7.97 | 7.97 / 7.75 |
+| All 12 | 6.09 / – | 7.69 / 7.78 | 7.65 / 7.55 |
+
+The judges score this version lower on the targets. Most of the gap is valkey-outage and valkey-cache: in replicate 2 persistent-valkey is level (7.00 each), and across both replicates it is 2.5 of the 5.65 summed task points. There the judges disagree with the hidden tests in one direction and have a fair point in another:
+- They gave the v0.5.1 builds 6.5 to 8 and listed none of their lock leaks, and 6 of 8 judgements of revision 1 and this version asked for a distinct `persistent_id`, which phpredis 6.3 ignores while pooling is on (`library.c:899-949`, default `redis.pconnect.pool_pattern=""`). Judges run in a sandbox without a Redis server, so they can read the config but not watch a socket drop.
+- All 8 listed `max_retries => 0` as a bug. One draft-round judge called it "a false premise" (phpredis re-selecting the database itself); the later ones mostly agreed that phpredis re-selects only a non-zero db and docked the cost instead: after a socket drops mid-request, the next non-idempotent command (a lock `SET NX`, a release `EVAL`, a `SETEX`) throws, because 13.26+ retries only idempotent commands. That trade-off is real. `references/redis.md` now states it and names the alternative that keeps phpredis's retry (`pool_pattern=i` plus a distinct `persistent_id` per connection).
+
+On valkey-cache and valkey-outage the judges found things they could check: two connections per request (locks on db 0, cache on db 1) and the extra connect this costs in an outage, tests that boot `artisan tinker` in a subprocess, cutover docs with wrong steps, and in revision 1 a hand-rolled try/catch in each caller. The revisions aimed at these, but no final valkey-outage build read a reference file, so only the `SKILL.md` bullets could reach them; valkey-outage fell from 7.10 to 6.40 in replicate 2 between revision 1 and this version. The target means moved from 6.52 (draft) to 6.05 / 6.53 (revision 1) to 6.55 / 6.97.
+
+**What the revisions changed.** Revision 1, from the draft: the fail-open example became one shared class with the `remember()` shape, added only when the task asks for outage behaviour, and the text says to keep the timeouts a task states (draft builds lowered a stated 2 s connect timeout to 1 s and wrapped each caller); `max_retries` keeps the `REDIS_MAX_RETRIES` override; the cutover section says to smoke-test from the new release and to clear the `database` store before rolling back. Revision 2, from revision 1: a working `scheme` line stays as it is (builds rewrote one to the `'tcp'` default, which throws on 13.12+ with a `tls://` host); each named connection is its own connect and timeout; a short Testing section (assert config in-process, no `tinker` subprocesses). Revision 2 touches only Redis-connection text. The three targets and the holdout (a Redis task whose builds read `references/redis.md`) were rebuilt and judged again. The probe and regression builds are revision-1 builds: none of them read `references/redis.md`, so they differ from this version only in the four Redis-scoped `SKILL.md` bullets. Revision 1's target and holdout builds are kept as arm `rev1`.
+
+After the final review, a few corrections went into the text without another rebuild: `env('REDIS_SCHEME') ?: 'tcp'` (an empty value no longer gives `://host`), the ACL rule in `SKILL.md` (a key pattern matches the connection prefix; queue keys don't carry `cache.prefix`), the cost of `max_retries => 0` and the `pool_pattern=i` alternative, predis `retry` with `max_retries` on 13.19+, web requests in the cutover plan, and the scope guard on the eviction bullet. The holdout builds have them; the target builds don't.
+
+**Pass bar.**
+1. Hidden tests: this version passes 181/181 on every task that has them, v0.5.1 169/181 and `plain` 33/37. It beats both on persistent-valkey and is level elsewhere: **met** on the primary measure.
+2. Judge score on the targets not lower than v0.5.1: **not met** (6.55 / 6.97 against 7.83 / 7.57). Bugs per build on targets 1.67 / 2.33 against 1.17 / 1.50. valkey-cache and valkey-outage are lower by 0.25 to 1.55 per replicate; persistent-valkey is lower in replicate 1 and level in replicate 2, partly for the `persistent_id` belief above and partly for the real cost of `max_retries => 0`.
+3. Regression mean ≥ v0.5.1 − 0.3 (7.97 / 7.75 against 7.81 / 7.97), regression hidden tests not lower, probe simplicity ≥ v0.5.1 − 0.5 (8.00 / 8.50 against 7.00 / 8.00): **met**.
+4. The skill fired in every `skill` and `prev` build: **met** (56/56).
+
+**Non-regression checks.**
+- **Static checks** (`eval/static.py`, all builds): `catch (\Throwable)` 0.39 against 0.39 per build, `report(` 0.43 against 0.46, `Cache::lock` 0.29 against 0.32, Pint 0.79 against 0.79. No sign that the new text spreads fail-open wrappers.
+- **Triggering and audit traps** were not rerun: the skill description and audit mode didn't change.
+- **Cost:** builds cost $0.45 against $0.49 and took 111 against 139 seconds. `SKILL.md` grew from 445 to 451 lines; `references/redis.md` is 203 lines. The round cost about $45 in builds and $64 in judging, plus the research, review and reference-build agents.
+
+**Caveats.** One task separates the arms on hidden tests, and its trap (phpredis issue #1920) is the most specific rule in the change. The other four new tasks are at the ceiling, so they show no regression but no gain either. Judge scores on the targets disagree with the hidden tests on persistent-valkey and are lower on the other two; per-task scores move by up to 1.5 points between replicates here. Four run-3 builds were killed by the session (exit 143) and rebuilt once; run 3 counts only toward hidden tests. Hidden tests were fixed after the pilot where a test was stricter than its brief (a held-lock exit code, a circuit breaker that resumes caching after 15 s, a hard-coded queue name, an unstated empty-poll limit) and where it trusted the build's own lock database. After the PR review four were tightened (both connections reused, a lock acquired after a drop, a silent fallback during an outage, balances per merchant); no build's result changed. Each fix applied to every arm, and the reference builds were re-gated. valkey-cache allows 8 s per call against the brief's 5 s on purpose: on 13.26+ a read against a silent node costs about three timeouts, and the test is there to catch the 60 s hang.
+
+Raw judgements, mappings, per-build stats, hidden-test results and static counts are in [`eval/results/redis-round/`](../eval/results/redis-round). CI checks that the judge, build and hidden-test tables re-derive from them.
 
 ## Audit mode
 

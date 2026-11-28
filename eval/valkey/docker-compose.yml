@@ -1,0 +1,78 @@
+name: laravel-idioms-valkey
+
+networks:
+  hidden:
+
+services:
+  # Real Valkey, TLS only, ACL users. See users.acl.
+  valkey:
+    image: valkey/valkey:8
+    command:
+      - valkey-server
+      - --port
+      - "0"
+      - --tls-port
+      - "6379"
+      - --tls-cert-file
+      - /certs/valkey.test.crt
+      - --tls-key-file
+      - /certs/valkey.test.key
+      - --tls-ca-cert-file
+      - /certs/ca.crt
+      - --tls-auth-clients
+      - "no"
+      - --aclfile
+      - /etc/valkey/users.acl
+      - --enable-debug-command
+      - "yes"
+      - --databases
+      - "16"
+      - --maxmemory-policy
+      - noeviction
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    volumes:
+      - ./certs:/certs:ro
+      - ./users.acl:/etc/valkey/users.acl:ro
+    networks:
+      hidden:
+        aliases: [valkey.test, valkey-alias.test]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "--tls", "--cacert", "/certs/ca.crt", "--user", "admin", "--pass", "adminpass", "--no-auth-warning", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  # Accepts TCP on 6379 and never sends a byte. A TLS client hangs in the handshake until its connect timeout.
+  tarpit:
+    image: alpine/socat
+    entrypoint: ["socat"]
+    command: ["TCP-LISTEN:6379,fork,reuseaddr", "SYSTEM:sleep 3600"]
+    networks:
+      hidden:
+        aliases: [tarpit.test]
+
+  # Resolves on the network, nothing listens on 6379: connections are refused at once.
+  closed:
+    image: alpine
+    command: ["sleep", "infinity"]
+    networks:
+      hidden:
+        aliases: [closed.test]
+
+  # PHP runner with phpredis. Not started by `up`; run-hidden.sh uses `compose run`.
+  php:
+    profiles: [run]
+    build:
+      context: .
+      args:
+        PHP_VERSION: "8.5"
+        PHPREDIS_VERSION: "6.3.0"
+    image: laravel-idioms-valkey-php:local
+    volumes:
+      - ./certs:/certs:ro
+    networks:
+      - hidden
+    working_dir: /app

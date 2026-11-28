@@ -45,7 +45,7 @@ class PlanObserver implements ShouldHandleEventsAfterCommit
 }
 ```
 - `forget()` the specific keys from model events (observer or `static::saved/deleted` in a booted trait). `ShouldHandleEventsAfterCommit` so nobody forgets the key before the commit lands. It does not close the race: a reader that queried before the commit can still `put()` the old value after your `forget()` (`remember()` is get, callback, put, with no version or lock check). Where stale data matters, also use a short TTL or a version segment in the key. Observers miss every mass write (builder `update()`/`delete()`, `insert`, `upsert`, `increment`, `DB::table()`, pivot `attach()`/`detach()` without a pivot model), so forget the key in that code path too. Inside a transaction an after-commit observer sees post-`syncOriginal()` state: use `wasChanged()`, not `isDirty()`/`getOriginal()`. When one transaction may save the same model twice, every deferred callback sees only the last save's changes, so forget the keys unconditionally there rather than per changed column.
-- **Never `Cache::flush()` in app code.** It ignores the prefix and wipes the whole store: sessions, locks, other apps' keys.
+- **Never `Cache::flush()` in app code.** It ignores the prefix and wipes the whole store: on Redis, FLUSHDB of the database the cache connection selects, so sessions, locks, queues and other apps' keys go too when they share it (`references/redis.md`).
 - Aggregates many writes touch (counts, leaderboards) → a short TTL per value (60 s for "awaiting", 300 s for totals) instead of forgetting in six observers.
 
 ## What to cache
@@ -102,7 +102,7 @@ return Cache::get('catalog:tree:v1') ?? Cache::lock('catalog:tree:v1:rebuild', 3
 ```
 - Single instance: `Cache::withoutOverlapping('sitemap:build', fn () => ..., lockFor: 120, waitFor: 5)`. Bounded parallelism: `Cache::funnel('imports:supplier-api')->limit(3)->releaseAfter(60)->block(10)->then(fn () => ..., fn () => ...)`. Both need a lock-capable store (`funnel()` throws `BadMethodCallException` otherwise). Don't hand-roll either with counters.
 - Lock taken in a request, released by a job: pass `$lock->owner()` to the job, then `Cache::restoreLock($name, $this->owner)->release()`. Not `forceRelease()`, which ignores ownership.
-- Locks, rate limiters and tags need a shared central store (redis, memcached). `file` and `array` are per server, so locks don't coordinate across hosts. Route concerns with `Cache::store('redis')` or `'limiter' => 'redis'` in `config/cache.php`; the `failover` driver adds availability.
+- Locks, rate limiters and tags need a shared central store (redis, memcached). `file` and `array` are per server, so locks don't coordinate across hosts. Route concerns with `Cache::store('redis')` or `'limiter' => 'redis'` in `config/cache.php`. The `failover` store is only a read fallback, not a lock guarantee; Redis connections, outages and store switches: `references/redis.md`.
 
 ## Tags
 

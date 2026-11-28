@@ -1,0 +1,1189 @@
+[
+ {
+  "build": "caching-prev-1",
+  "task": "caching",
+  "arm": "prev",
+  "seconds": 162,
+  "cost_usd": 0.59,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "caching-prev-2",
+  "task": "caching",
+  "arm": "prev",
+  "seconds": 212,
+  "cost_usd": 0.66,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "caching-skill-1",
+  "task": "caching",
+  "arm": "skill",
+  "seconds": 170,
+  "cost_usd": 0.65,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "caching-skill-2",
+  "task": "caching",
+  "arm": "skill",
+  "seconds": 128,
+  "cost_usd": 0.51,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "carrier-quote-prev-1",
+  "task": "carrier-quote",
+  "arm": "prev",
+  "seconds": 97,
+  "cost_usd": 0.36,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "carrier-quote-prev-2",
+  "task": "carrier-quote",
+  "arm": "prev",
+  "seconds": 72,
+  "cost_usd": 0.31,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "carrier-quote-skill-1",
+  "task": "carrier-quote",
+  "arm": "skill",
+  "seconds": 83,
+  "cost_usd": 0.34,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "carrier-quote-skill-2",
+  "task": "carrier-quote",
+  "arm": "skill",
+  "seconds": 76,
+  "cost_usd": 0.36,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "coupon-redeem-prev-1",
+  "task": "coupon-redeem",
+  "arm": "prev",
+  "seconds": 84,
+  "cost_usd": 0.33,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "coupon-redeem-prev-2",
+  "task": "coupon-redeem",
+  "arm": "prev",
+  "seconds": 95,
+  "cost_usd": 0.41,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/concurrency.md"
+  ]
+ },
+ {
+  "build": "coupon-redeem-skill-1",
+  "task": "coupon-redeem",
+  "arm": "skill",
+  "seconds": 52,
+  "cost_usd": 0.27,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "coupon-redeem-skill-2",
+  "task": "coupon-redeem",
+  "arm": "skill",
+  "seconds": 49,
+  "cost_usd": 0.26,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "orders-today-plain-1",
+  "task": "orders-today",
+  "arm": "plain",
+  "seconds": 33,
+  "cost_usd": 0.1,
+  "skills": [],
+  "skill_files_read": []
+ },
+ {
+  "build": "orders-today-prev-1",
+  "task": "orders-today",
+  "arm": "prev",
+  "seconds": 45,
+  "cost_usd": 0.28,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/caching.md"
+  ]
+ },
+ {
+  "build": "orders-today-prev-2",
+  "task": "orders-today",
+  "arm": "prev",
+  "seconds": 47,
+  "cost_usd": 0.3,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/caching.md"
+  ]
+ },
+ {
+  "build": "orders-today-skill-1",
+  "task": "orders-today",
+  "arm": "skill",
+  "seconds": 34,
+  "cost_usd": 0.22,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "orders-today-skill-2",
+  "task": "orders-today",
+  "arm": "skill",
+  "seconds": 38,
+  "cost_usd": 0.24,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/dates-and-money.md"
+  ]
+ },
+ {
+  "build": "persistent-valkey-plain-1",
+  "task": "persistent-valkey",
+  "arm": "plain",
+  "seconds": 192,
+  "cost_usd": 0.52,
+  "skills": [],
+  "skill_files_read": []
+ },
+ {
+  "build": "persistent-valkey-prev-1",
+  "task": "persistent-valkey",
+  "arm": "prev",
+  "seconds": 148,
+  "cost_usd": 0.52,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "persistent-valkey-prev-2",
+  "task": "persistent-valkey",
+  "arm": "prev",
+  "seconds": 173,
+  "cost_usd": 0.61,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/caching.md"
+  ]
+ },
+ {
+  "build": "persistent-valkey-prev-3",
+  "task": "persistent-valkey",
+  "arm": "prev",
+  "seconds": 172,
+  "cost_usd": 0.61,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/caching.md",
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "persistent-valkey-skill-1",
+  "task": "persistent-valkey",
+  "arm": "skill",
+  "seconds": 97,
+  "cost_usd": 0.47,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "persistent-valkey-skill-2",
+  "task": "persistent-valkey",
+  "arm": "skill",
+  "seconds": 123,
+  "cost_usd": 0.55,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "persistent-valkey-skill-3",
+  "task": "persistent-valkey",
+  "arm": "skill",
+  "seconds": 105,
+  "cost_usd": 0.53,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "sales-report-prev-1",
+  "task": "sales-report",
+  "arm": "prev",
+  "seconds": 119,
+  "cost_usd": 0.46,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "sales-report-prev-2",
+  "task": "sales-report",
+  "arm": "prev",
+  "seconds": 110,
+  "cost_usd": 0.42,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "sales-report-skill-1",
+  "task": "sales-report",
+  "arm": "skill",
+  "seconds": 129,
+  "cost_usd": 0.54,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/dates-and-money.md"
+  ]
+ },
+ {
+  "build": "sales-report-skill-2",
+  "task": "sales-report",
+  "arm": "skill",
+  "seconds": 95,
+  "cost_usd": 0.38,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "scheduled-reports-prev-1",
+  "task": "scheduled-reports",
+  "arm": "prev",
+  "seconds": 130,
+  "cost_usd": 0.49,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "scheduled-reports-prev-2",
+  "task": "scheduled-reports",
+  "arm": "prev",
+  "seconds": 124,
+  "cost_usd": 0.47,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "scheduled-reports-skill-1",
+  "task": "scheduled-reports",
+  "arm": "skill",
+  "seconds": 122,
+  "cost_usd": 0.53,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/scheduling.md"
+  ]
+ },
+ {
+  "build": "scheduled-reports-skill-2",
+  "task": "scheduled-reports",
+  "arm": "skill",
+  "seconds": 71,
+  "cost_usd": 0.36,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "shipment-sync-prev-1",
+  "task": "shipment-sync",
+  "arm": "prev",
+  "seconds": 185,
+  "cost_usd": 0.64,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "shipment-sync-prev-2",
+  "task": "shipment-sync",
+  "arm": "prev",
+  "seconds": 436,
+  "cost_usd": 0.62,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "shipment-sync-skill-1",
+  "task": "shipment-sync",
+  "arm": "skill",
+  "seconds": 130,
+  "cost_usd": 0.52,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "shipment-sync-skill-2",
+  "task": "shipment-sync",
+  "arm": "skill",
+  "seconds": 128,
+  "cost_usd": 0.48,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "token-login-prev-1",
+  "task": "token-login",
+  "arm": "prev",
+  "seconds": 66,
+  "cost_usd": 0.32,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "token-login-prev-2",
+  "task": "token-login",
+  "arm": "prev",
+  "seconds": 47,
+  "cost_usd": 0.25,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "token-login-skill-1",
+  "task": "token-login",
+  "arm": "skill",
+  "seconds": 53,
+  "cost_usd": 0.27,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "token-login-skill-2",
+  "task": "token-login",
+  "arm": "skill",
+  "seconds": 44,
+  "cost_usd": 0.24,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "valkey-cache-plain-1",
+  "task": "valkey-cache",
+  "arm": "plain",
+  "seconds": 188,
+  "cost_usd": 0.46,
+  "skills": [],
+  "skill_files_read": []
+ },
+ {
+  "build": "valkey-cache-prev-1",
+  "task": "valkey-cache",
+  "arm": "prev",
+  "seconds": 195,
+  "cost_usd": 0.63,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "valkey-cache-prev-2",
+  "task": "valkey-cache",
+  "arm": "prev",
+  "seconds": 189,
+  "cost_usd": 0.62,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "valkey-cache-prev-3",
+  "task": "valkey-cache",
+  "arm": "prev",
+  "seconds": 136,
+  "cost_usd": 0.51,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/caching.md"
+  ]
+ },
+ {
+  "build": "valkey-cache-skill-1",
+  "task": "valkey-cache",
+  "arm": "skill",
+  "seconds": 136,
+  "cost_usd": 0.52,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "valkey-cache-skill-2",
+  "task": "valkey-cache",
+  "arm": "skill",
+  "seconds": 155,
+  "cost_usd": 0.62,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/caching.md"
+  ]
+ },
+ {
+  "build": "valkey-cache-skill-3",
+  "task": "valkey-cache",
+  "arm": "skill",
+  "seconds": 97,
+  "cost_usd": 0.48,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "valkey-outage-plain-1",
+  "task": "valkey-outage",
+  "arm": "plain",
+  "seconds": 107,
+  "cost_usd": 0.31,
+  "skills": [],
+  "skill_files_read": []
+ },
+ {
+  "build": "valkey-outage-prev-1",
+  "task": "valkey-outage",
+  "arm": "prev",
+  "seconds": 153,
+  "cost_usd": 0.49,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/caching.md"
+  ]
+ },
+ {
+  "build": "valkey-outage-prev-2",
+  "task": "valkey-outage",
+  "arm": "prev",
+  "seconds": 126,
+  "cost_usd": 0.49,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "valkey-outage-prev-3",
+  "task": "valkey-outage",
+  "arm": "prev",
+  "seconds": 158,
+  "cost_usd": 0.63,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "valkey-outage-skill-1",
+  "task": "valkey-outage",
+  "arm": "skill",
+  "seconds": 109,
+  "cost_usd": 0.45,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "valkey-outage-skill-2",
+  "task": "valkey-outage",
+  "arm": "skill",
+  "seconds": 388,
+  "cost_usd": 0.67,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "valkey-outage-skill-3",
+  "task": "valkey-outage",
+  "arm": "skill",
+  "seconds": 97,
+  "cost_usd": 0.46,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "valkey-queue-plain-1",
+  "task": "valkey-queue",
+  "arm": "plain",
+  "seconds": 120,
+  "cost_usd": 0.38,
+  "skills": [],
+  "skill_files_read": []
+ },
+ {
+  "build": "valkey-queue-prev-1",
+  "task": "valkey-queue",
+  "arm": "prev",
+  "seconds": 116,
+  "cost_usd": 0.47,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md"
+  ]
+ },
+ {
+  "build": "valkey-queue-prev-2",
+  "task": "valkey-queue",
+  "arm": "prev",
+  "seconds": 155,
+  "cost_usd": 0.6,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "valkey-queue-prev-3",
+  "task": "valkey-queue",
+  "arm": "prev",
+  "seconds": 140,
+  "cost_usd": 0.58,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "valkey-queue-skill-1",
+  "task": "valkey-queue",
+  "arm": "skill",
+  "seconds": 152,
+  "cost_usd": 0.68,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md",
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "valkey-queue-skill-2",
+  "task": "valkey-queue",
+  "arm": "skill",
+  "seconds": 140,
+  "cost_usd": 0.56,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md"
+  ]
+ },
+ {
+  "build": "valkey-queue-skill-3",
+  "task": "valkey-queue",
+  "arm": "skill",
+  "seconds": 116,
+  "cost_usd": 0.56,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "persistent-valkey-rev1-1",
+  "task": "persistent-valkey",
+  "arm": "rev1",
+  "seconds": 94,
+  "cost_usd": 0.4,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "persistent-valkey-rev1-2",
+  "task": "persistent-valkey",
+  "arm": "rev1",
+  "seconds": 71,
+  "cost_usd": 0.38,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "persistent-valkey-rev1-3",
+  "task": "persistent-valkey",
+  "arm": "rev1",
+  "seconds": 112,
+  "cost_usd": 0.51,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "valkey-cache-rev1-1",
+  "task": "valkey-cache",
+  "arm": "rev1",
+  "seconds": 128,
+  "cost_usd": 0.49,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "valkey-cache-rev1-2",
+  "task": "valkey-cache",
+  "arm": "rev1",
+  "seconds": 117,
+  "cost_usd": 0.46,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "valkey-cache-rev1-3",
+  "task": "valkey-cache",
+  "arm": "rev1",
+  "seconds": 251,
+  "cost_usd": 0.52,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "valkey-outage-rev1-1",
+  "task": "valkey-outage",
+  "arm": "rev1",
+  "seconds": 266,
+  "cost_usd": 0.72,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "valkey-outage-rev1-2",
+  "task": "valkey-outage",
+  "arm": "rev1",
+  "seconds": 125,
+  "cost_usd": 0.52,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "valkey-outage-rev1-3",
+  "task": "valkey-outage",
+  "arm": "rev1",
+  "seconds": 96,
+  "cost_usd": 0.45,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "valkey-queue-rev1-1",
+  "task": "valkey-queue",
+  "arm": "rev1",
+  "seconds": 148,
+  "cost_usd": 0.59,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "valkey-queue-rev1-2",
+  "task": "valkey-queue",
+  "arm": "rev1",
+  "seconds": 120,
+  "cost_usd": 0.61,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md",
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "valkey-queue-rev1-3",
+  "task": "valkey-queue",
+  "arm": "rev1",
+  "seconds": 131,
+  "cost_usd": 0.6,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md",
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "caching-draft-1",
+  "task": "caching",
+  "arm": "draft",
+  "seconds": 145,
+  "cost_usd": 0.52,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "caching-draft-2",
+  "task": "caching",
+  "arm": "draft",
+  "seconds": 142,
+  "cost_usd": 0.48,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/http-client.md"
+  ]
+ },
+ {
+  "build": "carrier-quote-draft-1",
+  "task": "carrier-quote",
+  "arm": "draft",
+  "seconds": 80,
+  "cost_usd": 0.4,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/http-client.md"
+  ]
+ },
+ {
+  "build": "carrier-quote-draft-2",
+  "task": "carrier-quote",
+  "arm": "draft",
+  "seconds": 72,
+  "cost_usd": 0.32,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "coupon-redeem-draft-1",
+  "task": "coupon-redeem",
+  "arm": "draft",
+  "seconds": 59,
+  "cost_usd": 0.3,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "coupon-redeem-draft-2",
+  "task": "coupon-redeem",
+  "arm": "draft",
+  "seconds": 44,
+  "cost_usd": 0.25,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/concurrency.md"
+  ]
+ },
+ {
+  "build": "orders-today-draft-1",
+  "task": "orders-today",
+  "arm": "draft",
+  "seconds": 35,
+  "cost_usd": 0.23,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "orders-today-draft-2",
+  "task": "orders-today",
+  "arm": "draft",
+  "seconds": 47,
+  "cost_usd": 0.26,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "persistent-valkey-draft-1",
+  "task": "persistent-valkey",
+  "arm": "draft",
+  "seconds": 106,
+  "cost_usd": 0.54,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/caching.md"
+  ]
+ },
+ {
+  "build": "persistent-valkey-draft-2",
+  "task": "persistent-valkey",
+  "arm": "draft",
+  "seconds": 111,
+  "cost_usd": 0.53,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "persistent-valkey-draft-3",
+  "task": "persistent-valkey",
+  "arm": "draft",
+  "seconds": 117,
+  "cost_usd": 0.51,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "sales-report-draft-1",
+  "task": "sales-report",
+  "arm": "draft",
+  "seconds": 127,
+  "cost_usd": 0.5,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "sales-report-draft-2",
+  "task": "sales-report",
+  "arm": "draft",
+  "seconds": 91,
+  "cost_usd": 0.39,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/dates-and-money.md"
+  ]
+ },
+ {
+  "build": "scheduled-reports-draft-1",
+  "task": "scheduled-reports",
+  "arm": "draft",
+  "seconds": 107,
+  "cost_usd": 0.48,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "scheduled-reports-draft-2",
+  "task": "scheduled-reports",
+  "arm": "draft",
+  "seconds": 101,
+  "cost_usd": 0.46,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "shipment-sync-draft-1",
+  "task": "shipment-sync",
+  "arm": "draft",
+  "seconds": 157,
+  "cost_usd": 0.64,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "shipment-sync-draft-2",
+  "task": "shipment-sync",
+  "arm": "draft",
+  "seconds": 120,
+  "cost_usd": 0.46,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "token-login-draft-1",
+  "task": "token-login",
+  "arm": "draft",
+  "seconds": 51,
+  "cost_usd": 0.27,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "token-login-draft-2",
+  "task": "token-login",
+  "arm": "draft",
+  "seconds": 43,
+  "cost_usd": 0.26,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "valkey-cache-draft-1",
+  "task": "valkey-cache",
+  "arm": "draft",
+  "seconds": 116,
+  "cost_usd": 0.45,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "valkey-cache-draft-2",
+  "task": "valkey-cache",
+  "arm": "draft",
+  "seconds": 145,
+  "cost_usd": 0.52,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "valkey-cache-draft-3",
+  "task": "valkey-cache",
+  "arm": "draft",
+  "seconds": 137,
+  "cost_usd": 0.54,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "valkey-outage-draft-1",
+  "task": "valkey-outage",
+  "arm": "draft",
+  "seconds": 97,
+  "cost_usd": 0.45,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "valkey-outage-draft-2",
+  "task": "valkey-outage",
+  "arm": "draft",
+  "seconds": 134,
+  "cost_usd": 0.53,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ },
+ {
+  "build": "valkey-outage-draft-3",
+  "task": "valkey-outage",
+  "arm": "draft",
+  "seconds": 129,
+  "cost_usd": 0.52,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "valkey-queue-draft-1",
+  "task": "valkey-queue",
+  "arm": "draft",
+  "seconds": 175,
+  "cost_usd": 0.73,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md",
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "valkey-queue-draft-2",
+  "task": "valkey-queue",
+  "arm": "draft",
+  "seconds": 135,
+  "cost_usd": 0.56,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": [
+   "laravel-idioms/references/queues-and-workers.md",
+   "laravel-idioms/references/redis.md"
+  ]
+ },
+ {
+  "build": "valkey-queue-draft-3",
+  "task": "valkey-queue",
+  "arm": "draft",
+  "seconds": 120,
+  "cost_usd": 0.58,
+  "skills": [
+   "laravel-idioms"
+  ],
+  "skill_files_read": []
+ }
+]

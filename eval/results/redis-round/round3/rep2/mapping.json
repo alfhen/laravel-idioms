@@ -1,0 +1,50 @@
+{
+ "valkey-cache": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "persistent-valkey": {
+  "impl-1": "prev",
+  "impl-2": "skill"
+ },
+ "valkey-outage": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "valkey-queue": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "orders-today": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "scheduled-reports": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "shipment-sync": {
+  "impl-1": "prev",
+  "impl-2": "skill"
+ },
+ "coupon-redeem": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "carrier-quote": {
+  "impl-1": "prev",
+  "impl-2": "skill"
+ },
+ "token-login": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ },
+ "caching": {
+  "impl-1": "prev",
+  "impl-2": "skill"
+ },
+ "sales-report": {
+  "impl-1": "skill",
+  "impl-2": "prev"
+ }
+}
